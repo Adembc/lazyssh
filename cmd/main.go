@@ -552,7 +552,10 @@ func printServers() {
 }
 
 func main() {
-	var versionFlag bool
+	var (
+		versionFlag bool
+		listFlag    bool
+	)
 
 	rootCmd := &cobra.Command{
 		Use:   AppName,
@@ -562,11 +565,16 @@ func main() {
 				fmt.Println(AppVersion)
 				return nil
 			}
+			if listFlag {
+				printServers()
+				return nil
+			}
 			return runTUI()
 		},
 	}
 	rootCmd.SilenceUsage = true
 	rootCmd.PersistentFlags().BoolVarP(&versionFlag, "version", "v", false, "Print version and exit")
+	rootCmd.PersistentFlags().BoolVarP(&listFlag, "list", "l", false, "Print list of servers and exit")
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
