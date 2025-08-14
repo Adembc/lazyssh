@@ -59,7 +59,17 @@ func joinTags(tags []string) string {
 
 func formatServerLine(s Server) (primary, secondary string) {
 	icon := statusIcon(s.Status)
-	primary = fmt.Sprintf("%s %-12s %-18s Last:%s", icon, s.Alias, s.Host, humanizeDuration(time.Since(s.LastSeen)))
+	// Choose a color per status for the alias and a subtle gray for host/time
+	statusColor := "white"
+	switch s.Status {
+	case "online":
+		statusColor = "green"
+	case "warn":
+		statusColor = "yellow"
+	case "offline":
+		statusColor = "red"
+	}
+	primary = fmt.Sprintf("%s [%s::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last:%s[-]", icon, statusColor, s.Alias, s.Host, humanizeDuration(time.Since(s.LastSeen)))
 	secondary = ""
 	return
 }
@@ -83,41 +93,66 @@ const RepoURL = "github.com/adembc/lazyssh"
 func runTUI() error {
 	app := tview.NewApplication()
 
+	// Global theme (non-invasive)
+	tview.Styles.PrimitiveBackgroundColor = tcell.Color232 // near-black
+	tview.Styles.ContrastBackgroundColor = tcell.Color235  // dark gray
+	tview.Styles.BorderColor = tcell.Color238
+	tview.Styles.TitleColor = tcell.Color250
+	tview.Styles.PrimaryTextColor = tcell.Color252
+	tview.Styles.TertiaryTextColor = tcell.Color245
+	tview.Styles.SecondaryTextColor = tcell.Color245
+	tview.Styles.GraphicsColor = tcell.Color238
+
 	servers := mockServers()
 	// Sort by alias for deterministic order
 	sort.Slice(servers, func(i, j int) bool { return servers[i].Alias < servers[j].Alias })
 
-	// Header: three-column layout (name | version badge | repo URL)
-	appName := AppName
+	// Header: enhanced two-row layout (bar + separator)
 	version := AppVersion
 	repoURL := RepoURL
 
-	// Subtle dark background for header bar
-	headerBg := tcell.Color235 // dark gray tint
+	// Slightly lighter than body for a distinct bar
+	headerBg := tcell.Color234 // dark gray tint
 
+	// Left: App icon + stylized name
 	headerLeft := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
 	headerLeft.SetBackgroundColor(headerBg)
-	headerLeft.SetText("[#FFFFFF::b]" + appName + "[-]")
+	stylizedName := "🚀 [#FFFFFF::b]lazy[-][#55D7FF::b]ssh[-]"
+	headerLeft.SetText(stylizedName)
 
+	// Center: badges (version + type)
 	headerCenter := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
 	headerCenter.SetBackgroundColor(headerBg)
-	// Render version as a pill/badge
-	headerCenter.SetText("[black:green::b]  " + version + "  [-]")
+	// Render version as a pill/badge and add a secondary badge
+	headerCenter.SetText("[black:#2ECC71::b]  " + version + "  [-]  [black:#3B82F6::b]  TUI  [-]")
 
+	// Right: repo URL + current date/time
 	headerRight := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignRight)
 	headerRight.SetBackgroundColor(headerBg)
-	headerRight.SetText("[#55AAFF::u]🔗 " + repoURL + "[-]")
+	currentTime := time.Now().Format("Mon, 02 Jan 2006 15:04")
+	headerRight.SetText("[#55AAFF::u]🔗 " + repoURL + "[-]  [#AAAAAA]• " + currentTime + "[-]")
 
-	header := tview.NewFlex().SetDirection(tview.FlexColumn).
+	// Row 1: the main header bar with three columns
+	headerBar := tview.NewFlex().SetDirection(tview.FlexColumn).
 		AddItem(headerLeft, 0, 1, false).
 		AddItem(headerCenter, 0, 1, false).
 		AddItem(headerRight, 0, 1, false)
+
+	// Row 2: a thin separator line
+	separator := tview.NewTextView().SetDynamicColors(true)
+	separator.SetBackgroundColor(tcell.Color235)
+	separator.SetText("[#444444]" + strings.Repeat("─", 200) + "[-]")
+
+	// Combine into a two-row header
+	header := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(headerBar, 1, 0, false).
+		AddItem(separator, 1, 0, false)
 
 	// Tab bar removed per request
 
@@ -127,22 +162,32 @@ func runTUI() error {
 		SetFieldWidth(30)
 	// When visible, give it a border and title for better UI
 	search.SetBorder(true).SetTitle("Search")
+	search.SetBorderColor(tcell.Color238).SetTitleColor(tcell.Color250)
+	search.SetFieldBackgroundColor(tcell.Color233).SetFieldTextColor(tcell.Color252)
 
 	serverList := tview.NewList().ShowSecondaryText(false)
 	serverList.SetBorder(true)
 	serverList.SetTitle("Servers")
+	serverList.SetBorderColor(tcell.Color238).SetTitleColor(tcell.Color250)
+	serverList.SetSelectedBackgroundColor(tcell.Color24).SetSelectedTextColor(tcell.Color255)
+	serverList.SetHighlightFullLine(true)
 
 	// Hint bar shown when search is hidden
 	hintBar := tview.NewTextView().SetDynamicColors(true)
-	hintBar.SetText("[gray]Press [::b]/[-:-:b] to search…  •  ↑↓ Navigate  •  Enter SSH  •  a Add  •  e Edit  •  d Delete  •  ? Help[white]")
+	hintBar.SetBackgroundColor(tcell.Color233)
+	hintBar.SetText("[#BBBBBB]Press [::b]/[-:-:b] to search…  •  ↑↓ Navigate  •  Enter SSH  •  a Add  •  e Edit  •  d Delete  •  ? Help[-]")
 
 	// Right panel: Details
 	details := tview.NewTextView().SetDynamicColors(true).SetWrap(true)
 	details.SetBorder(true).SetTitle("Details")
+	details.SetBorderColor(tcell.Color238).SetTitleColor(tcell.Color250)
 
 	// Status bar
 	status := tview.NewTextView().SetDynamicColors(true)
-	status.SetText("↑↓ Navigate  • Enter SSH  • a Add  • e Edit  • d Delete  • / Search  • q Quit  • ? Help")
+	statusBg := tcell.Color235
+	status.SetBackgroundColor(statusBg)
+	status.SetTextAlign(tview.AlignCenter)
+	status.SetText("[white]↑↓[-] Navigate  • [white]Enter[-] SSH  • [white]a[-] Add  • [white]e[-] Edit  • [white]d[-] Delete  • [white]/[-] Search  • [white]q[-] Quit  • [white]?[-] Help")
 
 	// Define updateDetails before populate; declare var for closure use
 	var updateDetails func(Server)
@@ -248,6 +293,7 @@ func runTUI() error {
 			AddFormItem(tagsField).
 			AddFormItem(statusDD)
 		form.SetBorder(true).SetTitle("Add Server").SetTitleAlign(tview.AlignLeft)
+		form.SetBorderColor(tcell.Color238).SetTitleColor(tcell.Color250)
 		form.AddButton("Save", func() {
 			alias := strings.TrimSpace(aliasField.GetText())
 			host := strings.TrimSpace(hostField.GetText())
@@ -325,6 +371,7 @@ func runTUI() error {
 			AddFormItem(tagsField).
 			AddFormItem(statusDD)
 		form.SetBorder(true).SetTitle("Edit Server").SetTitleAlign(tview.AlignLeft)
+		form.SetBorderColor(tcell.Color238).SetTitleColor(tcell.Color250)
 		form.AddButton("Save", func() {
 			alias := strings.TrimSpace(aliasField.GetText())
 			host := strings.TrimSpace(hostField.GetText())
@@ -451,7 +498,7 @@ func runTUI() error {
 
 	// Root layout: header, content, status
 	root = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(header, 1, 0, false).
+		AddItem(header, 2, 0, false).
 		AddItem(content, 0, 1, true).
 		AddItem(status, 1, 0, false)
 
