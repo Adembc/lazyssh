@@ -7,6 +7,7 @@ import (
 	"github.com/rivo/tview"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type ServerFormMode int
@@ -122,6 +123,9 @@ func (sf *ServerForm) handleSave() {
 	}
 
 	server := sf.dataToServer(data)
+	if sf.original == nil {
+		server.LastSeen = time.Now()
+	}
 	if sf.onSave != nil {
 		sf.onSave(server, sf.original)
 	}
@@ -151,7 +155,6 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 	}
 
 	_, status := sf.GetFormItem(6).(*tview.DropDown).GetCurrentOption()
-
 	return domain.Server{
 		Alias:  data.Alias,
 		Host:   data.Host,
