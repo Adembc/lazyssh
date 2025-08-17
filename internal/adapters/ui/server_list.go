@@ -16,7 +16,7 @@ package ui
 
 import (
 	"github.com/Adembc/lazyssh/internal/core/domain"
-	tcell "github.com/gdamore/tcell/v2" // Explicit alias
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 

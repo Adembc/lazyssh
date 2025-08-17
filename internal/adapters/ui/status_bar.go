@@ -15,7 +15,7 @@
 package ui
 
 import (
-	tcell "github.com/gdamore/tcell/v2" // Explicit alias
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
