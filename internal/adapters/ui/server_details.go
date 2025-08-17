@@ -1,10 +1,24 @@
+// Copyright 2025.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ui
 
 import (
 	"fmt"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
-	"github.com/gdamore/tcell/v2"
+	tcell "github.com/gdamore/tcell/v2" // Explicit alias
 	"github.com/rivo/tview"
 )
 
@@ -21,7 +35,7 @@ func NewServerDetails() *ServerDetails {
 }
 
 func (sd *ServerDetails) build() {
-	sd.SetDynamicColors(true).
+	sd.TextView.SetDynamicColors(true).
 		SetWrap(true).
 		SetBorder(true).
 		SetTitle("Details").
@@ -35,9 +49,9 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		server.Alias, server.Host, server.User, server.Port,
 		server.Key, joinTags(server.Tags), statusIcon(server.Status),
 		server.LastSeen.Format("2006-01-02 15:04"))
-	sd.SetText(text)
+	sd.TextView.SetText(text)
 }
 
 func (sd *ServerDetails) ShowEmpty() {
-	sd.SetText("No servers match the current filter.")
+	sd.TextView.SetText("No servers match the current filter.")
 }

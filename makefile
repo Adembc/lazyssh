@@ -40,7 +40,7 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 # Tool versions
-GOLANGCI_LINT_VERSION ?= v1.61.0
+GOLANGCI_LINT_VERSION ?= v1.64.2
 GOFUMPT_VERSION ?= v0.7.0
 STATICCHECK_VERSION ?= 2024.1.1
 
@@ -95,7 +95,7 @@ vet: ## Run go vet against code
 	go vet ./...
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter
+lint: golangci-lint fmt ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix

@@ -7,16 +7,13 @@ issues:
   exclude-use-default: false
 
   exclude-rules:
-    # disable some linters for api packages
-    - path: "api/*"
-      linters:
-        - lll
 
     # disable some linters for internal packages
     - path: "internal/*"
       linters:
         - dupl
         - lll
+
 
     # exclude some linters for the test directory and test files
     - path: test/.*|.*_test\.go
@@ -40,10 +37,8 @@ linters:
     - exhaustive
     - ginkgolinter
     - goconst
-    - gocritic
     - gocyclo
     - gofmt
-    - goheader
     - goimports
     - goprintffuncname
     - gosec
@@ -55,7 +50,9 @@ linters:
     - nakedret
     - nolintlint
     - prealloc
+    - gocritic
     - revive
+    - goheader
     - staticcheck
     - typecheck
     - unconvert
@@ -77,13 +74,14 @@ linters-settings:
       - rangeValCopy
       - unnamedResult
       - whyNoLint
+      - hugeParam
 
   goimports:
     local-prefixes: github.com/kubeflow/notebooks/workspaces/backend
 
   goheader:
     template: |-
-      Copyright 2024.
+      Copyright 2025.
       
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
