@@ -1,14 +1,14 @@
 package memory
 
 import (
-	"github.com/Adembc/lazyssh/internal/core/domain"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Adembc/lazyssh/internal/core/domain"
 )
 
-type serverRepository struct {
-}
+type serverRepository struct{}
 
 var servers = []domain.Server{
 	{Alias: "web-01", Host: "192.168.1.10", User: "root", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "web"}, Status: "online", LastSeen: time.Now().Add(-2 * time.Hour)},
@@ -58,7 +58,6 @@ func (r *serverRepository) ListServers(query string) ([]domain.Server, error) {
 		}
 	}
 	return filteredServers, nil
-	return servers, nil
 }
 
 // UpdateServer updates an existing server with new details.

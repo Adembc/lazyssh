@@ -1,13 +1,18 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"time"
 )
 
 type tui struct {
+	version   string
+	commit    string
+	buildDate string
+
 	app           *tview.Application
 	serverService ports.ServerService
 
@@ -25,21 +30,23 @@ type tui struct {
 	searchVisible bool
 }
 
-func NewTUI(ss ports.ServerService) *tui {
+func NewTUI(ss ports.ServerService, version, commit, buildDate string) *tui {
 	return &tui{
 		app:           tview.NewApplication(),
 		serverService: ss,
+		version:       version,
+		commit:        commit,
+		buildDate:     buildDate,
 	}
-
 }
 
 func (t *tui) Run() error {
-
 	t.app.EnableMouse(true)
 	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData().loadSplashScreen()
 
 	return t.app.Run()
 }
+
 func (t *tui) initializeTheme() *tui {
 	tview.Styles.PrimitiveBackgroundColor = tcell.Color232
 	tview.Styles.ContrastBackgroundColor = tcell.Color235
@@ -51,8 +58,9 @@ func (t *tui) initializeTheme() *tui {
 	tview.Styles.GraphicsColor = tcell.Color238
 	return t
 }
+
 func (t *tui) buildComponents() *tui {
-	t.header = NewAppHeader(AppVersion, RepoURL)
+	t.header = NewAppHeader(t.version, t.commit, t.buildDate, RepoURL)
 	t.searchBar = NewSearchBar().
 		OnSearch(t.handleSearchInput).
 		OnEscape(t.hideSearchBar)
@@ -63,8 +71,8 @@ func (t *tui) buildComponents() *tui {
 	t.statusBar = NewStatusBar()
 	return t
 }
-func (t *tui) buildLayout() *tui {
 
+func (t *tui) buildLayout() *tui {
 	t.left = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(t.hintBar, 1, 0, false).
 		AddItem(t.serverList, 0, 1, true)
@@ -82,10 +90,12 @@ func (t *tui) buildLayout() *tui {
 		AddItem(t.statusBar, 1, 0, false)
 	return t
 }
+
 func (t *tui) bindEvents() *tui {
 	t.root.SetInputCapture(t.handleGlobalKeys)
 	return t
 }
+
 func (t *tui) loadInitialData() *tui {
 	servers, _ := t.serverService.ListServers("")
 	t.serverList.UpdateServers(servers)
@@ -103,5 +113,4 @@ func (t *tui) loadSplashScreen() *tui {
 		})
 	})
 	return t
-
 }

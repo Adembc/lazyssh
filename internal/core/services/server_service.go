@@ -18,7 +18,6 @@ func NewServerService(sr ports.ServerRepository) *serverService {
 
 // ListServers returns a list of servers.
 func (s *serverService) ListServers(query string) ([]domain.Server, error) {
-
 	// do any relevant business logic here if needed
 	servers, err := s.serverRepository.ListServers(query)
 	if err != nil {

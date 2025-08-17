@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -87,10 +88,10 @@ func (t *tui) handleServerEdit() {
 func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 	if original != nil {
 		// Edit mode
-		t.serverService.UpdateServer(*original, server)
+		_ = t.serverService.UpdateServer(*original, server)
 	} else {
 		// Add mode
-		t.serverService.AddServer(server)
+		_ = t.serverService.AddServer(server)
 	}
 
 	t.refreshServerList()

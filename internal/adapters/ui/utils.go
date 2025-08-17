@@ -2,9 +2,10 @@ package ui
 
 import (
 	"fmt"
-	"github.com/Adembc/lazyssh/internal/core/domain"
 	"strings"
 	"time"
+
+	"github.com/Adembc/lazyssh/internal/core/domain"
 )
 
 func statusIcon(s string) string {

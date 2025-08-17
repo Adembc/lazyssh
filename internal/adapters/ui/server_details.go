@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"

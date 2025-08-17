@@ -2,18 +2,25 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/Adembc/lazyssh/internal/adapters/data/memory"
 	"github.com/Adembc/lazyssh/internal/adapters/ui"
 	"github.com/Adembc/lazyssh/internal/core/services"
 	"github.com/spf13/cobra"
-	"os"
+)
+
+var (
+	version   = "develop"
+	gitCommit = "unknown"
+	buildTime = time.Now().Format("2006-01-02 15:04:05")
 )
 
 func main() {
-
 	serverInMemoryRepo := memory.NewServerRepository()
 	serverService := services.NewServerService(serverInMemoryRepo)
-	tui := ui.NewTUI(serverService)
+	tui := ui.NewTUI(serverService, version, gitCommit, buildTime)
 
 	rootCmd := &cobra.Command{
 		Use:   ui.AppName,
@@ -25,7 +32,7 @@ func main() {
 	rootCmd.SilenceUsage = true
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
