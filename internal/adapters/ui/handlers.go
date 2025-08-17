@@ -1,7 +1,22 @@
+// Copyright 2025.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ui
 
 import (
 	"fmt"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -87,10 +102,10 @@ func (t *tui) handleServerEdit() {
 func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 	if original != nil {
 		// Edit mode
-		t.serverService.UpdateServer(*original, server)
+		_ = t.serverService.UpdateServer(*original, server)
 	} else {
 		// Add mode
-		t.serverService.AddServer(server)
+		_ = t.serverService.AddServer(server)
 	}
 
 	t.refreshServerList()
@@ -182,7 +197,7 @@ func (t *tui) hideSearchBar() {
 func (t *tui) refreshServerList() {
 	query := ""
 	if t.searchVisible {
-		query = t.searchBar.GetText()
+		query = t.searchBar.InputField.GetText()
 	}
 	filtered, _ := t.serverService.ListServers(query)
 	t.serverList.UpdateServers(filtered)

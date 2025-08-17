@@ -1,13 +1,28 @@
+// Copyright 2025.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ui
 
 import (
 	"fmt"
-	"github.com/Adembc/lazyssh/internal/core/domain"
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 )
 
 type ServerFormMode int
@@ -41,7 +56,7 @@ func (sf *ServerForm) build() {
 		title = "Edit Server"
 	}
 
-	sf.SetBorder(true).
+	sf.Form.SetBorder(true).
 		SetTitle(title).
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(tcell.Color238).
@@ -49,9 +64,9 @@ func (sf *ServerForm) build() {
 
 	sf.addFormFields()
 
-	sf.AddButton("Save", sf.handleSave)
-	sf.AddButton("Cancel", sf.handleCancel)
-	sf.SetCancelFunc(sf.handleCancel)
+	sf.Form.AddButton("Save", sf.handleSave)
+	sf.Form.AddButton("Cancel", sf.handleCancel)
+	sf.Form.SetCancelFunc(sf.handleCancel)
 }
 
 func (sf *ServerForm) addFormFields() {
@@ -75,12 +90,12 @@ func (sf *ServerForm) addFormFields() {
 		}
 	}
 
-	sf.AddInputField("Alias:", defaultValues.Alias, 20, nil, nil)
-	sf.AddInputField("Host/IP:", defaultValues.Host, 20, nil, nil)
-	sf.AddInputField("User:", defaultValues.User, 20, nil, nil)
-	sf.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
-	sf.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
-	sf.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+	sf.Form.AddInputField("Alias:", defaultValues.Alias, 20, nil, nil)
+	sf.Form.AddInputField("Host/IP:", defaultValues.Host, 20, nil, nil)
+	sf.Form.AddInputField("User:", defaultValues.User, 20, nil, nil)
+	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
+	sf.Form.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
+	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
 
 	statusDD := tview.NewDropDown().SetLabel("Status: ")
 	statusOptions := []string{"online", "warn", "offline"}
@@ -92,7 +107,7 @@ func (sf *ServerForm) addFormFields() {
 			break
 		}
 	}
-	sf.AddFormItem(statusDD)
+	sf.Form.AddFormItem(statusDD)
 }
 
 type ServerFormData struct {
@@ -107,12 +122,12 @@ type ServerFormData struct {
 
 func (sf *ServerForm) getFormData() ServerFormData {
 	return ServerFormData{
-		Alias: strings.TrimSpace(sf.GetFormItem(0).(*tview.InputField).GetText()),
-		Host:  strings.TrimSpace(sf.GetFormItem(1).(*tview.InputField).GetText()),
-		User:  strings.TrimSpace(sf.GetFormItem(2).(*tview.InputField).GetText()),
-		Port:  strings.TrimSpace(sf.GetFormItem(3).(*tview.InputField).GetText()),
-		Key:   strings.TrimSpace(sf.GetFormItem(4).(*tview.InputField).GetText()),
-		Tags:  strings.TrimSpace(sf.GetFormItem(5).(*tview.InputField).GetText()),
+		Alias: strings.TrimSpace(sf.Form.GetFormItem(0).(*tview.InputField).GetText()),
+		Host:  strings.TrimSpace(sf.Form.GetFormItem(1).(*tview.InputField).GetText()),
+		User:  strings.TrimSpace(sf.Form.GetFormItem(2).(*tview.InputField).GetText()),
+		Port:  strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
+		Key:   strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
+		Tags:  strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
 	}
 }
 
@@ -154,7 +169,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 
-	_, status := sf.GetFormItem(6).(*tview.DropDown).GetCurrentOption()
+	_, status := sf.Form.GetFormItem(6).(*tview.DropDown).GetCurrentOption()
 	return domain.Server{
 		Alias:  data.Alias,
 		Host:   data.Host,

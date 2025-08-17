@@ -1,0 +1,103 @@
+run:
+  timeout: 5m
+  allow-parallel-runners: true
+
+issues:
+  # disable the default set of exclude rules
+  exclude-use-default: false
+
+  exclude-rules:
+
+    # disable some linters for internal packages
+    - path: "internal/*"
+      linters:
+        - dupl
+        - lll
+
+
+    # exclude some linters for the test directory and test files
+    - path: test/.*|.*_test\.go
+      linters:
+        - dupl
+        - errcheck
+        - goconst
+        - gocyclo
+        - gosec
+
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - dupl
+    - errcheck
+    - errorlint
+    - exhaustive
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - nolintlint
+    - prealloc
+    - gocritic
+    - revive
+    - goheader
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - assignOp
+      - filepathJoin
+      - paramTypeCombine
+      - rangeValCopy
+      - unnamedResult
+      - whyNoLint
+      - hugeParam
+
+  goimports:
+    local-prefixes: github.com/kubeflow/notebooks/workspaces/backend
+
+  goheader:
+    template: |-
+      Copyright 2025.
+      
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+      
+          http://www.apache.org/licenses/LICENSE-2.0
+      
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  misspell:
+    locale: US
+
+  revive:
+    rules:
+      - name: comment-spacings
