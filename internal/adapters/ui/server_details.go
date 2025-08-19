@@ -16,7 +16,6 @@ package ui
 
 import (
 	"fmt"
-
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -44,11 +43,20 @@ func (sd *ServerDetails) build() {
 }
 
 func (sd *ServerDetails) UpdateServer(server domain.Server) {
+
+	lastSeen := server.LastSeen.Format("2006-01-02 15:04:05")
+	if server.LastSeen.IsZero() {
+		lastSeen = "Never"
+	}
+	serverKey := server.Key
+	if serverKey == "" {
+		serverKey = "(default: ~/.ssh/id_{rsa,ed25519,ecdsa})"
+	}
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: [white]%s[-]\nStatus: %s\nLast: %s\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  a: Add new server\n  e: Edit entry\n  d: Delete entry",
+		"[::b]%s[-]\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: [white]%s[-]\nStatus: %s\nLast SSH: %s\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  a: Add new server\n  e: Edit entry\n  d: Delete entry",
 		server.Alias, server.Host, server.User, server.Port,
-		server.Key, joinTags(server.Tags), statusIcon(server.Status),
-		server.LastSeen.Format("2006-01-02 15:04"))
+		serverKey, joinTags(server.Tags), statusIcon(server.Status),
+		lastSeen)
 	sd.TextView.SetText(text)
 }
 

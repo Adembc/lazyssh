@@ -16,7 +16,6 @@ package ui
 
 import (
 	"fmt"
-
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -76,6 +75,7 @@ func (t *tui) handleSearchToggle() {
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		t.showConnectModal(server)
+
 	}
 }
 
@@ -114,8 +114,7 @@ func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 
 func (t *tui) handleServerDelete() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
-		_ = t.serverService.DeleteServer(server)
-		t.refreshServerList()
+		t.showDeleteConfirmModal(server)
 	}
 }
 
@@ -144,13 +143,37 @@ func (t *tui) showSearchBar() {
 }
 
 func (t *tui) showConnectModal(server domain.Server) {
-	msg := fmt.Sprintf("SSH to %s (%s@%s:%d)\n\nThis is a mock action.",
+	msg := fmt.Sprintf("SSH to %s (%s@%s:%d)\n\nConfirm to start an SSH session .",
 		server.Alias, server.User, server.Host, server.Port)
 
 	modal := tview.NewModal().
 		SetText(msg).
-		AddButtons([]string{"OK"}).
+		AddButtons([]string{"Cancel", "Confirm"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonIndex == 1 {
+				// Suspend the TUI while running the external ssh command.
+				t.app.Suspend(func() {
+					_ = t.serverService.SSH(server.Alias)
+				})
+			}
+			t.handleModalClose()
+		})
+
+	t.app.SetRoot(modal, true)
+}
+
+func (t *tui) showDeleteConfirmModal(server domain.Server) {
+	msg := fmt.Sprintf("Delete server %s (%s@%s:%d)?\n\nThis action cannot be undone.",
+		server.Alias, server.User, server.Host, server.Port)
+
+	modal := tview.NewModal().
+		SetText(msg).
+		AddButtons([]string{"Cancel", "Confirm"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonIndex == 1 {
+				_ = t.serverService.DeleteServer(server)
+				t.refreshServerList()
+			}
 			t.handleModalClose()
 		})
 
@@ -159,14 +182,14 @@ func (t *tui) showConnectModal(server domain.Server) {
 
 func (t *tui) showHelpModal() {
 	text := "Keyboard shortcuts:\n\n" +
-		"  ↑/↓          Navigate\n" +
-		"  Enter        SSH connect (mock)\n" +
-		"  a            Add server (mock)\n" +
-		"  e            Edit server (mock)\n" +
-		"  d            Delete entry (mock)\n" +
-		"  /            Focus search\n" +
-		"  q            Quit\n" +
-		"  ?            Help\n"
+		"  ↑/↓            Navigate\n" +
+		"    Enter          SSH connect \n" +
+		"    a              Add server \n" +
+		"    e              Edit server \n" +
+		"      d              Delete entry \n" +
+		"    /              Focus search\n" +
+		"q              Quit\n" +
+		"?              Help\n"
 
 	modal := tview.NewModal().
 		SetText(text).

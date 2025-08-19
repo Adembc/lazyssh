@@ -54,12 +54,16 @@ func formatServerLine(s domain.Server) (primary, secondary string) {
 	case "offline":
 		statusColor = "red"
 	}
-	primary = fmt.Sprintf("%s [%s::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last:%s[-]", icon, statusColor, s.Alias, s.Host, humanizeDuration(time.Since(s.LastSeen)))
+	primary = fmt.Sprintf("%s [%s::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]", icon, statusColor, s.Alias, s.Host, humanizeDuration(s.LastSeen))
 	secondary = ""
 	return
 }
 
-func humanizeDuration(d time.Duration) string {
+func humanizeDuration(t time.Time) string {
+	if t.IsZero() {
+		return "never"
+	}
+	d := time.Since(t)
 	if d < time.Minute {
 		return "just now"
 	}

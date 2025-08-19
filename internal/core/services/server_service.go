@@ -15,17 +15,23 @@
 package services
 
 import (
+	"os"
+	"os/exec"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
+	"go.uber.org/zap"
 )
 
 type serverService struct {
 	serverRepository ports.ServerRepository
+	logger           *zap.SugaredLogger
 }
 
 // NewServerService creates a new instance of serverService.
-func NewServerService(sr ports.ServerRepository) *serverService {
+func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) *serverService {
 	return &serverService{
+		logger:           logger,
 		serverRepository: sr,
 	}
 }
@@ -35,22 +41,51 @@ func (s *serverService) ListServers(query string) ([]domain.Server, error) {
 	// do any relevant business logic here if needed
 	servers, err := s.serverRepository.ListServers(query)
 	if err != nil {
+		s.logger.Errorw("failed to list servers", "error", err)
 		return nil, err
 	}
+
 	return servers, nil
 }
 
 // UpdateServer updates an existing server with new details.
 func (s *serverService) UpdateServer(server domain.Server, newServer domain.Server) error {
-	return s.serverRepository.UpdateServer(server, newServer)
+	err := s.serverRepository.UpdateServer(server, newServer)
+	if err != nil {
+		s.logger.Errorw("failed to update server", "error", err, "server", server)
+	}
+	return err
 }
 
 // AddServer adds a new server to the repository.
 func (s *serverService) AddServer(server domain.Server) error {
-	return s.serverRepository.AddServer(server)
+	err := s.serverRepository.AddServer(server)
+	if err != nil {
+		s.logger.Errorw("failed to add server", "error", err, "server", server)
+	}
+	return err
 }
 
 // DeleteServer removes a server from the repository.
 func (s *serverService) DeleteServer(server domain.Server) error {
-	return s.serverRepository.DeleteServer(server)
+	err := s.serverRepository.DeleteServer(server)
+	if err != nil {
+		s.logger.Errorw("failed to delete server", "error", err, "server", server)
+	}
+	return err
+}
+
+// SSH starts an interactive SSH session to the given alias using the system's ssh client.
+func (s *serverService) SSH(alias string) error {
+	s.logger.Infow("ssh start", "alias", alias)
+	cmd := exec.Command("ssh", alias)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
+		return err
+	}
+	s.logger.Infow("ssh end", "alias", alias)
+	return nil
 }

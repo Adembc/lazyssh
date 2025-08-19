@@ -17,12 +17,16 @@ package ui
 import (
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type tui struct {
+	logger *zap.SugaredLogger
+
 	version   string
 	commit    string
 	buildDate string
@@ -44,8 +48,9 @@ type tui struct {
 	searchVisible bool
 }
 
-func NewTUI(ss ports.ServerService, version, commit, buildDate string) *tui {
+func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit, buildDate string) *tui {
 	return &tui{
+		logger:        logger,
 		app:           tview.NewApplication(),
 		serverService: ss,
 		version:       version,
@@ -55,10 +60,19 @@ func NewTUI(ss ports.ServerService, version, commit, buildDate string) *tui {
 }
 
 func (t *tui) Run() error {
+	defer func() {
+		if r := recover(); r != nil {
+			t.logger.Errorw("panic recovered", "error", r)
+		}
+	}()
 	t.app.EnableMouse(true)
 	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData().loadSplashScreen()
-
-	return t.app.Run()
+	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit, "buildDate", t.buildDate)
+	if err := t.app.Run(); err != nil {
+		t.logger.Errorw("application run error", "error", err)
+		return err
+	}
+	return nil
 }
 
 func (t *tui) initializeTheme() *tui {
