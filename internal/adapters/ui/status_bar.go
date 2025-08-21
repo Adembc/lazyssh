@@ -19,10 +19,14 @@ import (
 	"github.com/rivo/tview"
 )
 
+func DefaultStatusText() string {
+	return "[white]↑↓[-] Navigate  • [white]Enter[-] SSH  • [white]c[-] Copy SSH  • [white]a[-] Add  • [white]e[-] Edit  • [white]d[-] Delete  • [white]p[-] Pin/Unpin  • [white]/[-] Search  • [white]q[-] Quit  • [white]?[-] Help"
+}
+
 func NewStatusBar() *tview.TextView {
 	status := tview.NewTextView().SetDynamicColors(true)
 	status.SetBackgroundColor(tcell.Color235)
 	status.SetTextAlign(tview.AlignCenter)
-	status.SetText("[white]↑↓[-] Navigate  • [white]Enter[-] SSH  • [white]a[-] Add  • [white]e[-] Edit  • [white]d[-] Delete  • [white]/[-] Search  • [white]q[-] Quit  • [white]?[-] Help")
+	status.SetText(DefaultStatusText())
 	return status
 }

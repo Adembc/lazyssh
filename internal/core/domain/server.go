@@ -23,6 +23,7 @@ type Server struct {
 	Port     int
 	Key      string
 	Tags     []string
-	Status   string
 	LastSeen time.Time
+	PinnedAt time.Time
+	SSHCount int
 }

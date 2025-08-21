@@ -45,6 +45,7 @@ type tui struct {
 	left    *tview.Flex
 	content *tview.Flex
 
+	sortMode      SortMode
 	searchVisible bool
 }
 
@@ -97,6 +98,10 @@ func (t *tui) buildComponents() *tui {
 		OnSelectionChange(t.handleServerSelectionChange)
 	t.details = NewServerDetails()
 	t.statusBar = NewStatusBar()
+
+	// default sort mode
+	t.sortMode = SortByAliasAsc
+
 	return t
 }
 
@@ -126,9 +131,17 @@ func (t *tui) bindEvents() *tui {
 
 func (t *tui) loadInitialData() *tui {
 	servers, _ := t.serverService.ListServers("")
+	sortServersForUI(servers, t.sortMode)
+	t.updateListTitle()
 	t.serverList.UpdateServers(servers)
 
 	return t
+}
+
+func (t *tui) updateListTitle() {
+	if t.serverList != nil {
+		t.serverList.SetTitle("Servers — Sort: " + t.sortMode.String())
+	}
 }
 
 func (t *tui) loadSplashScreen() *tui {

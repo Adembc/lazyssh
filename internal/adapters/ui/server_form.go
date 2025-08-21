@@ -73,20 +73,18 @@ func (sf *ServerForm) addFormFields() {
 	var defaultValues ServerFormData
 	if sf.mode == ServerFormEdit && sf.original != nil {
 		defaultValues = ServerFormData{
-			Alias:  sf.original.Alias,
-			Host:   sf.original.Host,
-			User:   sf.original.User,
-			Port:   fmt.Sprint(sf.original.Port),
-			Key:    sf.original.Key,
-			Tags:   strings.Join(sf.original.Tags, ", "),
-			Status: sf.original.Status,
+			Alias: sf.original.Alias,
+			Host:  sf.original.Host,
+			User:  sf.original.User,
+			Port:  fmt.Sprint(sf.original.Port),
+			Key:   sf.original.Key,
+			Tags:  strings.Join(sf.original.Tags, ", "),
 		}
 	} else {
 		defaultValues = ServerFormData{
-			User:   "root",
-			Port:   "22",
-			Key:    "~/.ssh/id_ed25519",
-			Status: "online",
+			User: "root",
+			Port: "22",
+			Key:  "~/.ssh/id_ed25519",
 		}
 	}
 
@@ -96,28 +94,15 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
 	sf.Form.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
-
-	statusDD := tview.NewDropDown().SetLabel("Status: ")
-	statusOptions := []string{"online", "warn", "offline"}
-	statusDD.SetOptions(statusOptions, nil)
-
-	for i, opt := range statusOptions {
-		if opt == defaultValues.Status {
-			statusDD.SetCurrentOption(i)
-			break
-		}
-	}
-	sf.Form.AddFormItem(statusDD)
 }
 
 type ServerFormData struct {
-	Alias  string
-	Host   string
-	User   string
-	Port   string
-	Key    string
-	Tags   string
-	Status string
+	Alias string
+	Host  string
+	User  string
+	Port  string
+	Key   string
+	Tags  string
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
@@ -169,15 +154,13 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 
-	_, status := sf.Form.GetFormItem(6).(*tview.DropDown).GetCurrentOption()
 	return domain.Server{
-		Alias:  data.Alias,
-		Host:   data.Host,
-		User:   data.User,
-		Port:   port,
-		Key:    data.Key,
-		Tags:   tags,
-		Status: status,
+		Alias: data.Alias,
+		Host:  data.Host,
+		User:  data.User,
+		Port:  port,
+		Key:   data.Key,
+		Tags:  tags,
 	}
 }
 

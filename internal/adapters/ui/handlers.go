@@ -16,7 +16,11 @@ package ui
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -47,6 +51,43 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'd':
 		t.handleServerDelete()
 		return nil
+	case 'p':
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			pinned := server.PinnedAt.IsZero()
+			_ = t.serverService.SetPinned(server.Alias, pinned)
+			t.refreshServerList()
+		}
+		return nil
+	case 's':
+
+		t.sortMode = t.sortMode.ToggleField()
+		t.showStatusTemp("Sort: " + t.sortMode.String())
+		t.updateListTitle()
+		t.refreshServerList()
+		return nil
+	case 'S':
+
+		t.sortMode = t.sortMode.Reverse()
+		t.showStatusTemp("Sort: " + t.sortMode.String())
+		t.updateListTitle()
+		t.refreshServerList()
+		return nil
+	case 'c':
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			cmd := BuildSSHCommand(server)
+			if err := clipboard.WriteAll(cmd); err == nil {
+				t.showStatusTemp("Copied: " + cmd)
+			} else {
+				t.showStatusTemp("Failed to copy to clipboard")
+			}
+		}
+		return nil
+	case 't':
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			// Quick edit tags for current server
+			t.showEditTagsForm(server)
+		}
+		return nil
 	case '?':
 		t.handleHelpShow()
 		return nil
@@ -62,6 +103,7 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 
 func (t *tui) handleSearchInput(query string) {
 	filtered, _ := t.serverService.ListServers(query)
+	sortServersForUI(filtered, t.sortMode)
 	t.serverList.UpdateServers(filtered)
 	if len(filtered) == 0 {
 		t.details.ShowEmpty()
@@ -75,7 +117,6 @@ func (t *tui) handleSearchToggle() {
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		t.showConnectModal(server)
-
 	}
 }
 
@@ -148,13 +189,15 @@ func (t *tui) showConnectModal(server domain.Server) {
 
 	modal := tview.NewModal().
 		SetText(msg).
-		AddButtons([]string{"Cancel", "Confirm"}).
+		AddButtons([]string{"Confirm", "Cancel"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			if buttonIndex == 1 {
+			if buttonIndex == 0 {
 				// Suspend the TUI while running the external ssh command.
 				t.app.Suspend(func() {
 					_ = t.serverService.SSH(server.Alias)
 				})
+				// Refresh to reflect updated last seen and ssh count
+				t.refreshServerList()
 			}
 			t.handleModalClose()
 		})
@@ -180,16 +223,55 @@ func (t *tui) showDeleteConfirmModal(server domain.Server) {
 	t.app.SetRoot(modal, true)
 }
 
+func (t *tui) showEditTagsForm(server domain.Server) {
+	form := tview.NewForm()
+	form.SetBorder(true).
+		SetTitle(fmt.Sprintf("Edit Tags: %s", server.Alias)).
+		SetTitleAlign(tview.AlignLeft)
+
+	defaultTags := strings.Join(server.Tags, ", ")
+	form.AddInputField("Tags (comma):", defaultTags, 40, nil, nil)
+
+	form.AddButton("Save", func() {
+		text := strings.TrimSpace(form.GetFormItem(0).(*tview.InputField).GetText())
+		var tags []string
+		if text != "" {
+			for _, part := range strings.Split(text, ",") {
+				if s := strings.TrimSpace(part); s != "" {
+					tags = append(tags, s)
+				}
+			}
+		}
+		newServer := server
+		newServer.Tags = tags
+		_ = t.serverService.UpdateServer(server, newServer)
+		// Refresh UI and go back
+		t.refreshServerList()
+		t.returnToMain()
+		t.showStatusTemp("Tags updated")
+	})
+	form.AddButton("Cancel", func() { t.returnToMain() })
+	form.SetCancelFunc(func() { t.returnToMain() })
+
+	t.app.SetRoot(form, true)
+	t.app.SetFocus(form)
+}
+
 func (t *tui) showHelpModal() {
 	text := "Keyboard shortcuts:\n\n" +
 		"  ↑/↓            Navigate\n" +
-		"    Enter          SSH connect \n" +
-		"    a              Add server \n" +
-		"    e              Edit server \n" +
-		"      d              Delete entry \n" +
-		"    /              Focus search\n" +
-		"q              Quit\n" +
-		"?              Help\n"
+		"  Enter          SSH connect \n" +
+		"  c              Copy SSH command \n" +
+		"  a              Add server \n" +
+		"  e              Edit server \n" +
+		"  t              Edit tags (quick)\n" +
+		"  d              Delete entry \n" +
+		"  p              Pin/Unpin server \n" +
+		"  s              Sort field (Alias / Last SSH)\n" +
+		"  Shift+S        Reverse order (↑/↓)\n" +
+		"  /              Focus search\n" +
+		"  q              Quit\n" +
+		"  ?              Help\n"
 
 	modal := tview.NewModal().
 		SetText(text).
@@ -223,9 +305,27 @@ func (t *tui) refreshServerList() {
 		query = t.searchBar.InputField.GetText()
 	}
 	filtered, _ := t.serverService.ListServers(query)
+	sortServersForUI(filtered, t.sortMode)
 	t.serverList.UpdateServers(filtered)
 }
 
 func (t *tui) returnToMain() {
 	t.app.SetRoot(t.root, true)
+}
+
+// showStatusTemp displays a temporary message in the status bar and then restores the default text.
+func (t *tui) showStatusTemp(msg string) {
+	if t.statusBar == nil {
+		return
+	}
+	t.statusBar.SetText("[#A0FFA0]" + msg + "[-]")
+	time.AfterFunc(2*time.Second, func() {
+		if t.app != nil {
+			t.app.QueueUpdateDraw(func() {
+				if t.statusBar != nil {
+					t.statusBar.SetText(DefaultStatusText())
+				}
+			})
+		}
+	})
 }

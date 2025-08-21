@@ -37,8 +37,8 @@ const (
 type ServerMetadata struct {
 	Tags     []string `json:"tags,omitempty"`
 	LastSeen string   `json:"last_seen,omitempty"`
-	Favorite bool     `json:"favorite,omitempty"`
-	Notes    string   `json:"notes,omitempty"`
+	PinnedAt string   `json:"pinned_at,omitempty"`
+	SSHCount int      `json:"ssh_count,omitempty"`
 }
 
 type serverRepo struct {
@@ -65,14 +65,19 @@ func (s serverRepo) ListServers(query string) ([]domain.Server, error) {
 
 	// Merge metadata with servers
 	for i, server := range servers {
-		servers[i].Status = "online"
 		servers[i].LastSeen = time.Time{}
 
 		if meta, exists := metadata[server.Alias]; exists {
 			servers[i].Tags = meta.Tags
+			servers[i].SSHCount = meta.SSHCount
 			if meta.LastSeen != "" {
 				if lastSeen, err := time.Parse(time.RFC3339, meta.LastSeen); err == nil {
 					servers[i].LastSeen = lastSeen
+				}
+			}
+			if meta.PinnedAt != "" {
+				if pinnedAt, err := time.Parse(time.RFC3339, meta.PinnedAt); err == nil {
+					servers[i].PinnedAt = pinnedAt
 				}
 			}
 		}
@@ -87,6 +92,13 @@ func (s serverRepo) ListServers(query string) ([]domain.Server, error) {
 				strings.Contains(strings.ToLower(server.Host), queryLower) ||
 				strings.Contains(strings.ToLower(server.User), queryLower) {
 				filtered = append(filtered, server)
+				continue
+			}
+			for _, tag := range server.Tags {
+				if strings.Contains(strings.ToLower(tag), queryLower) {
+					filtered = append(filtered, server)
+					break
+				}
 			}
 		}
 		return filtered, nil
@@ -249,7 +261,6 @@ func (s serverRepo) parseSSHConfig() ([]domain.Server, error) {
 	}
 
 	if currentServer != nil {
-
 		servers = append(servers, *currentServer)
 	}
 
@@ -334,6 +345,11 @@ func (s serverRepo) updateMetadata(server domain.Server) error {
 		LastSeen: server.LastSeen.Format(time.RFC3339),
 	}
 
+	// Only set PinnedAt if it is not zero
+	if !server.PinnedAt.IsZero() {
+		serverMeta.PinnedAt = server.PinnedAt.Format(time.RFC3339)
+	}
+
 	metadata[server.Alias] = serverMeta
 
 	return s.saveMetadata(metadata)
@@ -362,4 +378,33 @@ func (s serverRepo) saveMetadata(metadata map[string]ServerMetadata) error {
 	}
 
 	return os.WriteFile(s.metaDataFilePath, data, 0o600)
+}
+
+// SetPinned updates the pinned state for a server alias by writing pinned_at to metadata.
+func (s serverRepo) SetPinned(alias string, pinned bool) error {
+	metadata, err := s.loadMetadata()
+	if err != nil {
+		metadata = make(map[string]ServerMetadata)
+	}
+	m := metadata[alias]
+	if pinned {
+		m.PinnedAt = time.Now().Format(time.RFC3339)
+	} else {
+		m.PinnedAt = ""
+	}
+	metadata[alias] = m
+	return s.saveMetadata(metadata)
+}
+
+// RecordSSH updates last_seen and increments ssh_count for an alias after successful SSH.
+func (s serverRepo) RecordSSH(alias string) error {
+	metadata, err := s.loadMetadata()
+	if err != nil {
+		metadata = make(map[string]ServerMetadata)
+	}
+	m := metadata[alias]
+	m.LastSeen = time.Now().Format(time.RFC3339)
+	m.SSHCount++
+	metadata[alias] = m
+	return s.saveMetadata(metadata)
 }

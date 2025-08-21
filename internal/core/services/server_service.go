@@ -17,6 +17,7 @@ package services
 import (
 	"os"
 	"os/exec"
+	"sort"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
@@ -36,14 +37,26 @@ func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) *ser
 	}
 }
 
-// ListServers returns a list of servers.
+// ListServers returns a list of servers sorted with pinned on top.
 func (s *serverService) ListServers(query string) ([]domain.Server, error) {
-	// do any relevant business logic here if needed
 	servers, err := s.serverRepository.ListServers(query)
 	if err != nil {
 		s.logger.Errorw("failed to list servers", "error", err)
 		return nil, err
 	}
+
+	// Sort: pinned first (PinnedAt non-zero), then by PinnedAt desc, then by Alias asc.
+	sort.SliceStable(servers, func(i, j int) bool {
+		pi := !servers[i].PinnedAt.IsZero()
+		pj := !servers[j].PinnedAt.IsZero()
+		if pi != pj {
+			return pi
+		}
+		if pi && pj {
+			return servers[i].PinnedAt.After(servers[j].PinnedAt)
+		}
+		return servers[i].Alias < servers[j].Alias
+	})
 
 	return servers, nil
 }
@@ -75,6 +88,15 @@ func (s *serverService) DeleteServer(server domain.Server) error {
 	return err
 }
 
+// SetPinned sets or clears a pin timestamp for the server alias.
+func (s *serverService) SetPinned(alias string, pinned bool) error {
+	err := s.serverRepository.SetPinned(alias, pinned)
+	if err != nil {
+		s.logger.Errorw("failed to set pin state", "error", err, "alias", alias, "pinned", pinned)
+	}
+	return err
+}
+
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
@@ -86,6 +108,11 @@ func (s *serverService) SSH(alias string) error {
 		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
 		return err
 	}
+
+	if err := s.serverRepository.RecordSSH(alias); err != nil {
+		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+	}
+
 	s.logger.Infow("ssh end", "alias", alias)
 	return nil
 }
