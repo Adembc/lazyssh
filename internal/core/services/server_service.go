@@ -15,9 +15,13 @@
 package services
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
@@ -61,8 +65,48 @@ func (s *serverService) ListServers(query string) ([]domain.Server, error) {
 	return servers, nil
 }
 
+// validateServer performs core validation of server fields.
+func validateServer(srv domain.Server) error {
+	if strings.TrimSpace(srv.Alias) == "" {
+		return fmt.Errorf("alias is required")
+	}
+	if ok, _ := regexp.MatchString(`^[A-Za-z0-9_.-]+$`, srv.Alias); !ok {
+		return fmt.Errorf("alias may contain letters, digits, dot, dash, underscore")
+	}
+	if strings.TrimSpace(srv.Host) == "" {
+		return fmt.Errorf("Host/IP is required")
+	}
+	if ip := net.ParseIP(srv.Host); ip == nil {
+		if strings.Contains(srv.Host, " ") {
+			return fmt.Errorf("host must not contain spaces")
+		}
+		if ok, _ := regexp.MatchString(`^[A-Za-z0-9.-]+$`, srv.Host); !ok {
+			return fmt.Errorf("host contains invalid characters")
+		}
+		if strings.HasPrefix(srv.Host, ".") || strings.HasSuffix(srv.Host, ".") {
+			return fmt.Errorf("host must not start or end with a dot")
+		}
+		for _, lbl := range strings.Split(srv.Host, ".") {
+			if lbl == "" {
+				return fmt.Errorf("host must not contain empty labels")
+			}
+			if strings.HasPrefix(lbl, "-") || strings.HasSuffix(lbl, "-") {
+				return fmt.Errorf("hostname labels must not start or end with a hyphen")
+			}
+		}
+	}
+	if srv.Port != 0 && (srv.Port < 1 || srv.Port > 65535) {
+		return fmt.Errorf("port must be a number between 1 and 65535")
+	}
+	return nil
+}
+
 // UpdateServer updates an existing server with new details.
 func (s *serverService) UpdateServer(server domain.Server, newServer domain.Server) error {
+	if err := validateServer(newServer); err != nil {
+		s.logger.Warnw("validation failed on update", "error", err, "server", newServer)
+		return err
+	}
 	err := s.serverRepository.UpdateServer(server, newServer)
 	if err != nil {
 		s.logger.Errorw("failed to update server", "error", err, "server", server)
@@ -72,6 +116,10 @@ func (s *serverService) UpdateServer(server domain.Server, newServer domain.Serv
 
 // AddServer adds a new server to the repository.
 func (s *serverService) AddServer(server domain.Server) error {
+	if err := validateServer(server); err != nil {
+		s.logger.Warnw("validation failed on add", "error", err, "server", server)
+		return err
+	}
 	err := s.serverRepository.AddServer(server)
 	if err != nil {
 		s.logger.Errorw("failed to add server", "error", err, "server", server)

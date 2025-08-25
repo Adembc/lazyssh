@@ -16,6 +16,8 @@ package ui
 
 import (
 	"fmt"
+	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -50,10 +52,7 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 }
 
 func (sf *ServerForm) build() {
-	title := "Add Server"
-	if sf.mode == ServerFormEdit {
-		title = "Edit Server"
-	}
+	title := sf.titleForMode()
 
 	sf.Form.SetBorder(true).
 		SetTitle(title).
@@ -66,6 +65,13 @@ func (sf *ServerForm) build() {
 	sf.Form.AddButton("Save", sf.handleSave)
 	sf.Form.AddButton("Cancel", sf.handleCancel)
 	sf.Form.SetCancelFunc(sf.handleCancel)
+}
+
+func (sf *ServerForm) titleForMode() string {
+	if sf.mode == ServerFormEdit {
+		return "Edit Server"
+	}
+	return "Add Server"
 }
 
 func (sf *ServerForm) addFormFields() {
@@ -117,9 +123,16 @@ func (sf *ServerForm) getFormData() ServerFormData {
 
 func (sf *ServerForm) handleSave() {
 	data := sf.getFormData()
-	if data.Alias == "" || data.Host == "" {
+
+	if errMsg := validateServerForm(data); errMsg != "" {
+
+		sf.Form.SetTitle(fmt.Sprintf("%s — [red::b]%s[-]", sf.titleForMode(), errMsg))
+		sf.Form.SetBorderColor(tcell.ColorRed)
 		return
 	}
+
+	sf.Form.SetTitle(sf.titleForMode())
+	sf.Form.SetBorderColor(tcell.Color238)
 
 	server := sf.dataToServer(data)
 	if sf.onSave != nil {
@@ -158,6 +171,52 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		Key:   data.Key,
 		Tags:  tags,
 	}
+}
+
+// validateServerForm returns an error message string if validation fails; empty string means valid.
+func validateServerForm(data ServerFormData) string {
+
+	alias := data.Alias
+	if alias == "" {
+		return "Alias is required"
+	}
+	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+$`).MatchString(alias) {
+		return "Alias may contain letters, digits, dot, dash, underscore"
+	}
+
+	host := data.Host
+	if host == "" {
+		return "Host/IP is required"
+	}
+	if ip := net.ParseIP(host); ip == nil {
+
+		if strings.Contains(host, " ") {
+			return "Host must not contain spaces"
+		}
+		if !regexp.MustCompile(`^[A-Za-z0-9.-]+$`).MatchString(host) {
+			return "Host contains invalid characters"
+		}
+		if strings.HasPrefix(host, ".") || strings.HasSuffix(host, ".") {
+			return "Host must not start or end with a dot"
+		}
+		for _, lbl := range strings.Split(host, ".") {
+			if lbl == "" {
+				return "Host must not contain empty labels"
+			}
+			if strings.HasPrefix(lbl, "-") || strings.HasSuffix(lbl, "-") {
+				return "Hostname labels must not start or end with a hyphen"
+			}
+		}
+	}
+
+	if data.Port != "" {
+		p, err := strconv.Atoi(data.Port)
+		if err != nil || p < 1 || p > 65535 {
+			return "Port must be a number between 1 and 65535"
+		}
+	}
+
+	return ""
 }
 
 func (sf *ServerForm) OnSave(fn func(domain.Server, *domain.Server)) *ServerForm {

@@ -162,12 +162,22 @@ func (t *tui) handleServerEdit() {
 }
 
 func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
+	var err error
 	if original != nil {
 		// Edit mode
-		_ = t.serverService.UpdateServer(*original, server)
+		err = t.serverService.UpdateServer(*original, server)
 	} else {
 		// Add mode
-		_ = t.serverService.AddServer(server)
+		err = t.serverService.AddServer(server)
+	}
+	if err != nil {
+		// Stay on form; show a small modal with the error
+		modal := tview.NewModal().
+			SetText(fmt.Sprintf("Save failed: %v", err)).
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) { t.handleModalClose() })
+		t.app.SetRoot(modal, true)
+		return
 	}
 
 	t.refreshServerList()
