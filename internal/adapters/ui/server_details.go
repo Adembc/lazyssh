@@ -51,7 +51,6 @@ func renderTagChips(tags []string) string {
 	}
 	chips := make([]string, 0, len(tags))
 	for _, t := range tags {
-		// Foreground black on a bluish background to resemble a tag/chip.
 		chips = append(chips, fmt.Sprintf("[black:#5FAFFF] %s [-:-:-]", t))
 	}
 	return strings.Join(chips, " ")

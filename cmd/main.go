@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/Adembc/lazyssh/internal/adapters/data/file"
-
 	"github.com/Adembc/lazyssh/internal/logger"
 
 	"github.com/Adembc/lazyssh/internal/adapters/ui"

@@ -37,7 +37,7 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 
 	switch event.Rune() {
 	case 'q':
-		t.app.Stop()
+		t.handleQuit()
 		return nil
 	case '/':
 		t.handleSearchToggle()
@@ -52,41 +52,19 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 		t.handleServerDelete()
 		return nil
 	case 'p':
-		if server, ok := t.serverList.GetSelectedServer(); ok {
-			pinned := server.PinnedAt.IsZero()
-			_ = t.serverService.SetPinned(server.Alias, pinned)
-			t.refreshServerList()
-		}
+		t.handleServerPin()
 		return nil
 	case 's':
-
-		t.sortMode = t.sortMode.ToggleField()
-		t.showStatusTemp("Sort: " + t.sortMode.String())
-		t.updateListTitle()
-		t.refreshServerList()
+		t.handleSortToggle()
 		return nil
 	case 'S':
-
-		t.sortMode = t.sortMode.Reverse()
-		t.showStatusTemp("Sort: " + t.sortMode.String())
-		t.updateListTitle()
-		t.refreshServerList()
+		t.handleSortReverse()
 		return nil
 	case 'c':
-		if server, ok := t.serverList.GetSelectedServer(); ok {
-			cmd := BuildSSHCommand(server)
-			if err := clipboard.WriteAll(cmd); err == nil {
-				t.showStatusTemp("Copied: " + cmd)
-			} else {
-				t.showStatusTemp("Failed to copy to clipboard")
-			}
-		}
+		t.handleCopyCommand()
 		return nil
 	case 't':
-		if server, ok := t.serverList.GetSelectedServer(); ok {
-			// Quick edit tags for current server
-			t.showEditTagsForm(server)
-		}
+		t.handleTagsEdit()
 		return nil
 	case '?':
 		t.handleHelpShow()
@@ -99,6 +77,49 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	}
 
 	return event
+}
+
+func (t *tui) handleQuit() {
+	t.app.Stop()
+}
+
+func (t *tui) handleServerPin() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+		pinned := server.PinnedAt.IsZero()
+		_ = t.serverService.SetPinned(server.Alias, pinned)
+		t.refreshServerList()
+	}
+}
+
+func (t *tui) handleSortToggle() {
+	t.sortMode = t.sortMode.ToggleField()
+	t.showStatusTemp("Sort: " + t.sortMode.String())
+	t.updateListTitle()
+	t.refreshServerList()
+}
+
+func (t *tui) handleSortReverse() {
+	t.sortMode = t.sortMode.Reverse()
+	t.showStatusTemp("Sort: " + t.sortMode.String())
+	t.updateListTitle()
+	t.refreshServerList()
+}
+
+func (t *tui) handleCopyCommand() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+		cmd := BuildSSHCommand(server)
+		if err := clipboard.WriteAll(cmd); err == nil {
+			t.showStatusTemp("Copied: " + cmd)
+		} else {
+			t.showStatusTemp("Failed to copy to clipboard")
+		}
+	}
+}
+
+func (t *tui) handleTagsEdit() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+		t.showEditTagsForm(server)
+	}
 }
 
 func (t *tui) handleSearchInput(query string) {

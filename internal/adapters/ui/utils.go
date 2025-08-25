@@ -23,13 +23,6 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-func joinTags(tags []string) string {
-	if len(tags) == 0 {
-		return "-"
-	}
-	return strings.Join(tags, ",")
-}
-
 // renderTagBadgesForList renders up to two colored tag chips for the server list.
 // If there are more tags, it appends a subtle gray "+N" badge. Returns an empty
 // string when there are no tags to avoid cluttering the list.

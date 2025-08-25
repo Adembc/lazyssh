@@ -17,10 +17,10 @@ package ui
 import (
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"go.uber.org/zap"
 
 	"github.com/Adembc/lazyssh/internal/core/ports"
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
