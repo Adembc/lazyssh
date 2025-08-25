@@ -28,6 +28,8 @@ func (w *SSHConfigWriter) Write(writer io.Writer, servers []domain.Server) error
 	bufWriter := bufio.NewWriter(writer)
 	defer bufWriter.Flush()
 
+	fmt.Fprintf(bufWriter, "%s\n\n", ManagedByComment)
+
 	for i, server := range servers {
 		if i > 0 {
 			bufWriter.WriteString("\n")
@@ -39,7 +41,6 @@ func (w *SSHConfigWriter) Write(writer io.Writer, servers []domain.Server) error
 }
 
 func (w *SSHConfigWriter) writeServer(writer *bufio.Writer, server domain.Server) {
-	fmt.Fprintf(writer, "%s\n", ManagedByComment)
 	fmt.Fprintf(writer, "Host %s\n", server.Alias)
 
 	if server.Host != "" {
