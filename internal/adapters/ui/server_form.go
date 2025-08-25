@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
@@ -123,9 +122,6 @@ func (sf *ServerForm) handleSave() {
 	}
 
 	server := sf.dataToServer(data)
-	if sf.original == nil {
-		server.LastSeen = time.Now()
-	}
 	if sf.onSave != nil {
 		sf.onSave(server, sf.original)
 	}

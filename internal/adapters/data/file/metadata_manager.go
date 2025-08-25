@@ -81,16 +81,26 @@ func (m *metadataManager) updateServer(server domain.Server) error {
 		metadata = make(map[string]ServerMetadata)
 	}
 
-	serverMeta := ServerMetadata{
-		Tags:     server.Tags,
-		LastSeen: server.LastSeen.Format(time.RFC3339),
+	existing := metadata[server.Alias]
+	merged := existing
+
+	if server.Tags != nil {
+		merged.Tags = server.Tags
+	}
+
+	if !server.LastSeen.IsZero() {
+		merged.LastSeen = server.LastSeen.Format(time.RFC3339)
 	}
 
 	if !server.PinnedAt.IsZero() {
-		serverMeta.PinnedAt = server.PinnedAt.Format(time.RFC3339)
+		merged.PinnedAt = server.PinnedAt.Format(time.RFC3339)
 	}
 
-	metadata[server.Alias] = serverMeta
+	if server.SSHCount > 0 {
+		merged.SSHCount = server.SSHCount
+	}
+
+	metadata[server.Alias] = merged
 	return m.saveAll(metadata)
 }
 
