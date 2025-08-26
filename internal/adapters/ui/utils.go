@@ -80,12 +80,30 @@ func humanizeDuration(t time.Time) string {
 	if d < time.Minute {
 		return "just now"
 	}
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	if h > 0 {
-		return fmt.Sprintf("%dh%dm ago", h, m)
+	if d < time.Hour {
+		m := int(d.Minutes())
+		return fmt.Sprintf("%dm ago", m)
 	}
-	return fmt.Sprintf("%dm ago", m)
+	if d < 48*time.Hour {
+		h := int(d.Hours())
+		return fmt.Sprintf("%dh ago", h)
+	}
+	if d < 60*24*time.Hour {
+		days := int(d.Hours()) / 24
+		return fmt.Sprintf("%dd ago", days)
+	}
+	if d < 365*24*time.Hour {
+		months := int(d.Hours()) / (24 * 30)
+		if months < 1 {
+			months = 1
+		}
+		return fmt.Sprintf("%dmo ago", months)
+	}
+	years := int(d.Hours()) / (24 * 365)
+	if years < 1 {
+		years = 1
+	}
+	return fmt.Sprintf("%dy ago", years)
 }
 
 // BuildSSHCommand constructs a ready-to-run ssh command for the given server.
