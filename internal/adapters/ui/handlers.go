@@ -72,9 +72,6 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 't':
 		t.handleTagsEdit()
 		return nil
-	case '?':
-		t.handleHelpShow()
-		return nil
 	}
 
 	if event.Key() == tcell.KeyEnter {
@@ -200,10 +197,6 @@ func (t *tui) handleFormCancel() {
 	t.returnToMain()
 }
 
-func (t *tui) handleHelpShow() {
-	t.showHelpModal()
-}
-
 func (t *tui) handlePingSelected() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		alias := server.Alias
@@ -286,8 +279,18 @@ func (t *tui) showConnectModal(server domain.Server) {
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 			if buttonIndex == 0 {
 				// Suspend the TUI while running the external ssh command.
-				t.app.Suspend(func() {
-					_ = t.serverService.SSH(server.Alias)
+    t.app.Suspend(func() {
+					err := t.serverService.SSH(server.Alias)
+					if err != nil {
+						// Show a brief status after we resume
+						t.app.QueueUpdateDraw(func() {
+							if strings.Contains(strings.ToLower(err.Error()), "timeout") {
+								t.showStatusTempColor("SSH timeout, returning to list", "#FF6B6B")
+							} else {
+								t.showStatusTempColor("SSH failed: "+err.Error(), "#FF6B6B")
+							}
+						})
+					}
 				})
 				// Refresh to reflect updated last seen and ssh count
 				t.refreshServerList()
@@ -348,34 +351,6 @@ func (t *tui) showEditTagsForm(server domain.Server) {
 
 	t.app.SetRoot(form, true)
 	t.app.SetFocus(form)
-}
-
-func (t *tui) showHelpModal() {
-	text := "Keyboard shortcuts:\n\n" +
-		"  ↑/↓            Navigate\n" +
-		"  Enter          SSH connect \n" +
-		"  c              Copy SSH command \n" +
-		"  g              Ping server (TCP to SSH port)\n" +
-		"  r              Refresh list (background)\n" +
-		"  a              Add server \n" +
-		"  e              Edit server \n" +
-		"  t              Edit tags (quick)\n" +
-		"  d              Delete entry \n" +
-		"  p              Pin/Unpin server \n" +
-		"  s              Switch sort field (Alias ↔ Last SSH), keep direction\n" +
-		"  Shift+S        Toggle sort direction (↑/↓) for current field\n" +
-		"  /              Focus search\n" +
-		"  q              Quit\n" +
-		"  ?              Help\n"
-
-	modal := tview.NewModal().
-		SetText(text).
-		AddButtons([]string{"Close"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			t.handleModalClose()
-		})
-
-	t.app.SetRoot(modal, true)
 }
 
 // =============================================================================
