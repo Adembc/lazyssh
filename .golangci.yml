@@ -15,14 +15,6 @@ issues:
         - lll
 
 
-    # exclude some linters for the test directory and test files
-    - path: test/.*|.*_test\.go
-      linters:
-        - dupl
-        - errcheck
-        - goconst
-        - gocyclo
-        - gosec
 
 linters:
   disable-all: true
@@ -76,8 +68,6 @@ linters-settings:
       - whyNoLint
       - hugeParam
 
-  goimports:
-    local-prefixes: github.com/kubeflow/notebooks/workspaces/backend
 
   goheader:
     template: |-

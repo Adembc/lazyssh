@@ -107,7 +107,7 @@ func (m *metadataManager) updateServer(server domain.Server) error {
 func (m *metadataManager) deleteServer(alias string) error {
 	metadata, err := m.loadAll()
 	if err != nil {
-		return nil // Nothing to delete if we can't load
+		return nil
 	}
 
 	delete(metadata, alias)
