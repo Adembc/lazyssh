@@ -1,74 +1,122 @@
-# lazyssh
-
-**lazyssh** is a terminal-based, interactive SSH manager inspired by tools like **lazydocker** and **k9s** — but built
-for managing your fleet of servers directly from your terminal.
-
-With **lazyssh**, you can quickly **navigate**, **connect**, **manage**, and **transfer files** between your local
-machine and any server defined in your `~/.ssh/config`.  
-No more remembering IP addresses or running long `scp` commands — just a clean, keyboard-driven UI.
+<div align="center">
+  <img src="./docs/logo.png" alt="lazyssh logo" width="600" height="600"/>
+</div>
 
 ---
+
+Lazyssh is a terminal-based, interactive SSH manager inspired by tools like lazydocker and k9s — but built for managing your fleet of servers directly from your terminal.
+<br/>
+With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your ~/.ssh/config. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
 
 ## ✨ Features
 
-### Server Management
+### Server Management (current)
+- 📜 Read & display servers from your `~/.ssh/config` in a scrollable list.
+- ➕ Add a new server from the UI by specifying alias, host/IP, username, port, identity file.
+- ✏ Edit existing server entries directly from the UI.
+- 🗑 Delete server entries safely.
+- 📌 Pin / unpin servers to keep favorites at the top.
+- 🏓 Ping server to check status.
 
-- 📜 **Read & display** servers from your `~/.ssh/config` in a scrollable list.
-- ➕ **Add** a new server entry from the UI by specifying:
-    - Host alias
-    - HostName / IP
-    - Username
-    - Port
-    - Identity file
-- ✏ **Edit** existing server entries directly from the UI.
-- 🗑 **Delete** server entries safely.
+### Quick Server Navigation
+- 🔍 Fuzzy search by alias, IP, or tags.
+- 🖥 One‑keypress SSH into the selected server (Enter).
+- 🏷 Tag servers (e.g., prod, dev, test) for quick filtering.
+- ↕️ Sort by alias or last SSH (toggle + reverse).
 
-### **Quick Server Navigation**
 
-- 🔍 **Fuzzy search** through servers by alias or IP.
-- ⏩ Instant SSH into selected server with a single keypress.
-- 🏷 Grouping/tagging of servers (e.g., `prod`, `dev`, `test`) for quick filtering.
-
-### **Remote Operations**
-
-- 🖥 **Open Terminal**: Start an SSH session instantly.
-- 📤 **Copy from server → local**: Select remote file/folder, choose local destination.
-- 📥 **Copy from local → server**: Select local file/folder, choose remote destination.
-
-### **Port Forwarding**
-
-- 📡 Easily forward local ports to remote services (and vice versa) from the UI.
-- Save & reuse common port forwarding setups.
-
-### **SSH Key Management**
-
-- 🔑 **Deploy public keys** to selected servers directly from the UI.
-- Choose one of three modes:
-    - Use your default local public key (`~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
-    - Paste a custom public key manually
-    - Generate a new keypair and deploy it
-- Automatically append the key to `~/.ssh/authorized_keys` with correct permissions.
-
+### Upcoming
+- 📁 Copy files between local and servers with an easy picker UI.
+- 📡 Port forwarding (local↔remote) from the UI.
+- 🔑 Enhanced Key Management:
+  - Use default local public key (~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub)
+  - Paste custom public keys manually
+  - Generate new keypairs and deploy them
+  - Automatically append keys to ~/.ssh/authorized_keys with correct permissions
 ---
 
-## 🎯 Use Cases
+## 🛠 Installation
 
-- Developers switching between dozens of dev/test/staging/production VMs
-- Sysadmins managing multiple environments and needing quick access
-- Anyone who wants **fast, zero-hassle SSH management** without memorizing IPs
-
----
-
-## 🚀 Usage
-
-- Launch TUI (default):
-  - ./lazyssh
-- Show version:
-  - ./lazyssh -v
+- From source (requires Go 1.22+):
+  - git clone https://github.com/Adembc/lazyssh.git
+  - cd lazyssh
+  - go build -o lazyssh ./cmd
   - ./lazyssh --version
-  - ./lazyssh version
-- List servers in terminal:
-  - ./lazyssh list
+
+- Using make (if available):
+  - make build
+  - ./bin/lazyssh
+
+Binary releases: if/when releases are published, download from the Releases page and place in your PATH.
 
 ---
+
+## ⚙️ Configuration
+
+lazyssh reads your SSH hosts from `~/.ssh/config`. Example entry:
+
+```Host my-server
+    HostName 203.0.113.10
+    User ubuntu
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+```
+
+You can add/edit/delete entries from within the UI as well; lazyssh will keep things consistent.
+
+---
+
+## ⌨️ Key Bindings
+
+| Key | Action |
+|---|---|
+| / | Toggle search bar |
+| ↑/↓ | Navigate servers |
+| Enter | SSH into selected server |
+| c | Copy SSH command to clipboard |
+| g | Ping selected server |
+| r | Refresh background data |
+| a | Add server |
+| e | Edit server |
+| t | Edit tags |
+| d | Delete server |
+| p | Pin/Unpin server |
+| s | Toggle sort field |
+| S | Reverse sort order |
+| q | Quit |
+
+Tip: The hint bar at the top of the list shows the most useful shortcuts.
+
+---
+
+## 🚀 Quickstart
+
+- Ensure your `~/.ssh/config` contains at least one Host.
+- Run the app: `./lazyssh`
+- Use `/` to search, `Enter` to connect.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+- Fork the repo and create a feature branch.
+- Follow Go formatting and linting: `make fmt` and `make lint` if available.
+- Keep PRs focused and include screenshots/GIFs for UI changes.
+- Open issues for bugs/ideas; tag as bug/feature/enhancement.
+
+By contributing, you agree that your contributions will be licensed under the Apache-2.0 License.
+
+---
+
+## 🧾 License
+
+This project is licensed under the Apache License 2.0 — see the LICENSE file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- Built with [tview](https://github.com/rivo/tview) and [tcell](https://github.com/gdamore/tcell).
+- Inspired by [k9s](https://github.com/derailed/k9s) and [lazydocker](https://github.com/jesseduffield/lazydocker).
 

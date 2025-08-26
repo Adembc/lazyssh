@@ -279,7 +279,7 @@ func (t *tui) showConnectModal(server domain.Server) {
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 			if buttonIndex == 0 {
 				// Suspend the TUI while running the external ssh command.
-    t.app.Suspend(func() {
+				t.app.Suspend(func() {
 					err := t.serverService.SSH(server.Alias)
 					if err != nil {
 						// Show a brief status after we resume
