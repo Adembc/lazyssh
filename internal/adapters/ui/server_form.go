@@ -175,7 +175,6 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 
 // validateServerForm returns an error message string if validation fails; empty string means valid.
 func validateServerForm(data ServerFormData) string {
-
 	alias := data.Alias
 	if alias == "" {
 		return "Alias is required"

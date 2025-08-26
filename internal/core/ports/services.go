@@ -14,7 +14,11 @@
 
 package ports
 
-import "github.com/Adembc/lazyssh/internal/core/domain"
+import (
+	"time"
+
+	"github.com/Adembc/lazyssh/internal/core/domain"
+)
 
 type ServerService interface {
 	ListServers(query string) ([]domain.Server, error)
@@ -23,4 +27,5 @@ type ServerService interface {
 	DeleteServer(server domain.Server) error
 	SetPinned(alias string, pinned bool) error
 	SSH(alias string) error
+	Ping(server domain.Server) (bool, time.Duration, error)
 }

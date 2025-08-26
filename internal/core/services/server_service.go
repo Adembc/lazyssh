@@ -15,13 +15,16 @@
 package services
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
@@ -163,4 +166,73 @@ func (s *serverService) SSH(alias string) error {
 
 	s.logger.Infow("ssh end", "alias", alias)
 	return nil
+}
+
+// Ping checks if the server is reachable on its SSH port.
+func (s *serverService) Ping(server domain.Server) (bool, time.Duration, error) {
+	start := time.Now()
+
+	host, port, ok := resolveSSHDestination(server.Alias)
+	if !ok {
+
+		host = strings.TrimSpace(server.Host)
+		if host == "" {
+			host = server.Alias
+		}
+		if server.Port > 0 {
+			port = server.Port
+		} else {
+			port = 22
+		}
+	}
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	dialer := net.Dialer{Timeout: 3 * time.Second}
+	conn, err := dialer.Dial("tcp", addr)
+	if err != nil {
+		return false, time.Since(start), err
+	}
+	_ = conn.Close()
+	return true, time.Since(start), nil
+}
+
+// resolveSSHDestination uses `ssh -G <alias>` to extract HostName and Port from the user's SSH config.
+// Returns host, port, ok where ok=false if resolution failed.
+func resolveSSHDestination(alias string) (string, int, bool) {
+	alias = strings.TrimSpace(alias)
+	if alias == "" {
+		return "", 0, false
+	}
+	cmd := exec.Command("ssh", "-G", alias)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", 0, false
+	}
+	host := ""
+	port := 0
+	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "hostname ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				host = parts[1]
+			}
+		}
+		if strings.HasPrefix(line, "port ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				if p, err := strconv.Atoi(parts[1]); err == nil {
+					port = p
+				}
+			}
+		}
+	}
+	if host == "" {
+		host = alias
+	}
+	if port == 0 {
+		port = 22
+	}
+	return host, port, true
 }

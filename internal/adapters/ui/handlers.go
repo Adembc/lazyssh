@@ -63,6 +63,12 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'c':
 		t.handleCopyCommand()
 		return nil
+	case 'g':
+		t.handlePingSelected()
+		return nil
+	case 'r':
+		t.handleRefreshBackground()
+		return nil
 	case 't':
 		t.handleTagsEdit()
 		return nil
@@ -198,8 +204,64 @@ func (t *tui) handleHelpShow() {
 	t.showHelpModal()
 }
 
+func (t *tui) handlePingSelected() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+		alias := server.Alias
+
+		t.showStatusTemp(fmt.Sprintf("Pinging %s…", alias))
+		go func() {
+			up, dur, err := t.serverService.Ping(server)
+			t.app.QueueUpdateDraw(func() {
+				if err != nil {
+					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN (%v)", alias, err), "#FF6B6B")
+					return
+				}
+				if up {
+					t.showStatusTempColor(fmt.Sprintf("Ping %s: UP (%s)", alias, dur), "#A0FFA0")
+				} else {
+					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN", alias), "#FF6B6B")
+				}
+			})
+		}()
+	}
+}
+
 func (t *tui) handleModalClose() {
 	t.returnToMain()
+}
+
+// handleRefreshBackground refreshes the server list in the background without leaving the current screen.
+// It preserves the current search query and selection, shows transient status, and avoids concurrent runs.
+func (t *tui) handleRefreshBackground() {
+	currentIdx := t.serverList.GetCurrentItem()
+	query := ""
+	if t.searchVisible {
+		query = t.searchBar.InputField.GetText()
+	}
+
+	t.showStatusTemp("Refreshing…")
+
+	go func(prevIdx int, q string) {
+		servers, err := t.serverService.ListServers(q)
+		if err != nil {
+			t.app.QueueUpdateDraw(func() {
+				t.showStatusTempColor(fmt.Sprintf("Refresh failed: %v", err), "#FF6B6B")
+			})
+			return
+		}
+		sortServersForUI(servers, t.sortMode)
+		t.app.QueueUpdateDraw(func() {
+			t.serverList.UpdateServers(servers)
+			// Try to restore selection if still valid
+			if prevIdx >= 0 && prevIdx < t.serverList.List.GetItemCount() {
+				t.serverList.SetCurrentItem(prevIdx)
+				if srv, ok := t.serverList.GetSelectedServer(); ok {
+					t.details.UpdateServer(srv)
+				}
+			}
+			t.showStatusTemp(fmt.Sprintf("Refreshed %d servers", len(servers)))
+		})
+	}(currentIdx, query)
 }
 
 // =============================================================================
@@ -293,13 +355,15 @@ func (t *tui) showHelpModal() {
 		"  ↑/↓            Navigate\n" +
 		"  Enter          SSH connect \n" +
 		"  c              Copy SSH command \n" +
+		"  g              Ping server (TCP to SSH port)\n" +
+		"  r              Refresh list (background)\n" +
 		"  a              Add server \n" +
 		"  e              Edit server \n" +
 		"  t              Edit tags (quick)\n" +
 		"  d              Delete entry \n" +
 		"  p              Pin/Unpin server \n" +
-		"  s              Sort field (Alias / Last SSH)\n" +
-		"  Shift+S        Reverse order (↑/↓)\n" +
+		"  s              Switch sort field (Alias ↔ Last SSH), keep direction\n" +
+		"  Shift+S        Toggle sort direction (↑/↓) for current field\n" +
 		"  /              Focus search\n" +
 		"  q              Quit\n" +
 		"  ?              Help\n"
@@ -344,12 +408,20 @@ func (t *tui) returnToMain() {
 	t.app.SetRoot(t.root, true)
 }
 
-// showStatusTemp displays a temporary message in the status bar and then restores the default text.
+// showStatusTemp displays a temporary message in the status bar (default green) and then restores the default text.
 func (t *tui) showStatusTemp(msg string) {
 	if t.statusBar == nil {
 		return
 	}
-	t.statusBar.SetText("[#A0FFA0]" + msg + "[-]")
+	t.showStatusTempColor(msg, "#A0FFA0")
+}
+
+// showStatusTempColor displays a temporary colored message in the status bar and restores default text after 2s.
+func (t *tui) showStatusTempColor(msg string, color string) {
+	if t.statusBar == nil {
+		return
+	}
+	t.statusBar.SetText("[" + color + "]" + msg + "[-]")
 	time.AfterFunc(2*time.Second, func() {
 		if t.app != nil {
 			t.app.QueueUpdateDraw(func() {
