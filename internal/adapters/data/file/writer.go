@@ -26,36 +26,55 @@ type SSHConfigWriter struct{}
 
 func (w *SSHConfigWriter) Write(writer io.Writer, servers []domain.Server) error {
 	bufWriter := bufio.NewWriter(writer)
-	defer bufWriter.Flush()
+	defer func() {
+		_ = bufWriter.Flush()
+	}()
 
-	fmt.Fprintf(bufWriter, "%s\n\n", ManagedByComment)
+	if _, err := fmt.Fprintf(bufWriter, "%s\n\n", ManagedByComment); err != nil {
+		return err
+	}
 
 	for i, server := range servers {
 		if i > 0 {
-			bufWriter.WriteString("\n")
+			if _, err := bufWriter.WriteString("\n"); err != nil {
+				return err
+			}
 		}
-		w.writeServer(bufWriter, server)
+		if err := w.writeServer(bufWriter, server); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (w *SSHConfigWriter) writeServer(writer *bufio.Writer, server domain.Server) {
-	fmt.Fprintf(writer, "Host %s\n", server.Alias)
+func (w *SSHConfigWriter) writeServer(writer *bufio.Writer, server domain.Server) error {
+	if _, err := fmt.Fprintf(writer, "Host %s\n", server.Alias); err != nil {
+		return err
+	}
 
 	if server.Host != "" {
-		fmt.Fprintf(writer, "    HostName %s\n", server.Host)
+		if _, err := fmt.Fprintf(writer, "    HostName %s\n", server.Host); err != nil {
+			return err
+		}
 	}
 
 	if server.User != "" {
-		fmt.Fprintf(writer, "    User %s\n", server.User)
+		if _, err := fmt.Fprintf(writer, "    User %s\n", server.User); err != nil {
+			return err
+		}
 	}
 
 	if server.Port != 0 && server.Port != DefaultPort {
-		fmt.Fprintf(writer, "    Port %d\n", server.Port)
+		if _, err := fmt.Fprintf(writer, "    Port %d\n", server.Port); err != nil {
+			return err
+		}
 	}
 
 	if server.Key != "" {
-		fmt.Fprintf(writer, "    IdentityFile %s\n", server.Key)
+		if _, err := fmt.Fprintf(writer, "    IdentityFile %s\n", server.Key); err != nil {
+			return err
+		}
 	}
+	return nil
 }

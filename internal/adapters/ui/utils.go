@@ -30,10 +30,10 @@ func renderTagBadgesForList(tags []string) string {
 	if len(tags) == 0 {
 		return ""
 	}
-	max := 2
+	maxTags := 2
 	shown := tags
-	if len(tags) > max {
-		shown = tags[:max]
+	if len(tags) > maxTags {
+		shown = tags[:maxTags]
 	}
 	parts := make([]string, 0, len(shown)+1)
 	for _, t := range shown {
@@ -93,11 +93,12 @@ func humanizeDuration(t time.Time) string {
 func BuildSSHCommand(s domain.Server) string {
 	parts := []string{"ssh"}
 	userHost := ""
-	if s.User != "" && s.Host != "" {
+	switch {
+	case s.User != "" && s.Host != "":
 		userHost = fmt.Sprintf("%s@%s", s.User, s.Host)
-	} else if s.Host != "" {
+	case s.Host != "":
 		userHost = s.Host
-	} else {
+	default:
 		userHost = s.Alias
 	}
 	parts = append(parts, userHost)
@@ -114,7 +115,7 @@ func BuildSSHCommand(s domain.Server) string {
 // quoteIfNeeded returns the value quoted if it contains spaces.
 func quoteIfNeeded(val string) string {
 	if strings.ContainsAny(val, " \t") {
-		return fmt.Sprintf("\"%s\"", val)
+		return fmt.Sprintf("%q", val)
 	}
 	return val
 }

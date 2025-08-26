@@ -40,7 +40,7 @@ func New(service string, outputPaths ...string) (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 	logDir := filepath.Join(home, ".lazyssh")
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	if err := os.MkdirAll(logDir, 0o750); err != nil {
 		return nil, err
 	}
 	config.OutputPaths = []string{filepath.Join(logDir, "lazyssh.log")}

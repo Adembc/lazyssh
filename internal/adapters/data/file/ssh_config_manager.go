@@ -43,7 +43,9 @@ func (m *sshConfigManager) parseServers() ([]domain.Server, error) {
 		}
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	parser := &SSHConfigParser{}
 	return parser.Parse(file)
@@ -58,7 +60,9 @@ func (m *sshConfigManager) writeServers(servers []domain.Server) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	writer := &SSHConfigWriter{}
 	return writer.Write(file, servers)

@@ -40,18 +40,20 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	//nolint:errcheck // log.Sync may return an error which is safe to ignore here
 	defer log.Sync()
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Errorw("failed to get user home directory", "error", err)
+		//nolint:gocritic // exitAfterDefer: ensure immediate exit on unrecoverable error
 		os.Exit(1)
 	}
 	sshConfigFile := filepath.Join(home, ".ssh", "config")
 	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
 
 	serverRepo := file.NewServerRepo(log, sshConfigFile, metaDataFile)
-	// serverInMemoryRepo := memory.NewServerRepository(log)
 	serverService := services.NewServerService(log, serverRepo)
 	tui := ui.NewTUI(log, serverService, version, gitCommit, buildTime)
 
