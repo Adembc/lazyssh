@@ -97,23 +97,6 @@ Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome!
-- Fork the repo and create a feature branch.
-- Follow Go formatting and linting: `make fmt` and `make lint` if available.
-- Keep PRs focused and include screenshots/GIFs for UI changes.
-- Open issues for bugs/ideas; tag as bug/feature/enhancement.
-
-By contributing, you agree that your contributions will be licensed under the Apache-2.0 License.
-
----
-
-## 🧾 License
-
-This project is licensed under the Apache License 2.0 — see the LICENSE file for details.
-
----
 
 ## 🙏 Acknowledgments
 
