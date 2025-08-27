@@ -107,7 +107,7 @@ check: staticcheck ## Run staticcheck analyzer
 	$(STATICCHECK) ./...
 
 .PHONY: quality
-quality: fmt vet ## Run all code quality checks (i will add lint and check)
+quality: fmt vet lint ## Run all code quality checks
 
 ##@ Testing
 

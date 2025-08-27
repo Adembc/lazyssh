@@ -17,12 +17,16 @@ package ui
 import (
 	"time"
 
-	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/gdamore/tcell/v2"
+	"go.uber.org/zap"
+
+	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/rivo/tview"
 )
 
 type tui struct {
+	logger *zap.SugaredLogger
+
 	version   string
 	commit    string
 	buildDate string
@@ -41,11 +45,13 @@ type tui struct {
 	left    *tview.Flex
 	content *tview.Flex
 
+	sortMode      SortMode
 	searchVisible bool
 }
 
-func NewTUI(ss ports.ServerService, version, commit, buildDate string) *tui {
+func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit, buildDate string) *tui {
 	return &tui{
+		logger:        logger,
 		app:           tview.NewApplication(),
 		serverService: ss,
 		version:       version,
@@ -55,10 +61,19 @@ func NewTUI(ss ports.ServerService, version, commit, buildDate string) *tui {
 }
 
 func (t *tui) Run() error {
+	defer func() {
+		if r := recover(); r != nil {
+			t.logger.Errorw("panic recovered", "error", r)
+		}
+	}()
 	t.app.EnableMouse(true)
 	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData().loadSplashScreen()
-
-	return t.app.Run()
+	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit, "buildDate", t.buildDate)
+	if err := t.app.Run(); err != nil {
+		t.logger.Errorw("application run error", "error", err)
+		return err
+	}
+	return nil
 }
 
 func (t *tui) initializeTheme() *tui {
@@ -83,6 +98,10 @@ func (t *tui) buildComponents() *tui {
 		OnSelectionChange(t.handleServerSelectionChange)
 	t.details = NewServerDetails()
 	t.statusBar = NewStatusBar()
+
+	// default sort mode
+	t.sortMode = SortByAliasAsc
+
 	return t
 }
 
@@ -112,9 +131,17 @@ func (t *tui) bindEvents() *tui {
 
 func (t *tui) loadInitialData() *tui {
 	servers, _ := t.serverService.ListServers("")
+	sortServersForUI(servers, t.sortMode)
+	t.updateListTitle()
 	t.serverList.UpdateServers(servers)
 
 	return t
+}
+
+func (t *tui) updateListTitle() {
+	if t.serverList != nil {
+		t.serverList.SetTitle("Servers — Sort: " + t.sortMode.String())
+	}
 }
 
 func (t *tui) loadSplashScreen() *tui {

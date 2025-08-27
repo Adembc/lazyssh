@@ -33,3 +33,4 @@ go.work.sum
 brainstorm
 .idea
 bin
+.DS_Store

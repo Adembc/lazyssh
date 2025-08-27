@@ -16,6 +16,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
@@ -43,12 +44,37 @@ func (sd *ServerDetails) build() {
 		SetTitleColor(tcell.Color250)
 }
 
+// renderTagChips builds colored tag chips for details view.
+func renderTagChips(tags []string) string {
+	if len(tags) == 0 {
+		return "-"
+	}
+	chips := make([]string, 0, len(tags))
+	for _, t := range tags {
+		chips = append(chips, fmt.Sprintf("[black:#5FAFFF] %s [-:-:-]", t))
+	}
+	return strings.Join(chips, " ")
+}
+
 func (sd *ServerDetails) UpdateServer(server domain.Server) {
+	lastSeen := server.LastSeen.Format("2006-01-02 15:04:05")
+	if server.LastSeen.IsZero() {
+		lastSeen = "Never"
+	}
+	serverKey := server.Key
+	if serverKey == "" {
+		serverKey = "(default: ~/.ssh/id_{rsa,ed25519,ecdsa})"
+	}
+	pinnedStr := "true"
+	if server.PinnedAt.IsZero() {
+		pinnedStr = "false"
+	}
+	tagsText := renderTagChips(server.Tags)
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: [white]%s[-]\nStatus: %s\nLast: %s\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  a: Add new server\n  e: Edit entry\n  d: Delete entry",
+		"[::b]%s[-]\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: %s\nPinned: [white]%s[-]\nLast SSH: %s\nSSH Count: [white]%d[-]\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin",
 		server.Alias, server.Host, server.User, server.Port,
-		server.Key, joinTags(server.Tags), statusIcon(server.Status),
-		server.LastSeen.Format("2006-01-02 15:04"))
+		serverKey, tagsText, pinnedStr,
+		lastSeen, server.SSHCount)
 	sd.TextView.SetText(text)
 }
 

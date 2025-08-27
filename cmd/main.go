@@ -17,9 +17,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/Adembc/lazyssh/internal/adapters/data/memory"
+	"github.com/Adembc/lazyssh/internal/adapters/data/file"
+	"github.com/Adembc/lazyssh/internal/logger"
+
 	"github.com/Adembc/lazyssh/internal/adapters/ui"
 	"github.com/Adembc/lazyssh/internal/core/services"
 	"github.com/spf13/cobra"
@@ -32,9 +35,27 @@ var (
 )
 
 func main() {
-	serverInMemoryRepo := memory.NewServerRepository()
-	serverService := services.NewServerService(serverInMemoryRepo)
-	tui := ui.NewTUI(serverService, version, gitCommit, buildTime)
+	log, err := logger.New("LAZYSSH")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	//nolint:errcheck // log.Sync may return an error which is safe to ignore here
+	defer log.Sync()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Errorw("failed to get user home directory", "error", err)
+		//nolint:gocritic // exitAfterDefer: ensure immediate exit on unrecoverable error
+		os.Exit(1)
+	}
+	sshConfigFile := filepath.Join(home, ".ssh", "config")
+	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
+
+	serverRepo := file.NewServerRepo(log, sshConfigFile, metaDataFile)
+	serverService := services.NewServerService(log, serverRepo)
+	tui := ui.NewTUI(log, serverService, version, gitCommit, buildTime)
 
 	rootCmd := &cobra.Command{
 		Use:   ui.AppName,

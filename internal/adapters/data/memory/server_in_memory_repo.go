@@ -19,25 +19,31 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
 )
 
-type serverRepository struct{}
+type serverRepository struct {
+	logger *zap.SugaredLogger
+}
 
 var servers = []domain.Server{
-	{Alias: "web-01", Host: "192.168.1.10", User: "root", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "web"}, Status: "online", LastSeen: time.Now().Add(-2 * time.Hour)},
-	{Alias: "web-02", Host: "192.168.1.11", User: "ubuntu", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"prod", "web"}, Status: "warn", LastSeen: time.Now().Add(-30 * time.Minute)},
-	{Alias: "db-01", Host: "192.168.1.20", User: "postgres", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "db"}, Status: "offline", LastSeen: time.Now().Add(-26 * time.Hour)},
-	{Alias: "api-01", Host: "192.168.1.30", User: "deploy", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"prod", "api"}, Status: "online", LastSeen: time.Now().Add(-10 * time.Minute)},
-	{Alias: "cache-01", Host: "192.168.1.40", User: "redis", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "cache"}, Status: "online", LastSeen: time.Now().Add(-1 * time.Hour)},
-	{Alias: "dev-web", Host: "10.0.1.10", User: "dev", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"dev", "web"}, Status: "online", LastSeen: time.Now().Add(-5 * time.Minute)},
-	{Alias: "dev-db", Host: "10.0.1.20", User: "dev", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"dev", "db"}, Status: "online", LastSeen: time.Now().Add(-15 * time.Minute)},
-	{Alias: "staging", Host: "staging.example.com", User: "ubuntu", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"test"}, Status: "warn", LastSeen: time.Now().Add(-45 * time.Minute)},
+	{Alias: "web-01", Host: "192.168.1.10", User: "root", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "web"}, LastSeen: time.Now().Add(-2 * time.Hour)},
+	{Alias: "web-02", Host: "192.168.1.11", User: "ubuntu", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"prod", "web"}, LastSeen: time.Now().Add(-30 * time.Minute)},
+	{Alias: "db-01", Host: "192.168.1.20", User: "postgres", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "db"}, LastSeen: time.Now().Add(-26 * time.Hour)},
+	{Alias: "api-01", Host: "192.168.1.30", User: "deploy", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"prod", "api"}, LastSeen: time.Now().Add(-10 * time.Minute)},
+	{Alias: "cache-01", Host: "192.168.1.40", User: "redis", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "cache"}, LastSeen: time.Now().Add(-1 * time.Hour)},
+	{Alias: "dev-web", Host: "10.0.1.10", User: "dev", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"dev", "web"}, LastSeen: time.Now().Add(-5 * time.Minute)},
+	{Alias: "dev-db", Host: "10.0.1.20", User: "dev", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"dev", "db"}, LastSeen: time.Now().Add(-15 * time.Minute)},
+	{Alias: "staging", Host: "staging.example.com", User: "ubuntu", Port: 22, Key: "~/.ssh/id_ed25519", Tags: []string{"test"}, LastSeen: time.Now().Add(-45 * time.Minute)},
 }
 
 // NewServerRepository creates a new server repository with the given file path.
-func NewServerRepository() *serverRepository {
-	return &serverRepository{}
+func NewServerRepository(logger *zap.SugaredLogger) *serverRepository {
+	return &serverRepository{
+		logger: logger,
+	}
 }
 
 // ListServers returns a list of servers from the repository.
@@ -52,11 +58,10 @@ func (r *serverRepository) ListServers(query string) ([]domain.Server, error) {
 		alias := strings.ToLower(server.Alias)
 		host := strings.ToLower(server.Host)
 		user := strings.ToLower(server.User)
-		status := strings.ToLower(server.Status)
 		port := strconv.Itoa(server.Port)
 
 		match := false
-		if strings.Contains(alias, q) || strings.Contains(host, q) || strings.Contains(user, q) || strings.Contains(status, q) || strings.Contains(port, q) {
+		if strings.Contains(alias, q) || strings.Contains(host, q) || strings.Contains(user, q) || strings.Contains(port, q) {
 			match = true
 		}
 		if !match {
@@ -96,6 +101,30 @@ func (r *serverRepository) DeleteServer(server domain.Server) error {
 	for i, s := range servers {
 		if s.Alias == server.Alias {
 			servers = append(servers[:i], servers[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *serverRepository) SetPinned(alias string, pinned bool) error {
+	for i, s := range servers {
+		if s.Alias == alias {
+			if pinned {
+				servers[i].PinnedAt = time.Now()
+			} else {
+				servers[i].PinnedAt = time.Time{}
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *serverRepository) RecordSSH(alias string) error {
+	for i, s := range servers {
+		if s.Alias == alias {
+			servers[i].LastSeen = time.Now()
 			return nil
 		}
 	}
