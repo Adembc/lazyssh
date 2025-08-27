@@ -7,6 +7,9 @@
 Lazyssh is a terminal-based, interactive SSH manager inspired by tools like lazydocker and k9s — but built for managing your fleet of servers directly from your terminal.
 <br/>
 With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your ~/.ssh/config. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
+## 🎥 Demo
+
+
 
 ## ✨ Features
 
@@ -35,19 +38,41 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
   - Automatically append keys to ~/.ssh/authorized_keys with correct permissions
 ---
 
-## 🛠 Installation
+## 📦 Installation
 
-- From source (requires Go 1.22+):
-  - git clone https://github.com/Adembc/lazyssh.git
-  - cd lazyssh
-  - go build -o lazyssh ./cmd
-  - ./lazyssh --version
+### Option 1: Download Binary from Release
 
-- Using make (if available):
-  - make build
-  - ./bin/lazyssh
+Download the latest release from [GitHub Releases](https://github.com/Adembc/lazyssh/releases):
 
-Binary releases: if/when releases are published, download from the Releases page and place in your PATH.
+```bash
+# Download and extract (example)
+curl -JLO https://github.com/Adembc/lazyssh/releases/download/v0.1.0/lazyssh-darwin-arm64.tar.gz
+tar -xzf lazyssh-darwin-arm64.tar.gz
+
+# Make it executable and move to PATH
+chmod +x  lazyssh-darwin-arm64
+sudo mv lazyssh-darwin-arm64 /usr/local/bin/lazyssh
+
+# run it
+lazyssh
+```
+
+### Option 2: Build from Source
+
+Requires **Go 1.22+**
+
+```bash
+# Clone the repository
+git clone https://github.com/Adembc/lazyssh.git
+cd lazyssh
+
+# Build for macOS
+make build
+./bin/lazyssh
+
+# Or Run it directly
+make run
+```
 
 ---
 
