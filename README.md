@@ -80,26 +80,30 @@ SSH into the selected server
 
 ## 📦 Installation
 
-### Option 1: Download Binary from Release
-
-Download the latest release from [GitHub Releases](https://github.com/Adembc/lazyssh/releases):
+### Option 1: Homebrew (macOS)
 
 ```bash
-# Download and extract (example)
-curl -JLO https://github.com/Adembc/lazyssh/releases/download/v0.1.0/lazyssh-darwin-arm64.tar.gz
-tar -xzf lazyssh-darwin-arm64.tar.gz
+brew install Adembc/homebrew-tap/lazyssh
+```
 
-# Make it executable and move to PATH
-chmod +x  lazyssh-darwin-arm64
-sudo mv lazyssh-darwin-arm64 /usr/local/bin/lazyssh
+### Option 2: Download Binary from Releases
 
-# run it
+Download from [GitHub Releases](https://github.com/Adembc/lazyssh/releases). You can use the snippet below to automatically fetch the latest version for your OS/ARCH (Darwin/Linux and amd64/arm64 supported):
+
+```bash
+# Detect latest version
+LATEST_TAG=$(curl -fsSL https://api.github.com/repos/Adembc/lazyssh/releases/latest | jq -r .tag_name)
+# Download the correct binary for your system
+curl -LJO "https://github.com/Adembc/lazyssh/releases/download/${LATEST_TAG}/lazyssh_$(uname)_$(uname -m).tar.gz"
+# Extract the binary
+tar -xzf lazyssh_$(uname)_$(uname -m).tar.gz
+# Move to /usr/local/bin or another directory in your PATH
+sudo mv lazyssh /usr/local/bin/
+# enjoy!
 lazyssh
 ```
 
-### Option 2: Build from Source
-
-Requires **Go 1.22+**
+### Option 3: Build from Source
 
 ```bash
 # Clone the repository
@@ -155,6 +159,9 @@ We love seeing the community make Lazyssh better 🚀
 If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ and join [stargazers](https://github.com/adembc/lazyssh/stargazers).
 
 ☕ You can also support me by [buying me a coffee](https://www.buymeacoffee.com/adembc) ❤️
+<br/>
+<a href="https://buymeacoffee.com/adembc" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="200"></a>
+
 
 ---
 
