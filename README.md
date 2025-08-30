@@ -7,13 +7,12 @@
 Lazyssh is a terminal-based, interactive SSH manager inspired by tools like lazydocker and k9s — but built for managing your fleet of servers directly from your terminal.
 <br/>
 With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your ~/.ssh/config. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
-## 🎥 Demo
 
-
+---
 
 ## ✨ Features
 
-### Server Management (current)
+### Server Management
 - 📜 Read & display servers from your `~/.ssh/config` in a scrollable list.
 - ➕ Add a new server from the UI by specifying alias, host/IP, username, port, identity file.
 - ✏ Edit existing server entries directly from the UI.
@@ -32,10 +31,51 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 - 📁 Copy files between local and servers with an easy picker UI.
 - 📡 Port forwarding (local↔remote) from the UI.
 - 🔑 Enhanced Key Management:
-  - Use default local public key (~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub)
-  - Paste custom public keys manually
-  - Generate new keypairs and deploy them
-  - Automatically append keys to ~/.ssh/authorized_keys with correct permissions
+    - Use default local public key (~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub)
+    - Paste custom public keys manually
+    - Generate new keypairs and deploy them
+    - Automatically append keys to ~/.ssh/authorized_keys with correct permissions
+---
+
+## 📷 Screenshots
+
+<div align="center">
+
+### 🚀 Startup
+<img src="./docs/loader.png" alt="App starting splash/loader" width="800" />
+
+Clean loading screen when launching the app
+
+---
+
+### 📋 Server Management Dashboard
+<img src="./docs/list server.png" alt="Server list view" width="900" />
+
+Main dashboard displaying all configured servers with status indicators, pinned favorites at the top, and easy navigation
+
+---
+
+### 🔎 Search
+<img src="./docs/search.png" alt="Fuzzy search servers" width="900" />
+
+Fuzzy search functionality to quickly find servers by name, IP address, or tags
+
+---
+
+### ➕ Add Server
+<img src="./docs/add server.png" alt="Add a new server" width="900" />
+
+User-friendly form interface for adding new SSH connections.
+
+---
+
+### 🔐 Connect to server
+<img src="./docs/ssh.png" alt="SSH connection details" width="900" />
+
+SSH into the selected server
+
+</div>
+
 ---
 
 ## 📦 Installation
@@ -76,21 +116,6 @@ make run
 
 ---
 
-## ⚙️ Configuration
-
-lazyssh reads your SSH hosts from `~/.ssh/config`. Example entry:
-
-```Host my-server
-    HostName 203.0.113.10
-    User ubuntu
-    Port 22
-    IdentityFile ~/.ssh/id_ed25519
-```
-
-You can add/edit/delete entries from within the UI as well; lazyssh will keep things consistent.
-
----
-
 ## ⌨️ Key Bindings
 
 | Key | Action |
@@ -114,14 +139,24 @@ Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
 ---
 
-## 🚀 Quickstart
+## 🤝 Contributing
 
-- Ensure your `~/.ssh/config` contains at least one Host.
-- Run the app: `./lazyssh`
-- Use `/` to search, `Enter` to connect.
+Contributions are welcome!
+
+- If you spot a bug or have a feature request, please [open an issue](https://github.com/adembc/lazyssh/issues).
+- If you'd like to contribute, fork the repo and submit a pull request ❤️.
+
+We love seeing the community make Lazyssh better 🚀
 
 ---
 
+## ⭐ Support
+
+If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ and join [stargazers](https://github.com/adembc/lazyssh/stargazers).
+
+☕ You can also support me by [buying me a coffee](https://www.buymeacoffee.com/adembc) ❤️
+
+---
 
 ## 🙏 Acknowledgments
 
