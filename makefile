@@ -19,7 +19,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 # Project variables
 PROJECT_NAME ?= $(shell basename $(CURDIR))
-VERSION ?= v0.0.1
+VERSION ?= v0.1.0
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 

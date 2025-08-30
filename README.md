@@ -9,6 +9,33 @@ Lazyssh is a terminal-based, interactive SSH manager inspired by tools like lazy
 With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your ~/.ssh/config. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
 ## 🎥 Demo
 
+<div align="center">
+  <figure>
+    <img src="./docs/loader.png" alt="App starting splash/loader" width="800" />
+    <figcaption>Startup splash / loader</figcaption>
+  </figure>
+  <br/>
+  <figure>
+    <img src="./docs/list server.png" alt="Server list view" width="900" />
+    <figcaption>Scrollable server list with pins and status</figcaption>
+  </figure>
+  <br/>
+  <figure>
+    <img src="./docs/search.png" alt="Fuzzy search servers" width="900" />
+    <figcaption>Fuzzy search to quickly filter servers</figcaption>
+  </figure>
+  <br/>
+  <figure>
+    <img src="./docs/add server.png" alt="Add a new server" width="900" />
+    <figcaption>Add a new server via the UI form</figcaption>
+  </figure>
+  <br/>
+  <figure>
+    <img src="./docs/ssh.png" alt="SSH connection details" width="900" />
+    <figcaption>SSH into the selected server</figcaption>
+  </figure>
+</div>
+
 
 
 ## ✨ Features
@@ -76,21 +103,6 @@ make run
 
 ---
 
-## ⚙️ Configuration
-
-lazyssh reads your SSH hosts from `~/.ssh/config`. Example entry:
-
-```Host my-server
-    HostName 203.0.113.10
-    User ubuntu
-    Port 22
-    IdentityFile ~/.ssh/id_ed25519
-```
-
-You can add/edit/delete entries from within the UI as well; lazyssh will keep things consistent.
-
----
-
 ## ⌨️ Key Bindings
 
 | Key | Action |
@@ -113,15 +125,6 @@ You can add/edit/delete entries from within the UI as well; lazyssh will keep th
 Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
 ---
-
-## 🚀 Quickstart
-
-- Ensure your `~/.ssh/config` contains at least one Host.
-- Run the app: `./lazyssh`
-- Use `/` to search, `Enter` to connect.
-
----
-
 
 ## 🙏 Acknowledgments
 
