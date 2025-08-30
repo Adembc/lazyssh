@@ -1,0 +1,63 @@
+version: 2
+project_name: lazyssh
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm
+      - arm64
+      - 386
+    main: ./cmd/main.go
+    ldflags:
+      -X main.version={{.Version}} -X main.gitCommit={{.Commit}} -X main.buildTime={{.Date}}
+
+
+
+archives:
+  - formats: [ tar.gz ]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+        {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: [ zip ]
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+brews:
+  - repository:
+      owner: adembc
+      name: homebrew-tap
+    homepage: "https://github.com/adembc/lazyssh"
+    description: "A simple terminal UI for managing SSH connections.  "
+
+release:
+  footer: >-
+    
+    ---
+    
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
