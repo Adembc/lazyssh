@@ -6,7 +6,7 @@
 
 Lazyssh is a terminal-based, interactive SSH manager inspired by tools like lazydocker and k9s — but built for managing your fleet of servers directly from your terminal.
 <br/>
-With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your ~/.ssh/config. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
+With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your `~/.ssh/config`. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
 
 ---
 
@@ -31,11 +31,27 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 - 📁 Copy files between local and servers with an easy picker UI.
 - 📡 Port forwarding (local↔remote) from the UI.
 - 🔑 Enhanced Key Management:
-    - Use default local public key (~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub)
+    - Use default local public key (`~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
     - Paste custom public keys manually
     - Generate new keypairs and deploy them
-    - Automatically append keys to ~/.ssh/authorized_keys with correct permissions
+    - Automatically append keys to `~/.ssh/authorized_keys` with correct permissions
 ---
+
+## 🔐 Security Notice
+
+lazyssh does not introduce any new security risks.
+It is simply a UI/TUI wrapper around your existing `~/.ssh/config` file.
+
+- All SSH connections are executed through your system’s native ssh binary (OpenSSH).
+
+- Private keys, passwords, and credentials are never stored, transmitted, or modified by lazyssh.
+
+- Your existing IdentityFile paths and ssh-agent integrations work exactly as before.
+
+- lazyssh only reads and updates your `~/.ssh/config`. A backup of the file is created automatically before any changes.
+
+- File permissions on your SSH config are preserved to ensure security.
+
 
 ## 📷 Screenshots
 

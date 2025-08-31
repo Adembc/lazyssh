@@ -20,7 +20,6 @@ SHELL = /usr/bin/env bash -o pipefail
 # Project variables
 PROJECT_NAME ?= $(shell basename $(CURDIR))
 VERSION ?= v0.1.0
-BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Build variables
@@ -30,7 +29,7 @@ CMD_DIR ?= ./cmd
 PKG_LIST := $(shell go list ./...)
 
 # LDFLAGS for version information
-LDFLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
+LDFLAGS = -ldflags "-X main.version=$(VERSION) -X main.gitCommit=$(GIT_COMMIT)"
 
 ##@ Dependencies
 

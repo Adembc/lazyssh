@@ -16,6 +16,7 @@ package file
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -56,16 +57,41 @@ func (m *sshConfigManager) writeServers(servers []domain.Server) error {
 		return err
 	}
 
-	file, err := os.Create(m.filePath)
+	if err := m.backupCurrentConfig(); err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(m.filePath)
+	tmp, err := os.CreateTemp(dir, ".lazyssh-tmp-*")
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = file.Close()
-	}()
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 
 	writer := &SSHConfigWriter{}
-	return writer.Write(file, servers)
+	if err := writer.Write(tmp, servers); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil { // close after sync to ensure contents are persisted
+		return err
+	}
+
+	if err := os.Rename(tmp.Name(), m.filePath); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *sshConfigManager) addServer(server domain.Server) error {
@@ -134,4 +160,50 @@ func (m *sshConfigManager) deleteServer(alias string) error {
 func (m *sshConfigManager) ensureDirectory() error {
 	dir := filepath.Dir(m.filePath)
 	return os.MkdirAll(dir, 0o700)
+}
+
+// backupCurrentConfig creates ~/.lazyssh/backups/config.backup with 0600 perms,
+// overwriting it each time, but only if the source config exists.
+func (m *sshConfigManager) backupCurrentConfig() error {
+	// If source config does not exist, skip backup
+	if _, err := os.Stat(m.filePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	backupDir := filepath.Join(home, ".lazyssh", "backups")
+	// Ensure directory with 0700
+	if err := os.MkdirAll(backupDir, 0o700); err != nil {
+		return err
+	}
+	backupPath := filepath.Join(backupDir, "config.backup")
+	// Copy file contents
+	src, err := os.Open(m.filePath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = src.Close() }()
+
+	// #nosec G304 -- backupPath is generated internally and trusted
+	dst, err := os.OpenFile(backupPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = dst.Close() }()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return err
+	}
+
+	if err := dst.Sync(); err != nil {
+		return err
+	}
+	return nil
 }

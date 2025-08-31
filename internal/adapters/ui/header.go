@@ -25,17 +25,15 @@ import (
 type AppHeader struct {
 	*tview.Flex
 	version   string
-	buildTime string
 	gitCommit string
 	repoURL   string
 }
 
-func NewAppHeader(version, gitCommit, buildTime, repoURL string) *AppHeader {
+func NewAppHeader(version, gitCommit, repoURL string) *AppHeader {
 	header := &AppHeader{
 		Flex:      tview.NewFlex(),
 		version:   version,
 		repoURL:   repoURL,
-		buildTime: buildTime,
 		gitCommit: gitCommit,
 	}
 	header.build()
@@ -85,13 +83,11 @@ func (h *AppHeader) buildCenterSection(bg tcell.Color) *tview.TextView {
 	if commit != "" {
 		commitTag = makeTag(commit, "#A78BFA") // violet
 	}
-	timeTag := makeTag(formatBuildTime(h.buildTime), "#3B82F6") // blue
 
 	text := versionTag
 	if commitTag != "" {
 		text += "  " + commitTag
 	}
-	text += "  " + timeTag
 
 	center.SetText(text)
 	return center
@@ -124,30 +120,6 @@ func shortCommit(c string) string {
 		return c[:7]
 	}
 	return c
-}
-
-// formatBuildTime tries to parse common time formats and returns a concise human-readable string.
-func formatBuildTime(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return "unknown"
-	}
-	layouts := []string{
-		"2006-01-02 15:04:05",
-		time.RFC3339,
-		time.RFC1123,
-		time.RFC1123Z,
-	}
-	var t time.Time
-	var err error
-	for _, l := range layouts {
-		t, err = time.Parse(l, s)
-		if err == nil {
-			return t.Format("Mon, 02 Jan 2006 15:04")
-		}
-	}
-
-	return s
 }
 
 // makeTag returns a rectangular-looking colored chip for the given text.
