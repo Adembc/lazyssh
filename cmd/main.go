@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/Adembc/lazyssh/internal/adapters/data/file"
 	"github.com/Adembc/lazyssh/internal/logger"
@@ -31,7 +30,6 @@ import (
 var (
 	version   = "develop"
 	gitCommit = "unknown"
-	buildTime = time.Now().Format("2006-01-02 15:04:05")
 )
 
 func main() {
@@ -55,7 +53,7 @@ func main() {
 
 	serverRepo := file.NewServerRepo(log, sshConfigFile, metaDataFile)
 	serverService := services.NewServerService(log, serverRepo)
-	tui := ui.NewTUI(log, serverService, version, gitCommit, buildTime)
+	tui := ui.NewTUI(log, serverService, version, gitCommit)
 
 	rootCmd := &cobra.Command{
 		Use:   ui.AppName,

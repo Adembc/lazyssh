@@ -27,9 +27,8 @@ import (
 type tui struct {
 	logger *zap.SugaredLogger
 
-	version   string
-	commit    string
-	buildDate string
+	version string
+	commit  string
 
 	app           *tview.Application
 	serverService ports.ServerService
@@ -49,14 +48,13 @@ type tui struct {
 	searchVisible bool
 }
 
-func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit, buildDate string) *tui {
+func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) *tui {
 	return &tui{
 		logger:        logger,
 		app:           tview.NewApplication(),
 		serverService: ss,
 		version:       version,
 		commit:        commit,
-		buildDate:     buildDate,
 	}
 }
 
@@ -68,7 +66,7 @@ func (t *tui) Run() error {
 	}()
 	t.app.EnableMouse(true)
 	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData().loadSplashScreen()
-	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit, "buildDate", t.buildDate)
+	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit)
 	if err := t.app.Run(); err != nil {
 		t.logger.Errorw("application run error", "error", err)
 		return err
@@ -89,7 +87,7 @@ func (t *tui) initializeTheme() *tui {
 }
 
 func (t *tui) buildComponents() *tui {
-	t.header = NewAppHeader(t.version, t.commit, t.buildDate, RepoURL)
+	t.header = NewAppHeader(t.version, t.commit, RepoURL)
 	t.searchBar = NewSearchBar().
 		OnSearch(t.handleSearchInput).
 		OnEscape(t.hideSearchBar)

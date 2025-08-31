@@ -17,7 +17,7 @@ builds:
       - 386
     main: ./cmd/main.go
     ldflags:
-      -X main.version={{.Version}} -X main.gitCommit={{.Commit}} -X main.buildTime={{.Date}}
+      -X main.version={{.Version}} -X main.gitCommit={{.Commit}}
 
 
 
