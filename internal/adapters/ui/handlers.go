@@ -137,6 +137,8 @@ func (t *tui) handleNavigateDown() {
 		itemCount := t.serverList.GetItemCount()
 		if currentIdx < itemCount-1 {
 			t.serverList.SetCurrentItem(currentIdx + 1)
+		} else {
+			t.serverList.SetCurrentItem(0)
 		}
 	}
 }
@@ -146,6 +148,8 @@ func (t *tui) handleNavigateUp() {
 		currentIdx := t.serverList.GetCurrentItem()
 		if currentIdx > 0 {
 			t.serverList.SetCurrentItem(currentIdx - 1)
+		} else {
+			t.serverList.SetCurrentItem(t.serverList.GetItemCount() - 1)
 		}
 	}
 }
