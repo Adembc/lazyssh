@@ -138,22 +138,22 @@ make run
 
 ## ⌨️ Key Bindings
 
-| Key | Action |
-|---|---|
-| / | Toggle search bar |
-| ↑/↓ | Navigate servers |
-| Enter | SSH into selected server |
-| c | Copy SSH command to clipboard |
-| g | Ping selected server |
-| r | Refresh background data |
-| a | Add server |
-| e | Edit server |
-| t | Edit tags |
-| d | Delete server |
-| p | Pin/Unpin server |
-| s | Toggle sort field |
-| S | Reverse sort order |
-| q | Quit |
+| Key   | Action                        |
+| ----- | ----------------------------- |
+| /     | Toggle search bar             |
+| ↑↓/jk | Navigate servers              |
+| Enter | SSH into selected server      |
+| c     | Copy SSH command to clipboard |
+| g     | Ping selected server          |
+| r     | Refresh background data       |
+| a     | Add server                    |
+| e     | Edit server                   |
+| t     | Edit tags                     |
+| d     | Delete server                 |
+| p     | Pin/Unpin server              |
+| s     | Toggle sort field             |
+| S     | Reverse sort order            |
+| q     | Quit                          |
 
 Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
