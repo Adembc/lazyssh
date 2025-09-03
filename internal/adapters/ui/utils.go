@@ -127,6 +127,9 @@ func BuildSSHCommand(s domain.Server) string {
 	if s.Key != "" {
 		parts = append(parts, "-i", quoteIfNeeded(s.Key))
 	}
+	if s.ForwardAgent {
+		parts = append(parts, "-A")
+	}
 	return strings.Join(parts, " ")
 }
 
