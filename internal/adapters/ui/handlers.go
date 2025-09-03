@@ -72,6 +72,12 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 't':
 		t.handleTagsEdit()
 		return nil
+	case 'j':
+		t.handleNavigateDown()
+		return nil
+	case 'k':
+		t.handleNavigateUp()
+		return nil
 	}
 
 	if event.Key() == tcell.KeyEnter {
@@ -122,6 +128,29 @@ func (t *tui) handleCopyCommand() {
 func (t *tui) handleTagsEdit() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		t.showEditTagsForm(server)
+	}
+}
+
+func (t *tui) handleNavigateDown() {
+	if t.app.GetFocus() == t.serverList {
+		currentIdx := t.serverList.GetCurrentItem()
+		itemCount := t.serverList.GetItemCount()
+		if currentIdx < itemCount-1 {
+			t.serverList.SetCurrentItem(currentIdx + 1)
+		} else {
+			t.serverList.SetCurrentItem(0)
+		}
+	}
+}
+
+func (t *tui) handleNavigateUp() {
+	if t.app.GetFocus() == t.serverList {
+		currentIdx := t.serverList.GetCurrentItem()
+		if currentIdx > 0 {
+			t.serverList.SetCurrentItem(currentIdx - 1)
+		} else {
+			t.serverList.SetCurrentItem(t.serverList.GetItemCount() - 1)
+		}
 	}
 }
 
