@@ -16,12 +16,15 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/Adembc/lazyssh/internal/adapters/data/file"
-	"github.com/Adembc/lazyssh/internal/logger"
+	"github.com/Adembc/lazyssh/internal/adapters/flags"
 
+	"github.com/Adembc/lazyssh/internal/adapters/config"
+	"github.com/Adembc/lazyssh/internal/adapters/logger"
 	"github.com/Adembc/lazyssh/internal/adapters/ui"
 	"github.com/Adembc/lazyssh/internal/core/services"
 	"github.com/spf13/cobra"
@@ -33,27 +36,13 @@ var (
 )
 
 func main() {
-	log, err := logger.New("LAZYSSH")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	cfg := config.NewOSConfig()
+	sshConfigFile := filepath.Join(cfg.HomeDir(), ".ssh", "config")
+	metaDataFile := cfg.ConfigPath("metadata.json")
 
-	//nolint:errcheck // log.Sync may return an error which is safe to ignore here
-	defer log.Sync()
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Errorw("failed to get user home directory", "error", err)
-		//nolint:gocritic // exitAfterDefer: ensure immediate exit on unrecoverable error
-		os.Exit(1)
-	}
-	sshConfigFile := filepath.Join(home, ".ssh", "config")
-	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
-
-	serverRepo := file.NewServerRepo(log, sshConfigFile, metaDataFile)
-	serverService := services.NewServerService(log, serverRepo)
-	tui := ui.NewTUI(log, serverService, version, gitCommit)
+	serverRepo := file.NewServerRepo(sshConfigFile, metaDataFile)
+	serverService := services.NewServerService(serverRepo)
+	tui := ui.NewTUI(serverService, version, gitCommit)
 
 	rootCmd := &cobra.Command{
 		Use:   ui.AppName,
@@ -61,6 +50,13 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return tui.Run()
 		},
+	}
+
+	flagsAdapter := flags.NewCobraFlags(rootCmd)
+	// configure logger before running any command
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) {
+		logger.ConfigureLogger(cfg.LogPath("lazyssh.log"), flagsAdapter.IsDebug())
+		slog.Info("Running lazyssh", "version", version, "commit", gitCommit)
 	}
 	rootCmd.SilenceUsage = true
 
