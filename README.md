@@ -134,7 +134,7 @@ make build
 make run
 ```
 
-### Option 3: Build from Source with docker
+### Option 4: Build from Source with docker
 
 ```bash
 # Clone the repository
