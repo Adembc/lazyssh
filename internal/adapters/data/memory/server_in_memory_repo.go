@@ -19,14 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/Adembc/lazyssh/internal/core/domain"
 )
 
-type serverRepository struct {
-	logger *zap.SugaredLogger
-}
+type serverRepository struct{}
 
 var servers = []domain.Server{
 	{Alias: "web-01", Host: "192.168.1.10", User: "root", Port: 22, Key: "~/.ssh/id_rsa", Tags: []string{"prod", "web"}, LastSeen: time.Now().Add(-2 * time.Hour)},
@@ -40,10 +36,8 @@ var servers = []domain.Server{
 }
 
 // NewServerRepository creates a new server repository with the given file path.
-func NewServerRepository(logger *zap.SugaredLogger) *serverRepository {
-	return &serverRepository{
-		logger: logger,
-	}
+func NewServerRepository() *serverRepository {
+	return &serverRepository{}
 }
 
 // ListServers returns a list of servers from the repository.
