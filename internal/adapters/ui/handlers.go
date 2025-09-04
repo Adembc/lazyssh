@@ -169,7 +169,11 @@ func (t *tui) handleSearchToggle() {
 
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
-		t.showConnectModal(server)
+
+		t.app.Suspend(func() {
+			_ = t.serverService.SSH(server.Alias)
+		})
+		t.refreshServerList()
 	}
 }
 
@@ -296,38 +300,6 @@ func (t *tui) showSearchBar() {
 	t.left.AddItem(t.serverList, 0, 1, false)
 	t.app.SetFocus(t.searchBar)
 	t.searchVisible = true
-}
-
-func (t *tui) showConnectModal(server domain.Server) {
-	msg := fmt.Sprintf("SSH to %s (%s@%s:%d)\n\nConfirm to start an SSH session .",
-		server.Alias, server.User, server.Host, server.Port)
-
-	modal := tview.NewModal().
-		SetText(msg).
-		AddButtons([]string{"Confirm", "Cancel"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			if buttonIndex == 0 {
-				// Suspend the TUI while running the external ssh command.
-				t.app.Suspend(func() {
-					err := t.serverService.SSH(server.Alias)
-					if err != nil {
-						// Show a brief status after we resume
-						t.app.QueueUpdateDraw(func() {
-							if strings.Contains(strings.ToLower(err.Error()), "timeout") {
-								t.showStatusTempColor("SSH timeout, returning to list", "#FF6B6B")
-							} else {
-								t.showStatusTempColor("SSH failed: "+err.Error(), "#FF6B6B")
-							}
-						})
-					}
-				})
-				// Refresh to reflect updated last seen and ssh count
-				t.refreshServerList()
-			}
-			t.handleModalClose()
-		})
-
-	t.app.SetRoot(modal, true)
 }
 
 func (t *tui) showDeleteConfirmModal(server domain.Server) {

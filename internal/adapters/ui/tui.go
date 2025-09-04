@@ -15,8 +15,6 @@
 package ui
 
 import (
-	"time"
-
 	"github.com/gdamore/tcell/v2"
 	"go.uber.org/zap"
 
@@ -65,7 +63,8 @@ func (t *tui) Run() error {
 		}
 	}()
 	t.app.EnableMouse(true)
-	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData().loadSplashScreen()
+	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData()
+	t.app.SetRoot(t.root, true)
 	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit)
 	if err := t.app.Run(); err != nil {
 		t.logger.Errorw("application run error", "error", err)
@@ -140,16 +139,4 @@ func (t *tui) updateListTitle() {
 	if t.serverList != nil {
 		t.serverList.SetTitle("Servers — Sort: " + t.sortMode.String())
 	}
-}
-
-func (t *tui) loadSplashScreen() *tui {
-	splash, stop := buildSplash(t.app)
-	t.app.SetRoot(splash, true)
-	time.AfterFunc(SplashScreenDuration, func() {
-		stop()
-		t.app.QueueUpdateDraw(func() {
-			t.app.SetRoot(t.root, true)
-		})
-	})
-	return t
 }
