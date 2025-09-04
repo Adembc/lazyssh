@@ -39,6 +39,10 @@ const (
 	sshConfigRemoteCommandField            = "remotecommand"
 )
 
+const (
+	boolYes = "yes"
+)
+
 type SSHConfigParser struct{}
 
 func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
@@ -91,17 +95,17 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 		case sshConfigPasswordAuthenticationField:
 			if currentServer != nil {
 				valLower := strings.ToLower(value)
-				currentServer.PasswordAuthentication = valLower == "yes" || valLower == "on" || valLower == "true"
+				currentServer.PasswordAuthentication = valLower == boolYes
 			}
 		case sshConfigPubkeyAuthenticationField:
 			if currentServer != nil {
 				valLower := strings.ToLower(value)
-				currentServer.PubkeyAuthentication = valLower == "yes" || valLower == "on" || valLower == "true"
+				currentServer.PubkeyAuthentication = valLower == boolYes
 			}
 		case sshConfigCompressionField:
 			if currentServer != nil {
 				valLower := strings.ToLower(value)
-				currentServer.Compression = valLower == "yes" || valLower == "on" || valLower == "true"
+				currentServer.Compression = valLower == boolYes
 			}
 		case sshConfigRequestTTYField:
 			if currentServer != nil {

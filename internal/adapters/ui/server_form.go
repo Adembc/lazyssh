@@ -110,7 +110,7 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddCheckbox("Pubkey Authentication:", defaultValues.PubkeyAuthentication, nil)
 	sf.Form.AddCheckbox("Compression:", defaultValues.Compression, nil)
 	sf.Form.AddInputField("Request TTY:", defaultValues.RequestTTY, 20, nil, nil)
-	sf.Form.AddInputField("Remote Command:", defaultValues.RemoteCommand, 200, nil, nil)
+	sf.Form.AddInputField("Remote Command:", defaultValues.RemoteCommand, 40, nil, nil)
 }
 
 type ServerFormData struct {
