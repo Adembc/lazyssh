@@ -134,6 +134,25 @@ make build
 make run
 ```
 
+### Option 3: Build from Source with docker
+
+```bash
+# Clone the repository
+git clone https://github.com/Adembc/lazyssh.git
+cd lazyssh
+
+# Run container
+docker run --rm -it -v "$PWD":/usr/src/myapp -w /usr/src/myapp golang:trixie bash
+
+# For dev build
+export GOFLAGS=-buildvcs=false && make build
+
+# For prod build
+make build
+./bin/lazyssh
+
+```
+
 ---
 
 ## ⌨️ Key Bindings
