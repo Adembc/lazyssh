@@ -17,13 +17,19 @@ package domain
 import "time"
 
 type Server struct {
-	Alias    string
-	Host     string
-	User     string
-	Port     int
-	Key      string
-	Tags     []string
-	LastSeen time.Time
-	PinnedAt time.Time
-	SSHCount int
+	Alias                    string
+	Host                     string
+	User                     string
+	Port                     int
+	Key                      string
+	Tags                     []string
+	LastSeen                 time.Time
+	PinnedAt                 time.Time
+	SSHCount                 int
+	PreferredAuthentications string
+	PasswordAuthentication   bool
+	PubkeyAuthentication     bool
+	Compression              bool
+	RequestTTY               string
+	RemoteCommand            string
 }

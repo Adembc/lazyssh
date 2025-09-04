@@ -78,12 +78,18 @@ func (sf *ServerForm) addFormFields() {
 	var defaultValues ServerFormData
 	if sf.mode == ServerFormEdit && sf.original != nil {
 		defaultValues = ServerFormData{
-			Alias: sf.original.Alias,
-			Host:  sf.original.Host,
-			User:  sf.original.User,
-			Port:  fmt.Sprint(sf.original.Port),
-			Key:   sf.original.Key,
-			Tags:  strings.Join(sf.original.Tags, ", "),
+			Alias:                    sf.original.Alias,
+			Host:                     sf.original.Host,
+			User:                     sf.original.User,
+			Port:                     fmt.Sprint(sf.original.Port),
+			Key:                      sf.original.Key,
+			Tags:                     strings.Join(sf.original.Tags, ", "),
+			PreferredAuthentications: sf.original.PreferredAuthentications,
+			PasswordAuthentication:   sf.original.PasswordAuthentication,
+			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
+			Compression:              sf.original.Compression,
+			RequestTTY:               sf.original.RequestTTY,
+			RemoteCommand:            sf.original.RemoteCommand,
 		}
 	} else {
 		defaultValues = ServerFormData{
@@ -99,25 +105,43 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
 	sf.Form.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+	sf.Form.AddInputField("Preferred Authentications:", defaultValues.PreferredAuthentications, 30, nil, nil)
+	sf.Form.AddCheckbox("Password Authentication:", defaultValues.PasswordAuthentication, nil)
+	sf.Form.AddCheckbox("Pubkey Authentication:", defaultValues.PubkeyAuthentication, nil)
+	sf.Form.AddCheckbox("Compression:", defaultValues.Compression, nil)
+	sf.Form.AddInputField("Request TTY:", defaultValues.RequestTTY, 20, nil, nil)
+	sf.Form.AddInputField("Remote Command:", defaultValues.RemoteCommand, 200, nil, nil)
 }
 
 type ServerFormData struct {
-	Alias string
-	Host  string
-	User  string
-	Port  string
-	Key   string
-	Tags  string
+	Alias                    string
+	Host                     string
+	User                     string
+	Port                     string
+	Key                      string
+	Tags                     string
+	PreferredAuthentications string
+	PasswordAuthentication   bool
+	PubkeyAuthentication     bool
+	Compression              bool
+	RequestTTY               string
+	RemoteCommand            string
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
 	return ServerFormData{
-		Alias: strings.TrimSpace(sf.Form.GetFormItem(0).(*tview.InputField).GetText()),
-		Host:  strings.TrimSpace(sf.Form.GetFormItem(1).(*tview.InputField).GetText()),
-		User:  strings.TrimSpace(sf.Form.GetFormItem(2).(*tview.InputField).GetText()),
-		Port:  strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
-		Key:   strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
-		Tags:  strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
+		Alias:                    strings.TrimSpace(sf.Form.GetFormItem(0).(*tview.InputField).GetText()),
+		Host:                     strings.TrimSpace(sf.Form.GetFormItem(1).(*tview.InputField).GetText()),
+		User:                     strings.TrimSpace(sf.Form.GetFormItem(2).(*tview.InputField).GetText()),
+		Port:                     strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
+		Key:                      strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
+		Tags:                     strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
+		PreferredAuthentications: strings.TrimSpace(sf.Form.GetFormItem(6).(*tview.InputField).GetText()),
+		PasswordAuthentication:   sf.Form.GetFormItem(7).(*tview.Checkbox).IsChecked(),
+		PubkeyAuthentication:     sf.Form.GetFormItem(8).(*tview.Checkbox).IsChecked(),
+		Compression:              sf.Form.GetFormItem(9).(*tview.Checkbox).IsChecked(),
+		RequestTTY:               strings.TrimSpace(sf.Form.GetFormItem(10).(*tview.InputField).GetText()),
+		RemoteCommand:            strings.TrimSpace(sf.Form.GetFormItem(11).(*tview.InputField).GetText()),
 	}
 }
 
@@ -164,12 +188,18 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 	}
 
 	return domain.Server{
-		Alias: data.Alias,
-		Host:  data.Host,
-		User:  data.User,
-		Port:  port,
-		Key:   data.Key,
-		Tags:  tags,
+		Alias:                    data.Alias,
+		Host:                     data.Host,
+		User:                     data.User,
+		Port:                     port,
+		Key:                      data.Key,
+		Tags:                     tags,
+		PreferredAuthentications: data.PreferredAuthentications,
+		PasswordAuthentication:   data.PasswordAuthentication,
+		PubkeyAuthentication:     data.PubkeyAuthentication,
+		Compression:              data.Compression,
+		RequestTTY:               data.RequestTTY,
+		RemoteCommand:            data.RemoteCommand,
 	}
 }
 
