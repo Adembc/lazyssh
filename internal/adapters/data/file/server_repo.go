@@ -16,24 +16,22 @@ package file
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
-	"go.uber.org/zap"
 )
 
 type serverRepo struct {
 	sshConfigManager *sshConfigManager
 	metadataManager  *metadataManager
-	logger           *zap.SugaredLogger
 }
 
-func NewServerRepo(logger *zap.SugaredLogger, sshPath, metaDataPath string) *serverRepo {
+func NewServerRepo(sshPath, metaDataPath string) *serverRepo {
 	return &serverRepo{
 		sshConfigManager: newSSHConfigManager(sshPath),
 		metadataManager:  newMetadataManager(metaDataPath),
-		logger:           logger,
 	}
 }
 
@@ -45,7 +43,9 @@ func (s *serverRepo) ListServers(query string) ([]domain.Server, error) {
 
 	metadata, err := s.metadataManager.loadAll()
 	if err != nil {
-		s.logger.Warnf("Failed to load metadata: %v", err)
+		slog.Warn("Failed to load metadata:",
+			slog.Any("error", err),
+		)
 		metadata = make(map[string]ServerMetadata)
 	}
 

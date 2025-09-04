@@ -17,6 +17,7 @@ package services
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -28,18 +29,15 @@ import (
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
-	"go.uber.org/zap"
 )
 
 type serverService struct {
 	serverRepository ports.ServerRepository
-	logger           *zap.SugaredLogger
 }
 
 // NewServerService creates a new instance of serverService.
-func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) *serverService {
+func NewServerService(sr ports.ServerRepository) *serverService {
 	return &serverService{
-		logger:           logger,
 		serverRepository: sr,
 	}
 }
@@ -48,7 +46,7 @@ func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) *ser
 func (s *serverService) ListServers(query string) ([]domain.Server, error) {
 	servers, err := s.serverRepository.ListServers(query)
 	if err != nil {
-		s.logger.Errorw("failed to list servers", "error", err)
+		slog.Error("failed to list servers", "error", err)
 		return nil, err
 	}
 
@@ -107,12 +105,12 @@ func validateServer(srv domain.Server) error {
 // UpdateServer updates an existing server with new details.
 func (s *serverService) UpdateServer(server domain.Server, newServer domain.Server) error {
 	if err := validateServer(newServer); err != nil {
-		s.logger.Warnw("validation failed on update", "error", err, "server", newServer)
+		slog.Warn("validation failed on update", "error", err, "server", newServer)
 		return err
 	}
 	err := s.serverRepository.UpdateServer(server, newServer)
 	if err != nil {
-		s.logger.Errorw("failed to update server", "error", err, "server", server)
+		slog.Warn("failed to update server", "error", err, "server", server)
 	}
 	return err
 }
@@ -120,12 +118,12 @@ func (s *serverService) UpdateServer(server domain.Server, newServer domain.Serv
 // AddServer adds a new server to the repository.
 func (s *serverService) AddServer(server domain.Server) error {
 	if err := validateServer(server); err != nil {
-		s.logger.Warnw("validation failed on add", "error", err, "server", server)
+		slog.Warn("validation failed on add", "error", err, "server", server)
 		return err
 	}
 	err := s.serverRepository.AddServer(server)
 	if err != nil {
-		s.logger.Errorw("failed to add server", "error", err, "server", server)
+		slog.Error("failed to add server", "error", err, "server", server)
 	}
 	return err
 }
@@ -134,7 +132,7 @@ func (s *serverService) AddServer(server domain.Server) error {
 func (s *serverService) DeleteServer(server domain.Server) error {
 	err := s.serverRepository.DeleteServer(server)
 	if err != nil {
-		s.logger.Errorw("failed to delete server", "error", err, "server", server)
+		slog.Error("failed to delete server", "error", err, "server", server)
 	}
 	return err
 }
@@ -143,28 +141,27 @@ func (s *serverService) DeleteServer(server domain.Server) error {
 func (s *serverService) SetPinned(alias string, pinned bool) error {
 	err := s.serverRepository.SetPinned(alias, pinned)
 	if err != nil {
-		s.logger.Errorw("failed to set pin state", "error", err, "alias", alias, "pinned", pinned)
+		slog.Error("failed to set pin state", "error", err, "alias", alias, "pinned", pinned)
 	}
 	return err
 }
 
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
 func (s *serverService) SSH(alias string) error {
-	s.logger.Infow("ssh start", "alias", alias)
+	slog.Info("ssh start", "alias", alias)
 	cmd := exec.Command("ssh", alias)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
+		slog.Error("ssh command failed", "alias", alias, "error", err)
 		return err
 	}
 
 	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+		slog.Error("failed to record ssh metadata", "alias", alias, "error", err)
 	}
-
-	s.logger.Infow("ssh end", "alias", alias)
+	slog.Info("ssh end", "alias", alias)
 	return nil
 }
 
