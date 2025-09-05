@@ -117,3 +117,4 @@ func (p *SSHConfigParser) expandPath(path string) string {
 	}
 	return path
 }
+

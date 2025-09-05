@@ -1,0 +1,32 @@
+# AWS Servers Configuration for lazyssh
+# This file defines AWS servers that can be accessed via AWS SSM
+
+aws_servers:
+  # Development Environment
+  - alias: aws-dev1-g-eks-bastion
+    profile: exp-dev1
+    region: us-east-1
+    connection_type: ssm
+    target_selection:
+      method: ec2_tag_filter
+      filters:
+        - name: "tag:Name"
+          values: ["aws-dev1-g-eks-bastion"]
+    ssm:
+      document: AWS-StartSSHSession
+      port_number: 22
+    description: "aws-dev1 bastion host"
+
+  - alias: aws-dev1-b-eks-bastion
+    profile: exp-dev1
+    region: us-east-1
+    connection_type: ssm
+    target_selection:
+      method: ec2_tag_filter
+      filters:
+        - name: "tag:Name"
+          values: ["aws-dev1-b-eks-bastion"]
+    ssm:
+      document: AWS-StartSSHSession
+      port_number: 22
+    description: "aws-dev1 bastion host"

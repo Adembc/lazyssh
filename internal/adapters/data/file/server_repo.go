@@ -16,6 +16,7 @@ package file
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -25,40 +26,108 @@ import (
 
 type serverRepo struct {
 	sshConfigManager *sshConfigManager
+	awsConfigManager *AWSConfigManager
 	metadataManager  *metadataManager
+	configManager    *configManager
+	configDirPath    string
 	logger           *zap.SugaredLogger
 }
 
-func NewServerRepo(logger *zap.SugaredLogger, sshPath, metaDataPath string) *serverRepo {
+func NewServerRepo(logger *zap.SugaredLogger, sshPath, metaDataPath, configPath string) *serverRepo {
+	return NewServerRepoWithConfigDir(logger, sshPath, metaDataPath, configPath, "")
+}
+
+func NewServerRepoWithConfigDir(logger *zap.SugaredLogger, sshPath, metaDataPath, configPath, configDirPath string) *serverRepo {
+	configManager := newConfigManager(configPath)
+	
+	// Load configuration to get AWS paths
+	config, err := configManager.load()
+	if err != nil {
+		logger.Warnf("Failed to load configuration, using defaults: %v", err)
+		config = domain.DefaultConfig(configDirPath)
+	}
+	
+	// The AWS servers path is already set correctly by the config manager
+	// which now defaults to configDirPath/aws-servers.yaml
+	awsServersPath := config.AWSServersPath
+	
+	// Expand home directory in paths if needed (for legacy paths)
+	if strings.Contains(awsServersPath, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			logger.Warnf("Failed to get home directory: %v", err)
+			home = "~" // fallback
+		}
+		awsServersPath = strings.ReplaceAll(awsServersPath, "~", home)
+	}
+	
 	return &serverRepo{
 		sshConfigManager: newSSHConfigManager(sshPath),
+		awsConfigManager: newAWSConfigManager(awsServersPath),
 		metadataManager:  newMetadataManager(metaDataPath),
+		configManager:    configManager,
+		configDirPath:    configDirPath,
 		logger:           logger,
 	}
 }
 
 func (s *serverRepo) ListServers(query string) ([]domain.Server, error) {
-	servers, err := s.sshConfigManager.parseServers()
+	// Load configuration
+	config, err := s.configManager.load()
+	if err != nil {
+		s.logger.Warnf("Failed to load configuration, using defaults: %v", err)
+		config = domain.DefaultConfig(s.configDirPath)
+	}
+
+	// Parse SSH servers
+	sshServers, err := s.sshConfigManager.parseServers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SSH config: %w", err)
 	}
 
+	// Set SSH server properties
+	for i := range sshServers {
+		sshServers[i].ConnectionType = domain.ConnectionTypeSSH
+		sshServers[i].Source = "ssh_config"
+	}
+
+	// Start with SSH servers
+	allServers := sshServers
+
+	// Conditionally parse AWS servers based on configuration
+	if config.EnableAWSSource {
+		awsServers, err := s.awsConfigManager.parseServers()
+		if err != nil {
+			s.logger.Warnf("Failed to parse AWS configurations: %v", err)
+		} else {
+			// Combine SSH and AWS servers
+			allServers = append(allServers, awsServers...)
+		}
+	}
+
+	// Load and merge metadata
 	metadata, err := s.metadataManager.loadAll()
 	if err != nil {
 		s.logger.Warnf("Failed to load metadata: %v", err)
 		metadata = make(map[string]ServerMetadata)
 	}
 
-	servers = s.mergeMetadata(servers, metadata)
+	allServers = s.mergeMetadata(allServers, metadata)
 
+	// Apply query filter if provided
 	if query != "" {
-		servers = s.filterServers(servers, query)
+		allServers = s.filterServers(allServers, query)
 	}
 
-	return servers, nil
+	return allServers, nil
 }
 
 func (s *serverRepo) UpdateServer(server domain.Server, newServer domain.Server) error {
+	// Only allow updates to SSH servers, not AWS servers
+	if server.ConnectionType == domain.ConnectionTypeAWS {
+		return fmt.Errorf("cannot update AWS servers - they are managed through the AWS YAML configuration file")
+	}
+
 	if err := s.sshConfigManager.updateServer(server.Alias, newServer); err != nil {
 		return fmt.Errorf("failed to update SSH config: %w", err)
 	}
@@ -67,6 +136,10 @@ func (s *serverRepo) UpdateServer(server domain.Server, newServer domain.Server)
 }
 
 func (s *serverRepo) AddServer(server domain.Server) error {
+	// Force new servers to be SSH type
+	server.ConnectionType = domain.ConnectionTypeSSH
+	server.Source = "ssh_config"
+
 	if err := s.sshConfigManager.addServer(server); err != nil {
 		return fmt.Errorf("failed to add to SSH config: %w", err)
 	}
@@ -75,6 +148,11 @@ func (s *serverRepo) AddServer(server domain.Server) error {
 }
 
 func (s *serverRepo) DeleteServer(server domain.Server) error {
+	// Only allow deletion of SSH servers, not AWS servers
+	if server.ConnectionType == domain.ConnectionTypeAWS {
+		return fmt.Errorf("cannot delete AWS servers - they are managed through the AWS YAML configuration file")
+	}
+
 	if err := s.sshConfigManager.deleteServer(server.Alias); err != nil {
 		return fmt.Errorf("failed to delete from SSH config: %w", err)
 	}
@@ -88,6 +166,47 @@ func (s *serverRepo) SetPinned(alias string, pinned bool) error {
 
 func (s *serverRepo) RecordSSH(alias string) error {
 	return s.metadataManager.recordSSH(alias)
+}
+
+func (s *serverRepo) SetAWSSourceEnabled(enabled bool) error {
+	config, err := s.configManager.load()
+	if err != nil {
+		s.logger.Warnf("Failed to load configuration, using defaults: %v", err)
+		config = domain.DefaultConfig(s.configDirPath)
+	}
+
+	config.EnableAWSSource = enabled
+	return s.configManager.save(config)
+}
+
+func (s *serverRepo) SetAWSServersPath(path string) error {
+	config, err := s.configManager.load()
+	if err != nil {
+		s.logger.Warnf("Failed to load configuration, using defaults: %v", err)
+		config = domain.DefaultConfig(s.configDirPath)
+	}
+
+	config.AWSServersPath = path
+	if err := s.configManager.save(config); err != nil {
+		return err
+	}
+
+	// Update the AWS config manager with the new path
+	awsServersPath := path
+	
+	// Expand home directory in path if needed
+	if strings.Contains(awsServersPath, "~") {
+		home, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			s.logger.Warnf("Failed to get home directory: %v", homeErr)
+			home = "~" // fallback
+		}
+		awsServersPath = strings.ReplaceAll(awsServersPath, "~", home)
+	}
+	
+	s.awsConfigManager = newAWSConfigManager(awsServersPath)
+	
+	return nil
 }
 
 func (s *serverRepo) mergeMetadata(servers []domain.Server, metadata map[string]ServerMetadata) []domain.Server {

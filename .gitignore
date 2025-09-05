@@ -36,3 +36,7 @@ bin
 .DS_Store
 # Added by goreleaser init:
 dist/
+
+# Built binaries
+lazyssh
+cmd/lazyssh

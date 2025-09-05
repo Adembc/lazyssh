@@ -148,23 +148,56 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 	return err
 }
 
-// SSH starts an interactive SSH session to the given alias using the system's ssh client.
+// SSH starts an interactive session to the given server using appropriate connection method.
 func (s *serverService) SSH(alias string) error {
-	s.logger.Infow("ssh start", "alias", alias)
-	cmd := exec.Command("ssh", alias)
+	// Get server details to determine connection type
+	servers, err := s.serverRepository.ListServers("")
+	if err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	var server *domain.Server
+	for _, srv := range servers {
+		if srv.Alias == alias {
+			server = &srv
+			break
+		}
+	}
+
+	if server == nil {
+		return fmt.Errorf("server with alias '%s' not found", alias)
+	}
+
+	s.logger.Infow("connection start", "alias", alias, "type", server.ConnectionType)
+
+	var cmd *exec.Cmd
+	switch server.ConnectionType {
+	case domain.ConnectionTypeAWS:
+		cmd, err = s.buildAWSCommand(*server)
+		if err != nil {
+			return fmt.Errorf("failed to build AWS command: %w", err)
+		}
+	case domain.ConnectionTypeSSH:
+		cmd = exec.Command("ssh", alias)
+	default:
+		// Fallback to SSH connection for unknown types
+		cmd = exec.Command("ssh", alias)
+	}
+
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	if err := cmd.Run(); err != nil {
-		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
+		s.logger.Errorw("connection command failed", "alias", alias, "type", server.ConnectionType, "error", err)
 		return err
 	}
 
 	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+		s.logger.Errorw("failed to record connection metadata", "alias", alias, "error", err)
 	}
 
-	s.logger.Infow("ssh end", "alias", alias)
+	s.logger.Infow("connection end", "alias", alias, "type", server.ConnectionType)
 	return nil
 }
 
@@ -235,4 +268,216 @@ func resolveSSHDestination(alias string) (string, int, bool) {
 		port = 22
 	}
 	return host, port, true
+}
+
+// mapServerToAWSProfile maps server aliases to their corresponding AWS profiles
+func mapServerToAWSProfile(serverAlias string) string {
+	profileMap := map[string]string{
+		"aws-dev1-g": "exp-dev1",
+		"aws-dev1-b": "exp-dev1",
+		"aws-prod-g": "exp-phi",
+		"aws-prod-b": "exp-phi", 
+		"aws-st-g":   "exp-st",
+		"aws-st-b":   "exp-st",
+		"aws-st2-g":  "exp-st2",
+		"aws-st2-b":  "exp-st2",
+		"aws-sandbox-b": "exp-sandbox",
+		"cw-prod-g":  "clockwisemd",
+		"cw-prod-b":  "clockwisemd",
+		"cw-dev-g":   "clockwisemd",
+		"cw-dev-b":   "clockwisemd",
+		"cw-st-g":    "clockwisemd",
+		"cw-st-b":    "clockwisemd",
+		"cw-st2-g":   "clockwisemd",
+		"cw-pe-dev-g": "clockwisemd",
+	}
+	
+	if profile, exists := profileMap[serverAlias]; exists {
+		return profile
+	}
+	
+	// Default fallback - try to extract profile from server name pattern
+	if strings.HasPrefix(serverAlias, "aws-dev1") {
+		return "exp-dev1"
+	} else if strings.HasPrefix(serverAlias, "aws-prod") {
+		return "exp-phi"
+	} else if strings.HasPrefix(serverAlias, "aws-st2") {
+		return "exp-st2"
+	} else if strings.HasPrefix(serverAlias, "aws-st") {
+		return "exp-st"
+	} else if strings.HasPrefix(serverAlias, "aws-sandbox") {
+		return "exp-sandbox"
+	} else if strings.HasPrefix(serverAlias, "cw-") {
+		return "clockwisemd"
+	}
+	
+	return "default" // fallback
+}
+
+// mapServerToInstanceName maps server aliases to their corresponding EC2 instance tag names
+func mapServerToInstanceName(serverAlias string) string {
+	// ClockwiseMD servers have different naming: cw-xxx-y -> clockwise-xxx-y-eks-bastion
+	if strings.HasPrefix(serverAlias, "cw-") {
+		// Convert cw-dev-g -> clockwise-dev-g-eks-bastion
+		instanceName := strings.Replace(serverAlias, "cw-", "clockwise-", 1)
+		return instanceName + "-eks-bastion"
+	}
+	
+	// AWS servers use direct mapping: aws-xxx-y -> aws-xxx-y-eks-bastion
+	return serverAlias + "-eks-bastion"
+}
+
+// mapServerToAWSRegion maps server aliases to their corresponding AWS regions
+func mapServerToAWSRegion(serverAlias string) string {
+	// Most servers use us-east-1, but st2 servers use us-east-2
+	if strings.Contains(serverAlias, "st2") {
+		return "us-east-2"
+	}
+	return "us-east-1" // default for most environments
+}
+
+// buildAWSCommand constructs a command to execute AWS SSM session using profiles instead of assume
+func (s *serverService) buildAWSCommand(server domain.Server) (*exec.Cmd, error) {
+	if server.ConnectionType != domain.ConnectionTypeAWS {
+		return nil, fmt.Errorf("server is not an AWS connection type")
+	}
+
+	// Use server configuration from YAML (preferred) or fallback to legacy mappings
+	awsProfile := server.AWSProfile
+	awsRegion := server.AWSRegion
+	
+	// Fallback to legacy mappings if YAML config is incomplete
+	if awsProfile == "" {
+		awsProfile = mapServerToAWSProfile(server.Alias)
+	}
+	if awsRegion == "" {
+		awsRegion = mapServerToAWSRegion(server.Alias)
+	}
+	
+	s.logger.Infow("building AWS SSM command",
+		"server_alias", server.Alias,
+		"aws_profile", awsProfile,
+		"aws_region", awsRegion,
+		"host", server.Host,
+		"ec2_tag_filter", server.EC2TagFilter,
+		"ssm_document", server.SSMDocument,
+		"source", server.Source)
+
+	// Determine instance ID or EC2 filters based on configuration
+	var instanceLookupScript string
+	var instanceIdentifier string
+	
+	if server.Host != "" {
+		// Direct instance ID connection
+		instanceLookupScript = fmt.Sprintf(`INSTANCE_ID="%s"`, server.Host)
+		instanceIdentifier = server.Host
+	} else if server.EC2TagFilter != "" {
+		// EC2 tag filter connection
+		instanceLookupScript = fmt.Sprintf(`
+echo "🔍 Finding EC2 instance using filters: %s"
+INSTANCE_ID=$(aws --profile %s --region %s ec2 describe-instances \
+    --filters %s "Name=instance-state-name,Values=running" \
+    --query "Reservations[0].Instances[0].InstanceId" \
+    --output text 2>/dev/null)
+
+if [[ "$INSTANCE_ID" == "None" || "$INSTANCE_ID" == "" || "$INSTANCE_ID" == "null" ]]; then
+    echo "✗ Could not find running instance with filters: %s"
+    echo ""
+    echo "🔍 Available instances matching filters:"
+    aws --profile %s --region %s ec2 describe-instances \
+        --filters %s \
+        --query "Reservations[].Instances[].[Tags[?Key=='Name'].Value|[0], State.Name, InstanceId]" \
+        --output table 2>/dev/null || echo "No instances found"
+    exit 1
+fi`, server.EC2TagFilter, awsProfile, awsRegion, server.EC2TagFilter, server.EC2TagFilter, awsProfile, awsRegion, server.EC2TagFilter)
+		instanceIdentifier = server.EC2TagFilter
+	} else {
+		// Fallback to legacy instance name mapping
+		instanceName := mapServerToInstanceName(server.Alias)
+		instanceLookupScript = fmt.Sprintf(`
+echo "🔍 Finding EC2 instance: %s (legacy mode)"
+INSTANCE_ID=$(aws --profile %s --region %s ec2 describe-instances \
+    --filters "Name=tag:Name,Values=%s" "Name=instance-state-name,Values=running" \
+    --query "Reservations[0].Instances[0].InstanceId" \
+    --output text 2>/dev/null)
+
+if [[ "$INSTANCE_ID" == "None" || "$INSTANCE_ID" == "" || "$INSTANCE_ID" == "null" ]]; then
+    echo "✗ Could not find running instance: %s"
+    echo ""
+    echo "🔍 Available instances with this name pattern:"
+    aws --profile %s --region %s ec2 describe-instances \
+        --filters "Name=tag:Name,Values=%s" \
+        --query "Reservations[].Instances[].[Tags[?Key=='Name'].Value|[0], State.Name, InstanceId]" \
+        --output table 2>/dev/null || echo "No instances found"
+    exit 1
+fi`, instanceName, awsProfile, awsRegion, instanceName, instanceName, awsProfile, awsRegion, instanceName)
+		instanceIdentifier = instanceName
+	}
+
+	// Set SSM document and parameters
+	ssmDocument := server.SSMDocument
+	if ssmDocument == "" {
+		ssmDocument = "AWS-StartInteractiveCommand" // default for backward compatibility
+	}
+	
+	// Build SSM command parameters
+	var ssmParameters string
+	if server.SSMCommand != "" {
+		ssmParameters = fmt.Sprintf(` --parameters %s`, server.SSMCommand)
+	} else if ssmDocument == "AWS-StartInteractiveCommand" {
+		ssmParameters = ` --parameters command="sudo su - ubuntu"`
+	}
+
+	// Create a shell script that uses YAML configuration
+	shellScript := fmt.Sprintf(`
+#!/bin/bash
+
+echo "=================== LazySsh AWS Connection ==================="
+echo "Server: %s"
+echo "AWS Profile: %s" 
+echo "AWS Region: %s"
+echo "Target: %s"
+echo "SSM Document: %s"
+echo "Source: %s"
+echo "=============================================================="
+
+# Step 1: Verify AWS credentials
+echo "🔍 Verifying AWS credentials..."
+if ! aws --profile %s --region %s sts get-caller-identity >/dev/null 2>&1; then
+    echo "✗ AWS credentials verification failed for profile: %s"
+    echo "Please check your AWS profile configuration:"
+    echo "  aws configure list --profile %s"
+    exit 1
+fi
+echo "✓ AWS credentials verified for profile: %s"
+
+# Step 2: Determine instance ID
+echo ""
+%s
+
+echo "✓ Found instance: $INSTANCE_ID"
+
+# Step 3: Start SSM session
+echo ""
+echo "🚀 Starting SSM session..."
+echo "Command: aws --profile %s --region %s ssm start-session --target $INSTANCE_ID --document-name %s%s"
+echo ""
+
+exec aws --profile %s --region %s ssm start-session \
+    --target "$INSTANCE_ID" \
+    --document-name %s%s
+`, server.Alias, awsProfile, awsRegion, instanceIdentifier, ssmDocument, server.Source, 
+   awsProfile, awsRegion, awsProfile, awsProfile, awsProfile,
+   instanceLookupScript,
+   awsProfile, awsRegion, ssmDocument, ssmParameters,
+   awsProfile, awsRegion, ssmDocument, ssmParameters)
+
+	// Create command to execute the shell script
+	// #nosec G204 - shellScript is constructed from controlled inputs (validated server alias and mapped AWS profile)
+	cmd := exec.Command("bash", "-c", shellScript)
+
+	// Preserve current environment (including any existing AWS variables)
+	cmd.Env = os.Environ()
+
+	return cmd, nil
 }

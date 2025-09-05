@@ -64,10 +64,42 @@ func pinnedIcon(pinnedAt time.Time) string {
 	return "📌" // pinned
 }
 
+func sourceIcon(connectionType domain.ConnectionType) string {
+	// Use emojis to indicate connection source; combined with cellPad to keep widths consistent in tview.
+	switch connectionType {
+	case domain.ConnectionTypeAWS:
+		return "☁️" // AWS cloud connection
+	case domain.ConnectionTypeSSH:
+		return "🔗" // SSH connection
+	default:
+		return "🔗" // default to SSH icon
+	}
+}
+
 func formatServerLine(s domain.Server) (primary, secondary string) {
-	icon := cellPad(pinnedIcon(s.PinnedAt), 2)
-	// Use a consistent color for alias; the icon reflects pinning
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+	// Use simple text indicators instead of emojis to avoid width calculation issues
+	var pinIndicator, srcIndicator string
+	
+	// Pin indicator
+	if s.PinnedAt.IsZero() {
+		pinIndicator = " "  // not pinned
+	} else {
+		pinIndicator = "*"  // pinned
+	}
+	
+	// Source indicator  
+	switch s.ConnectionType {
+	case domain.ConnectionTypeAWS:
+		srcIndicator = "A"  // AWS
+	case domain.ConnectionTypeSSH:
+		srcIndicator = "S"  // SSH
+	default:
+		srcIndicator = "S"  // default to SSH
+	}
+	
+	// Simplified format without complex color codes that can cause corruption
+	primary = fmt.Sprintf("%s%s %-20s %-25s Last SSH: %s  %s", 
+		pinIndicator, srcIndicator, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
 	secondary = ""
 	return
 }

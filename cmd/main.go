@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Adembc/lazyssh/internal/adapters/data/file"
 	"github.com/Adembc/lazyssh/internal/logger"
@@ -30,6 +31,11 @@ import (
 var (
 	version   = "develop"
 	gitCommit = "unknown"
+
+	// Command-line flags
+	enableAWS bool
+	serverAlias string
+	configDir string
 )
 
 func main() {
@@ -48,10 +54,33 @@ func main() {
 		//nolint:gocritic // exitAfterDefer: ensure immediate exit on unrecoverable error
 		os.Exit(1)
 	}
+	
+	// Use provided config directory or default to ~/config/lazyssh
+	var configDirPath string
+	if configDir != "" {
+		// Use absolute path if provided, or relative to home if starts with ~/
+		if filepath.IsAbs(configDir) {
+			configDirPath = configDir
+		} else if strings.HasPrefix(configDir, "~/") {
+			configDirPath = filepath.Join(home, configDir[2:])
+		} else {
+			configDirPath = configDir
+		}
+	} else {
+		configDirPath = filepath.Join(home, ".config", "lazyssh")
+	}
+	
+	// Create config directory if it doesn't exist
+	if err := os.MkdirAll(configDirPath, 0755); err != nil {
+		log.Errorw("failed to create config directory", "path", configDirPath, "error", err)
+		os.Exit(1)
+	}
+	
 	sshConfigFile := filepath.Join(home, ".ssh", "config")
-	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
+	metaDataFile := filepath.Join(configDirPath, "metadata.json")
+	configFile := filepath.Join(configDirPath, "lazyssh.yaml")
 
-	serverRepo := file.NewServerRepo(log, sshConfigFile, metaDataFile)
+	serverRepo := file.NewServerRepoWithConfigDir(log, sshConfigFile, metaDataFile, configFile, configDirPath)
 	serverService := services.NewServerService(log, serverRepo)
 	tui := ui.NewTUI(log, serverService, version, gitCommit)
 
@@ -59,10 +88,47 @@ func main() {
 		Use:   ui.AppName,
 		Short: "Lazy SSH server picker TUI",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// If --server flag is provided, connect directly without TUI
+			if serverAlias != "" {
+				log.Infow("Direct server connection requested", "alias", serverAlias)
+				fmt.Printf("Connecting to server: %s\n", serverAlias)
+				
+				// Connect directly to the specified server
+				if err := serverService.SSH(serverAlias); err != nil {
+					return fmt.Errorf("failed to connect to server %s: %w", serverAlias, err)
+				}
+				return nil
+			}
+			
+			// Default behavior: launch TUI
 			return tui.Run()
 		},
 	}
 	rootCmd.SilenceUsage = true
+
+	// Add command-line flags
+	rootCmd.Flags().StringVar(&serverAlias, "server", "", "Connect directly to specified server alias (bypasses TUI)")
+	rootCmd.Flags().StringVar(&configDir, "config-dir", "", "Config directory path (default: ~/.config/lazyssh)")
+	rootCmd.Flags().BoolVar(&enableAWS, "enable-aws", true,
+		"Enable loading servers from AWS function definitions (default: true)")
+	rootCmd.Flags().Bool("disable-aws", false, "Disable loading servers from AWS function definitions")
+
+	// Handle the disable-aws flag and apply configuration overrides
+	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		// Check if disable-aws flag was provided
+		if disableAWS, _ := cmd.Flags().GetBool("disable-aws"); disableAWS {
+			enableAWS = false
+		}
+
+		// Apply command-line override to configuration if enable-aws was explicitly set
+		if cmd.Flags().Changed("enable-aws") || cmd.Flags().Changed("disable-aws") {
+			if err := serverRepo.SetAWSSourceEnabled(enableAWS); err != nil {
+				log.Warnf("Failed to save AWS source configuration: %v", err)
+			}
+		}
+
+		return nil
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)

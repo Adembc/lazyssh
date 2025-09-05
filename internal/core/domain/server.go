@@ -16,7 +16,16 @@ package domain
 
 import "time"
 
+// ConnectionType represents the type of connection (SSH or AWS SSM)
+type ConnectionType string
+
+const (
+	ConnectionTypeSSH ConnectionType = "ssh"
+	ConnectionTypeAWS ConnectionType = "aws"
+)
+
 type Server struct {
+	// Common fields for all connection types
 	Alias    string
 	Host     string
 	User     string
@@ -26,4 +35,15 @@ type Server struct {
 	LastSeen time.Time
 	PinnedAt time.Time
 	SSHCount int
+
+	// Connection type and source tracking
+	ConnectionType ConnectionType
+	Source         string // "ssh_config", "aws_func", etc.
+
+	// AWS-specific fields (only used when ConnectionType == ConnectionTypeAWS)
+	AWSProfile   string
+	AWSRegion    string
+	EC2TagFilter string
+	SSMDocument  string
+	SSMCommand   string
 }
