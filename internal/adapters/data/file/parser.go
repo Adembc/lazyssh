@@ -26,11 +26,21 @@ import (
 )
 
 const (
-	sshConfigAliasField = "host"
-	sshConfigIPField    = "hostname"
-	sshConfigUserField  = "user"
-	sshConfigPortField  = "port"
-	sshConfigKeyField   = "identityfile"
+	sshConfigAliasField                    = "host"
+	sshConfigIPField                       = "hostname"
+	sshConfigUserField                     = "user"
+	sshConfigPortField                     = "port"
+	sshConfigKeyField                      = "identityfile"
+	sshConfigPreferredAuthenticationsField = "preferredauthentications"
+	sshConfigPasswordAuthenticationField   = "passwordauthentication"
+	sshConfigPubkeyAuthenticationField     = "pubkeyauthentication"
+	sshConfigCompressionField              = "compression"
+	sshConfigRequestTTYField               = "requesttty"
+	sshConfigRemoteCommandField            = "remotecommand"
+)
+
+const (
+	boolYes = "yes"
 )
 
 type SSHConfigParser struct{}
@@ -76,6 +86,34 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 		case sshConfigKeyField:
 			if currentServer != nil {
 				currentServer.Key = p.expandPath(value)
+			}
+		case sshConfigPreferredAuthenticationsField:
+			if currentServer != nil {
+				valLower := strings.ToLower(value)
+				currentServer.PreferredAuthentications = valLower
+			}
+		case sshConfigPasswordAuthenticationField:
+			if currentServer != nil {
+				valLower := strings.ToLower(value)
+				currentServer.PasswordAuthentication = valLower == boolYes
+			}
+		case sshConfigPubkeyAuthenticationField:
+			if currentServer != nil {
+				valLower := strings.ToLower(value)
+				currentServer.PubkeyAuthentication = valLower == boolYes
+			}
+		case sshConfigCompressionField:
+			if currentServer != nil {
+				valLower := strings.ToLower(value)
+				currentServer.Compression = valLower == boolYes
+			}
+		case sshConfigRequestTTYField:
+			if currentServer != nil {
+				currentServer.RequestTTY = strings.ToLower(value)
+			}
+		case sshConfigRemoteCommandField:
+			if currentServer != nil {
+				currentServer.RemoteCommand = value
 			}
 		}
 	}

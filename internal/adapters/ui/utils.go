@@ -127,6 +127,25 @@ func BuildSSHCommand(s domain.Server) string {
 	if s.Key != "" {
 		parts = append(parts, "-i", quoteIfNeeded(s.Key))
 	}
+	if s.PreferredAuthentications != "" {
+		parts = append(parts, "-o PreferredAuthentications=", quoteIfNeeded(s.PreferredAuthentications))
+	}
+	if s.PasswordAuthentication {
+		parts = append(parts, "-o PasswordAuthentication=yes")
+	}
+	if s.PubkeyAuthentication {
+		parts = append(parts, "-o PubkeyAuthentication=yes")
+	}
+	if s.Compression {
+		parts = append(parts, "-C")
+	}
+	if s.RequestTTY != "" {
+		parts = append(parts, "-o RequestTTY=", quoteIfNeeded(s.RequestTTY))
+	}
+	if s.RemoteCommand != "" {
+		parts = append(parts, "-o RemoteCommand=", quoteIfNeeded(s.RemoteCommand))
+	}
+
 	return strings.Join(parts, " ")
 }
 

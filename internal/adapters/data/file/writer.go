@@ -76,5 +76,41 @@ func (w *SSHConfigWriter) writeServer(writer *bufio.Writer, server domain.Server
 			return err
 		}
 	}
+
+	if server.PreferredAuthentications != "" {
+		if _, err := fmt.Fprintf(writer, "    PreferredAuthentications %s\n", server.PreferredAuthentications); err != nil {
+			return err
+		}
+	}
+
+	if server.PasswordAuthentication {
+		if _, err := fmt.Fprintf(writer, "    PasswordAuthentication yes\n"); err != nil {
+			return err
+		}
+	}
+
+	if server.PubkeyAuthentication {
+		if _, err := fmt.Fprintf(writer, "    PubkeyAuthentication yes\n"); err != nil {
+			return err
+		}
+	}
+
+	if server.Compression {
+		if _, err := fmt.Fprintf(writer, "    Compression yes\n"); err != nil {
+			return err
+		}
+	}
+
+	if server.RequestTTY != "" {
+		if _, err := fmt.Fprintf(writer, "    RequestTTY %s\n", server.RequestTTY); err != nil {
+			return err
+		}
+	}
+
+	if server.RemoteCommand != "" {
+		if _, err := fmt.Fprintf(writer, "    RemoteCommand %s\n", server.RemoteCommand); err != nil {
+			return err
+		}
+	}
 	return nil
 }
