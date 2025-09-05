@@ -31,6 +31,7 @@ const (
 	sshConfigUserField  = "user"
 	sshConfigPortField  = "port"
 	sshConfigKeyField   = "identityfile"
+	sshConfigForwardAgentField = "forwardagent"
 )
 
 type SSHConfigParser struct{}
@@ -76,6 +77,11 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 		case sshConfigKeyField:
 			if currentServer != nil {
 				currentServer.Key = p.expandPath(value)
+			}
+		case sshConfigForwardAgentField:
+			if currentServer != nil {
+				valLower := strings.ToLower(value)
+				currentServer.ForwardAgent = valLower == "yes" || valLower == "on" || valLower == "true"
 			}
 		}
 	}

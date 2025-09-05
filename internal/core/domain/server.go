@@ -22,6 +22,7 @@ type Server struct {
 	User     string
 	Port     int
 	Key      string
+	ForwardAgent bool
 	Tags     []string
 	LastSeen time.Time
 	PinnedAt time.Time

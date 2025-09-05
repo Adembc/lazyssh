@@ -76,5 +76,11 @@ func (w *SSHConfigWriter) writeServer(writer *bufio.Writer, server domain.Server
 			return err
 		}
 	}
+
+	if server.ForwardAgent {
+		if _, err := fmt.Fprintf(writer, "    ForwardAgent yes\n"); err != nil {
+			return err
+		}
+	}
 	return nil
 }

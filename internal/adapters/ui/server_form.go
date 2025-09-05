@@ -84,12 +84,14 @@ func (sf *ServerForm) addFormFields() {
 			Port:  fmt.Sprint(sf.original.Port),
 			Key:   sf.original.Key,
 			Tags:  strings.Join(sf.original.Tags, ", "),
+			ForwardAgent: sf.original.ForwardAgent,
 		}
 	} else {
 		defaultValues = ServerFormData{
 			User: "root",
 			Port: "22",
 			Key:  "~/.ssh/id_ed25519",
+			ForwardAgent: false,
 		}
 	}
 
@@ -99,6 +101,7 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
 	sf.Form.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+	sf.Form.AddCheckbox("Forward Agent:", defaultValues.ForwardAgent, nil)
 }
 
 type ServerFormData struct {
@@ -108,6 +111,7 @@ type ServerFormData struct {
 	Port  string
 	Key   string
 	Tags  string
+	ForwardAgent bool
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
@@ -118,6 +122,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Port:  strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
 		Key:   strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
 		Tags:  strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
+		ForwardAgent: sf.Form.GetFormItem(6).(*tview.Checkbox).IsChecked(),
 	}
 }
 
@@ -170,6 +175,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		Port:  port,
 		Key:   data.Key,
 		Tags:  tags,
+		ForwardAgent: data.ForwardAgent,
 	}
 }
 
