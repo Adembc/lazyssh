@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/kjm0001/lazyssh/internal/core/domain"
 )
 
 type ServerMetadata struct {

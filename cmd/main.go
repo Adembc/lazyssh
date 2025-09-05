@@ -20,11 +20,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Adembc/lazyssh/internal/adapters/data/file"
-	"github.com/Adembc/lazyssh/internal/logger"
+	"github.com/kjm0001/lazyssh/internal/adapters/data/file"
+	"github.com/kjm0001/lazyssh/internal/logger"
 
-	"github.com/Adembc/lazyssh/internal/adapters/ui"
-	"github.com/Adembc/lazyssh/internal/core/services"
+	"github.com/kjm0001/lazyssh/internal/adapters/ui"
+	"github.com/kjm0001/lazyssh/internal/core/services"
 	"github.com/spf13/cobra"
 )
 

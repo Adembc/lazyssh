@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/kjm0001/lazyssh/internal/core/domain"
 )
 
 func TestAWSFunctionParser_Parse(t *testing.T) {

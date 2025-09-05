@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Adembc/lazyssh/internal/core/domain"
-	"github.com/Adembc/lazyssh/internal/core/ports"
+	"github.com/kjm0001/lazyssh/internal/core/domain"
+	"github.com/kjm0001/lazyssh/internal/core/ports"
 	"go.uber.org/zap"
 )
 

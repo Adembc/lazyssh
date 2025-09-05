@@ -1,4 +1,4 @@
-module github.com/Adembc/lazyssh
+module github.com/kjm0001/lazyssh
 
 go 1.24.6
 

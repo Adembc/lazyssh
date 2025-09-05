@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/kjm0001/lazyssh/internal/core/domain"
 	"gopkg.in/yaml.v3"
 )
 

@@ -18,7 +18,7 @@ import "time"
 
 const (
 	AppName              = "lazyssh"
-	RepoURL              = "github.com/adembc/lazyssh"
+	RepoURL              = "github.com/kjm0001/lazyssh"
 	SplashScreenDuration = 1 * time.Second
 	Banner               = `
 

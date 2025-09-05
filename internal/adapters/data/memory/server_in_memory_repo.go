@@ -21,7 +21,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/kjm0001/lazyssh/internal/core/domain"
 )
 
 type serverRepository struct {
