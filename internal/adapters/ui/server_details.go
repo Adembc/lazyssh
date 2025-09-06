@@ -69,10 +69,15 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	if server.PinnedAt.IsZero() {
 		pinnedStr = "false"
 	}
+	serverInfo := ""
+	if server.Info != "" {
+		serverInfo = fmt.Sprintf("\n\nInfo: [white]%s[-]", server.Info)
+	}
+
 	tagsText := renderTagChips(server.Tags)
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: %s\nPinned: [white]%s[-]\nLast SSH: %s\nSSH Count: [white]%d[-]\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin",
-		server.Alias, server.Host, server.User, server.Port,
+		"[::b]%s[-]%s\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: %s\nPinned: [white]%s[-]\nLast SSH: %s\nSSH Count: [white]%d[-]\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin",
+		server.Alias, serverInfo, server.Host, server.User, server.Port,
 		serverKey, tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
 	sd.TextView.SetText(text)

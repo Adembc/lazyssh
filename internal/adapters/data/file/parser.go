@@ -43,7 +43,17 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
-		if p.shouldSkipLine(line) {
+		// Handle tags and info comments
+		commentKey, commentValue := p.parseComments(line)
+		if commentKey != "" && currentServer != nil {
+			switch commentKey {
+			case "tags":
+				for _, tag := range strings.Split(commentValue, ",") {
+					currentServer.Tags = append(currentServer.Tags, strings.TrimSpace(tag))
+				}
+			case "info":
+				currentServer.Info = commentValue
+			}
 			continue
 		}
 
@@ -85,6 +95,20 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 	}
 
 	return servers, scanner.Err()
+}
+
+func (p *SSHConfigParser) parseComments(line string) (string, string) {
+	tagPrefixes := []string{"#tag:", "#tags:"}
+	for _, prefix := range tagPrefixes {
+		if strings.HasPrefix(line, prefix) {
+			return "tags", strings.TrimSpace(line[len(prefix):])
+		}
+	}
+	infoPrefix := "#info:"
+	if strings.HasPrefix(line, infoPrefix) {
+		return "info", strings.TrimSpace(line[len(infoPrefix):])
+	}
+	return "", ""
 }
 
 func (p *SSHConfigParser) shouldSkipLine(line string) bool {

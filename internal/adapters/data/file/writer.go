@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 )
@@ -51,6 +52,19 @@ func (w *SSHConfigWriter) Write(writer io.Writer, servers []domain.Server) error
 func (w *SSHConfigWriter) writeServer(writer *bufio.Writer, server domain.Server) error {
 	if _, err := fmt.Fprintf(writer, "Host %s\n", server.Alias); err != nil {
 		return err
+	}
+
+	if len(server.Tags) != 0 {
+		tagsStr := strings.Join(server.Tags, ",")
+		if _, err := fmt.Fprintf(writer, "    #tags: %s\n", tagsStr); err != nil {
+			return err
+		}
+	}
+
+	if server.Info != "" {
+		if _, err := fmt.Fprintf(writer, "    #info: %s\n", server.Info); err != nil {
+			return err
+		}
 	}
 
 	if server.Host != "" {
