@@ -26,4 +26,5 @@ type Server struct {
 	LastSeen time.Time
 	PinnedAt time.Time
 	SSHCount int
+	Info	 string
 }
