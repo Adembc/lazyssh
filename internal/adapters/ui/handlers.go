@@ -45,9 +45,6 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'a':
 		t.handleServerAdd()
 		return nil
-	case 'v':
-		t.handleAddFromSSH()
-		return nil
 	case 'e':
 		t.handleServerEdit()
 		return nil
@@ -65,6 +62,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case 'c':
 		t.handleCopyCommand()
+		return nil
+	case 'v':
+		t.handlePasteCommand()
 		return nil
 	case 'g':
 		t.handlePingSelected()
@@ -128,7 +128,7 @@ func (t *tui) handleCopyCommand() {
 	}
 }
 
-func (t *tui) handleAddFromSSH() {
+func (t *tui) handlePasteCommand() {
 	// Read from clipboard
 	cmd, err := clipboard.ReadAll()
 	if err != nil {
@@ -149,7 +149,7 @@ func (t *tui) handleAddFromSSH() {
 		return
 	}
 
-	// Show form for user to confirm and edit
+	// Show form for user to confirm and edit the pasted SSH command
 	form := NewServerFormFromData(ServerFormAdd, data).
 		OnSave(t.handleServerSave).
 		OnCancel(t.handleFormCancel)

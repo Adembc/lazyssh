@@ -22,7 +22,8 @@ import (
 	"github.com/Adembc/lazyssh/internal/core/domain"
 )
 
-// ParseSSHCommand parses an SSH command string and returns ServerFormData
+// ParseSSHCommand parses an SSH command string from clipboard and returns ServerFormData
+// This is used for the "Paste SSH" feature to quickly create server entries from SSH commands
 // Supported formats:
 //   - ssh user@host
 //   - ssh host
@@ -143,7 +144,7 @@ func ParseSSHCommand(cmd string) (ServerFormData, error) {
 	return data, nil
 }
 
-// BuildServerFromSSHCommand builds a Server object from an SSH command
+// BuildServerFromSSHCommand builds a Server object from a pasted SSH command
 func BuildServerFromSSHCommand(cmd string) (domain.Server, error) {
 	data, err := ParseSSHCommand(cmd)
 	if err != nil {
@@ -173,12 +174,18 @@ func BuildServerFromSSHCommand(cmd string) (domain.Server, error) {
 		}
 	}
 
+	// Process identity files
+	var identityFiles []string
+	if data.Key != "" {
+		identityFiles = append(identityFiles, data.Key)
+	}
+
 	return domain.Server{
-		Alias: data.Alias,
-		Host:  data.Host,
-		User:  data.User,
-		Port:  port,
-		Key:   data.Key,
-		Tags:  tags,
+		Alias:         data.Alias,
+		Host:          data.Host,
+		User:          data.User,
+		Port:          port,
+		IdentityFiles: identityFiles,
+		Tags:          tags,
 	}, nil
 }
