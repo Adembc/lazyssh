@@ -15,6 +15,7 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 ### Server Management
 - 📜 Read & display servers from your `~/.ssh/config` in a scrollable list.
 - ➕ Add a new server from the UI by specifying alias, host/IP, username, port, identity file.
+- 📋 Add from SSH command in clipboard (e.g., paste `ssh user@host -p 2222` to quickly add).
 - ✏ Edit existing server entries directly from the UI.
 - 🗑 Delete server entries safely.
 - 📌 Pin / unpin servers to keep favorites at the top.
@@ -147,6 +148,7 @@ make run
 | g     | Ping selected server          |
 | r     | Refresh background data       |
 | a     | Add server                    |
+| v     | Add from SSH (parse clipboard)|
 | e     | Edit server                   |
 | t     | Edit tags                     |
 | d     | Delete server                 |

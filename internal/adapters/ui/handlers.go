@@ -45,6 +45,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'a':
 		t.handleServerAdd()
 		return nil
+	case 'v':
+		t.handleAddFromSSH()
+		return nil
 	case 'e':
 		t.handleServerEdit()
 		return nil
@@ -123,6 +126,34 @@ func (t *tui) handleCopyCommand() {
 			t.showStatusTemp("Failed to copy to clipboard")
 		}
 	}
+}
+
+func (t *tui) handleAddFromSSH() {
+	// Read from clipboard
+	cmd, err := clipboard.ReadAll()
+	if err != nil {
+		t.showStatusTempColor("Failed to read from clipboard", "#FF6B6B")
+		return
+	}
+
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		t.showStatusTempColor("Clipboard is empty", "#FF6B6B")
+		return
+	}
+
+	// Parse SSH command
+	data, err := ParseSSHCommand(cmd)
+	if err != nil {
+		t.showStatusTempColor(fmt.Sprintf("Invalid SSH command: %v", err), "#FF6B6B")
+		return
+	}
+
+	// Show form for user to confirm and edit
+	form := NewServerFormFromData(ServerFormAdd, data).
+		OnSave(t.handleServerSave).
+		OnCancel(t.handleFormCancel)
+	t.app.SetRoot(form, true)
 }
 
 func (t *tui) handleTagsEdit() {
