@@ -84,6 +84,7 @@ func (sf *ServerForm) addFormFields() {
 			Port:  fmt.Sprint(sf.original.Port),
 			Key:   sf.original.Key,
 			Tags:  strings.Join(sf.original.Tags, ", "),
+			Group: sf.original.Group,
 		}
 	} else {
 		defaultValues = ServerFormData{
@@ -99,6 +100,7 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
 	sf.Form.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+	sf.Form.AddInputField("Group:", defaultValues.Group, 30, nil, nil)
 }
 
 type ServerFormData struct {
@@ -108,6 +110,7 @@ type ServerFormData struct {
 	Port  string
 	Key   string
 	Tags  string
+	Group string
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
@@ -118,6 +121,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Port:  strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
 		Key:   strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
 		Tags:  strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
+		Group: strings.TrimSpace(sf.Form.GetFormItem(6).(*tview.InputField).GetText()),
 	}
 }
 
@@ -170,6 +174,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		Port:  port,
 		Key:   data.Key,
 		Tags:  tags,
+		Group: data.Group,
 	}
 }
 

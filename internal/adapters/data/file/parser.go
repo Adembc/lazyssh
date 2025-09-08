@@ -16,7 +16,6 @@ package file
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,17 +30,101 @@ const (
 	sshConfigUserField  = "user"
 	sshConfigPortField  = "port"
 	sshConfigKeyField   = "identityfile"
+	sshConfigInclude    = "include"
 )
 
 type SSHConfigParser struct{}
 
-func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
-	servers := make([]domain.Server, 0)
-	var currentServer *domain.Server
+// Parse parses the main SSH config file and any files included via 'Include' directives.
+func (p *SSHConfigParser) Parse(mainConfigPath string) ([]domain.Server, map[string][]string, error) {
+	// 1. Find all config files to parse
+	filesToParse, err := p.getConfigFiles(mainConfigPath)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	scanner := bufio.NewScanner(reader)
+	// 2. Parse all files
+	var allServers []domain.Server
+	includesByFile := make(map[string][]string)
+	for _, file := range filesToParse {
+		servers, includes, err := p.parseFile(file.Path, file.Group)
+		if err != nil {
+			// Log or handle error for a single file, maybe continue
+			continue
+		}
+		allServers = append(allServers, servers...)
+		if len(includes) > 0 {
+			includesByFile[file.Path] = includes
+		}
+	}
+
+	return allServers, includesByFile, nil
+}
+
+type configFile struct {
+	Path  string
+	Group string
+}
+
+func (p *SSHConfigParser) getConfigFiles(mainConfigPath string) ([]configFile, error) {
+	var files []configFile
+	files = append(files, configFile{Path: mainConfigPath, Group: ""}) // Main config has no group
+
+	// #nosec G304 -- mainConfigPath is trusted
+	file, err := os.Open(mainConfigPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return files, nil // Main config doesn't exist, nothing to do
+		}
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+
+	configDir := filepath.Dir(mainConfigPath)
+	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
+		if p.shouldSkipLine(line) {
+			continue
+		}
+
+		key, value := p.parseKeyValue(line)
+		if key == sshConfigInclude {
+			includePath := filepath.Join(configDir, value)
+			matches, err := filepath.Glob(includePath)
+			if err != nil {
+				// Log or handle glob error, maybe continue
+				continue
+			}
+			for _, match := range matches {
+				group := filepath.Base(match)
+				files = append(files, configFile{Path: match, Group: group})
+			}
+		}
+	}
+
+	return files, scanner.Err()
+}
+
+func (p *SSHConfigParser) parseFile(path string, group string) (servers []domain.Server, includes []string, err error) {
+	// #nosec G304 -- path is generated from globbing trusted config files
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []domain.Server{}, []string{}, nil
+		}
+		return nil, nil, err
+	}
+	defer func() { _ = file.Close() }()
+
+	servers = make([]domain.Server, 0)
+	includes = make([]string, 0)
+	var currentServer *domain.Server
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		originalLine := scanner.Text() // Keep original line for includes
+		line := strings.TrimSpace(originalLine)
 
 		if p.shouldSkipLine(line) {
 			continue
@@ -49,6 +132,11 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 
 		key, value := p.parseKeyValue(line)
 		if key == "" {
+			continue
+		}
+
+		if key == sshConfigInclude {
+			includes = append(includes, originalLine) // Store the original 'Include ...' line
 			continue
 		}
 
@@ -60,6 +148,7 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 			currentServer = &domain.Server{
 				Alias: value,
 				Port:  DefaultPort,
+				Group: group,
 			}
 		case sshConfigIPField:
 			if currentServer != nil {
@@ -84,7 +173,7 @@ func (p *SSHConfigParser) Parse(reader io.Reader) ([]domain.Server, error) {
 		servers = append(servers, *currentServer)
 	}
 
-	return servers, scanner.Err()
+	return servers, includes, scanner.Err()
 }
 
 func (p *SSHConfigParser) shouldSkipLine(line string) bool {

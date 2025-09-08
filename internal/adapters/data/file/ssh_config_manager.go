@@ -29,39 +29,88 @@ const (
 )
 
 type sshConfigManager struct {
-	filePath string
+	filePath       string
+	cachedIncludes map[string][]string
 }
 
 func newSSHConfigManager(filePath string) *sshConfigManager {
-	return &sshConfigManager{filePath: filePath}
+	return &sshConfigManager{
+		filePath:       filePath,
+		cachedIncludes: make(map[string][]string),
+	}
 }
 
 func (m *sshConfigManager) parseServers() ([]domain.Server, error) {
-	file, err := os.Open(m.filePath)
+	parser := &SSHConfigParser{}
+	servers, includes, err := parser.Parse(m.filePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return []domain.Server{}, nil
-		}
 		return nil, err
 	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	parser := &SSHConfigParser{}
-	return parser.Parse(file)
+	m.cachedIncludes = includes
+	return servers, nil
 }
 
-func (m *sshConfigManager) writeServers(servers []domain.Server) error {
-	if err := m.ensureDirectory(); err != nil {
+func (m *sshConfigManager) writeGroupedServers(servers []domain.Server) error {
+	configDir := filepath.Dir(m.filePath)
+	groupDir := filepath.Join(configDir, "config.d")
+
+	// Get a list of all group files that currently exist, to detect deletions.
+	existingGroupFiles, err := filepath.Glob(filepath.Join(groupDir, "*"))
+	if err != nil {
+		return fmt.Errorf("failed to list existing group files: %w", err)
+	}
+
+	// Group the new state of servers.
+	groupedServers := make(map[string][]domain.Server)
+	for _, s := range servers {
+		groupedServers[s.Group] = append(groupedServers[s.Group], s)
+	}
+
+	// Write the current groups to their files.
+	for group, srvs := range groupedServers {
+		path := m.filePath
+		if group != "" {
+			path = filepath.Join(groupDir, group)
+		}
+
+		// Get the original includes for this specific path from the cache.
+		directives := m.cachedIncludes[path]
+
+		if err := m.writeFile(path, srvs, directives); err != nil {
+			return fmt.Errorf("failed to write group %s: %w", group, err)
+		}
+	}
+
+	// Determine which of the old group files should now be deleted.
+	for _, oldFile := range existingGroupFiles {
+		groupName := filepath.Base(oldFile)
+		if _, stillExists := groupedServers[groupName]; !stillExists {
+			// This group is no longer in our map, so it's empty. Delete the file.
+			if err := os.Remove(oldFile); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("failed to remove obsolete group file %s: %w", oldFile, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// writeFile writes a list of servers to a specific file path.
+func (m *sshConfigManager) writeFile(path string, servers []domain.Server, directives []string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 
-	if err := m.backupCurrentConfig(); err != nil {
-		return err
+	// Note: The backup logic in backupCurrentConfig is tied to m.filePath.
+	// For simplicity, we only back up the main config file.
+	// A more robust solution might back up each file.
+	if path == m.filePath {
+		if err := m.backupCurrentConfig(); err != nil {
+			return err
+		}
 	}
 
-	dir := filepath.Dir(m.filePath)
+	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".lazyssh-tmp-*")
 	if err != nil {
 		return err
@@ -74,7 +123,7 @@ func (m *sshConfigManager) writeServers(servers []domain.Server) error {
 	}
 
 	writer := &SSHConfigWriter{}
-	if err := writer.Write(tmp, servers); err != nil {
+	if err := writer.Write(tmp, servers, directives); err != nil {
 		_ = tmp.Close()
 		return err
 	}
@@ -83,15 +132,11 @@ func (m *sshConfigManager) writeServers(servers []domain.Server) error {
 		_ = tmp.Close()
 		return err
 	}
-	if err := tmp.Close(); err != nil { // close after sync to ensure contents are persisted
+	if err := tmp.Close(); err != nil {
 		return err
 	}
 
-	if err := os.Rename(tmp.Name(), m.filePath); err != nil {
-		return err
-	}
-
-	return nil
+	return os.Rename(tmp.Name(), path)
 }
 
 func (m *sshConfigManager) addServer(server domain.Server) error {
@@ -108,7 +153,7 @@ func (m *sshConfigManager) addServer(server domain.Server) error {
 	}
 
 	servers = append(servers, server)
-	return m.writeServers(servers)
+	return m.writeGroupedServers(servers)
 }
 
 func (m *sshConfigManager) updateServer(alias string, newServer domain.Server) error {
@@ -130,7 +175,7 @@ func (m *sshConfigManager) updateServer(alias string, newServer domain.Server) e
 		return fmt.Errorf("server with alias '%s' not found", alias)
 	}
 
-	return m.writeServers(servers)
+	return m.writeGroupedServers(servers)
 }
 
 func (m *sshConfigManager) deleteServer(alias string) error {
@@ -154,12 +199,7 @@ func (m *sshConfigManager) deleteServer(alias string) error {
 		return fmt.Errorf("server with alias '%s' not found", alias)
 	}
 
-	return m.writeServers(newServers)
-}
-
-func (m *sshConfigManager) ensureDirectory() error {
-	dir := filepath.Dir(m.filePath)
-	return os.MkdirAll(dir, 0o700)
+	return m.writeGroupedServers(newServers)
 }
 
 // backupCurrentConfig creates ~/.lazyssh/backups/config.backup with 0600 perms,

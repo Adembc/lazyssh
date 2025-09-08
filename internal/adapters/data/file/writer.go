@@ -24,11 +24,22 @@ import (
 
 type SSHConfigWriter struct{}
 
-func (w *SSHConfigWriter) Write(writer io.Writer, servers []domain.Server) error {
+func (w *SSHConfigWriter) Write(writer io.Writer, servers []domain.Server, directives []string) error {
 	bufWriter := bufio.NewWriter(writer)
 	defer func() {
 		_ = bufWriter.Flush()
 	}()
+
+	if len(directives) > 0 {
+		for _, directive := range directives {
+			if _, err := fmt.Fprintln(bufWriter, directive); err != nil {
+				return err
+			}
+		}
+		if _, err := bufWriter.WriteString("\n"); err != nil {
+			return err
+		}
+	}
 
 	if _, err := fmt.Fprintf(bufWriter, "%s\n\n", ManagedByComment); err != nil {
 		return err
