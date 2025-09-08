@@ -1,0 +1,44 @@
+name: 💡Feature Request
+description: Suggest an idea for the project
+labels: [ "kind/enhancement", "priority/needs-triage" ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Feature Request
+        
+        Thanks for helping make the LazySSH project better!
+
+  - type: checkboxes
+    attributes:
+      label: Checks
+      options:
+        - label: I have searched the [existing issues](https://github.com/adembc/lazyssh/issues).
+          required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What has motivated your request?
+      placeholder: |
+        * This is the most important part of the request *
+        
+        * Help us understand what you are trying to achieve, try to separate it from any implementation you may have in mind *
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation
+      description: What is your proposed implementation?
+      placeholder: |
+        * It's fine to leave this blank if you don't have an implementation already in mind *
+
+  - type: checkboxes
+    attributes:
+      label: Are you willing & able to help?
+      options:
+        - label: I am able to submit a PR!
+        - label: I can help test the feature!
