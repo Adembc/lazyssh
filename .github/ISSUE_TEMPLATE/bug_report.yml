@@ -1,45 +1,45 @@
-name: 🐞 Bug Report
+name: 🐞 Bug Report
 description: Tell us about something not working properly
 labels: [ "kind/bug", "priority/needs-triage" ]
 body:
   - type: markdown
     attributes:
-    value: |
-    # Bug Report
-  
+      value: |
+        # Bug Report
+        
         Thanks for helping make the LazySSH project better!
-  
+
   - type: checkboxes
     attributes:
-    label: Checks
-    options:
-    - label: I have searched the [existing issues](https://github.com/adembc/lazyssh/issues).
-    required: true
-  
+      label: Checks
+      options:
+        - label: I have searched the [existing issues](https://github.com/adembc/lazyssh/issues).
+          required: true
+
+
   - type: input
     id: lazyssh-version
     attributes:
-    label: LazySSH Version
-    placeholder: X.X.X
+      label: LazySSH Version
+      placeholder: X.X.X
     validations:
-    required: true
-  
-    
+      required: true
+
   - type: input
     id: os
     attributes:
-    label: Operating System
-    description: What OS and ARCH are you using to run LazySSH?
-    placeholder: Darwin/amd64, Linux/arm64, etc...
+      label: Operating System
+      description: What is the OS/ARCH you are using to run LazySSH ?
+      placeholder: macOS (darwin/amd64), macOS (darwin/arm64), Linux (linux/arm64), etc...
     validations:
-    required: true
-  
-  
+      required: true
+
+
   - type: textarea
     id: description
     attributes:
-    label: Description
-    description: The __context__ the problem occurred in, and an __overview__ of what went wrong.
-    placeholder: I was trying to... but then...
+      label: Description
+      description: The __context__ the problem occurred in, and an __overview__ of what went wrong.
+      placeholder: I was trying to... but then...
     validations:
-    required: true
+      required: true
