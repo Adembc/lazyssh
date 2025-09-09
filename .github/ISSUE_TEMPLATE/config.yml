@@ -1,0 +1,10 @@
+blank_issues_enabled: true
+
+issue_templates:
+  - bug_report.yml
+  - feature_request.yml
+
+contact_links:
+  - name: Maintainer Contact
+    url: https://www.linkedin.com/in/adembc
+    about: Reach out to the maintainer on LinkedIn for help.
