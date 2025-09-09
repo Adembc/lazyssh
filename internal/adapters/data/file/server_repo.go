@@ -130,7 +130,8 @@ func (s *serverRepo) filterServers(servers []domain.Server, query string) []doma
 func (s *serverRepo) matchesQuery(server domain.Server, queryLower string) bool {
 	if strings.Contains(strings.ToLower(server.Alias), queryLower) ||
 		strings.Contains(strings.ToLower(server.Host), queryLower) ||
-		strings.Contains(strings.ToLower(server.User), queryLower) {
+		strings.Contains(strings.ToLower(server.User), queryLower) ||
+		strings.Contains(strings.ToLower(server.Info), queryLower){
 		return true
 	}
 
