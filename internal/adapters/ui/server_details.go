@@ -71,7 +71,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 	serverInfo := ""
 	if server.Info != "" {
-		serverInfo = fmt.Sprintf("\n\nInfo: [white]%s[-]", server.Info)
+		serverInfo = fmt.Sprintf("\n\nInfo: [red]%s[-]", server.Info)
 	}
 
 	tagsText := renderTagChips(server.Tags)
