@@ -17,14 +17,14 @@ package domain
 import "time"
 
 type Server struct {
-	Alias    string
-	Aliases  []string
-	Host     string
-	User     string
-	Port     int
-	Key      string
-	Tags     []string
-	LastSeen time.Time
-	PinnedAt time.Time
-	SSHCount int
+	Alias         string
+	Aliases       []string
+	Host          string
+	User          string
+	Port          int
+	IdentityFiles []string
+	Tags          []string
+	LastSeen      time.Time
+	PinnedAt      time.Time
+	SSHCount      int
 }

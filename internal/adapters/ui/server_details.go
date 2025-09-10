@@ -61,10 +61,8 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	if server.LastSeen.IsZero() {
 		lastSeen = "Never"
 	}
-	serverKey := server.Key
-	if serverKey == "" {
-		serverKey = "(default: ~/.ssh/id_{rsa,ed25519,ecdsa})"
-	}
+	serverKey := strings.Join(server.IdentityFiles, ", ")
+
 	pinnedStr := "true"
 	if server.PinnedAt.IsZero() {
 		pinnedStr = "false"

@@ -124,8 +124,8 @@ func BuildSSHCommand(s domain.Server) string {
 	if s.Port != 0 && s.Port != 22 {
 		parts = append(parts, "-p", fmt.Sprintf("%d", s.Port))
 	}
-	if s.Key != "" {
-		parts = append(parts, "-i", quoteIfNeeded(s.Key))
+	if len(s.IdentityFiles) > 0 {
+		parts = append(parts, "-i", quoteIfNeeded(s.IdentityFiles[0]))
 	}
 	return strings.Join(parts, " ")
 }

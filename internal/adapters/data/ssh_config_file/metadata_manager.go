@@ -50,7 +50,6 @@ func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
 
 	data, err := os.ReadFile(m.filePath)
 	if err != nil {
-		m.logger.Errorw("failed to read metadata file", "path", m.filePath, "error", err)
 		return nil, fmt.Errorf("read metadata '%s': %w", m.filePath, err)
 	}
 
@@ -59,8 +58,6 @@ func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
 	}
 
 	if err := json.Unmarshal(data, &metadata); err != nil {
-		m.logger.Errorw("failed to parse metadata JSON", "path", m.filePath, "error", err)
-
 		return nil, fmt.Errorf("parse metadata JSON '%s': %w", m.filePath, err)
 	}
 
@@ -105,9 +102,7 @@ func (m *metadataManager) updateServer(server domain.Server, oldAlias string) er
 	existing := metadata[server.Alias]
 	merged := existing
 
-	if server.Tags != nil {
-		merged.Tags = server.Tags
-	}
+	merged.Tags = server.Tags
 
 	if !server.LastSeen.IsZero() {
 		merged.LastSeen = server.LastSeen.Format(time.RFC3339)
@@ -172,7 +167,6 @@ func (m *metadataManager) recordSSH(alias string) error {
 func (m *metadataManager) ensureDirectory() error {
 	dir := filepath.Dir(m.filePath)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		m.logger.Errorw("failed to create metadata directory", "dir", dir, "error", err)
 		return fmt.Errorf("mkdir '%s': %w", dir, err)
 	}
 	return nil

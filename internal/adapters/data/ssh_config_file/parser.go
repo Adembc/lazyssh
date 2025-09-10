@@ -256,9 +256,10 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 			continue
 		}
 		server := domain.Server{
-			Alias:   aliases[0],
-			Aliases: aliases,
-			Port:    22,
+			Alias:         aliases[0],
+			Aliases:       aliases,
+			Port:          22,
+			IdentityFiles: []string{},
 		}
 
 		for _, node := range host.Nodes {
@@ -289,7 +290,7 @@ func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV)
 			server.Port = port
 		}
 	case "identityfile":
-		server.Key = kvNode.Value
+		server.IdentityFiles = append(server.IdentityFiles, kvNode.Value)
 	}
 }
 
@@ -394,7 +395,9 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 	r.addKVNodeIfNotEmpty(host, "HostName", server.Host)
 	r.addKVNodeIfNotEmpty(host, "User", server.User)
 	r.addKVNodeIfNotEmpty(host, "Port", fmt.Sprintf("%d", server.Port))
-	r.addKVNodeIfNotEmpty(host, "IdentityFile", server.Key)
+	for _, identityFile := range server.IdentityFiles {
+		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
+	}
 
 	return host
 }
@@ -416,16 +419,36 @@ func (r *Repository) addKVNodeIfNotEmpty(host *ssh_config.Host, key, value strin
 // updateHostNodes updates the nodes of an existing host with new server details.
 func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Server) {
 	updates := map[string]string{
-		"hostname":     newServer.Host,
-		"user":         newServer.User,
-		"port":         fmt.Sprintf("%d", newServer.Port),
-		"identityfile": newServer.Key,
+		"hostname": newServer.Host,
+		"user":     newServer.User,
+		"port":     fmt.Sprintf("%d", newServer.Port),
 	}
 	for key, value := range updates {
 		if value != "" {
 			r.updateOrAddKVNode(host, key, value)
 		}
 	}
+	// Replace IdentityFile entries entirely to reflect the new state.
+	// This ensures removing/clearing identity files works as expected.
+
+	removeKey := func(nodes []ssh_config.Node, key string) []ssh_config.Node {
+		filtered := make([]ssh_config.Node, 0, len(nodes))
+		for _, node := range nodes {
+			if kv, ok := node.(*ssh_config.KV); ok {
+				if strings.EqualFold(kv.Key, key) {
+					continue // skip existing IdentityFile
+				}
+			}
+			filtered = append(filtered, node)
+		}
+		return filtered
+	}
+	host.Nodes = removeKey(host.Nodes, "IdentityFile")
+
+	for _, identityFile := range newServer.IdentityFiles {
+		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
+	}
+	
 }
 
 // updateOrAddKVNode updates an existing key-value node or adds a new one if it doesn't exist.

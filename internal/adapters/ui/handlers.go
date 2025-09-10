@@ -332,13 +332,13 @@ func (t *tui) showEditTagsForm(server domain.Server) {
 	form.AddButton("Save", func() {
 		text := strings.TrimSpace(form.GetFormItem(0).(*tview.InputField).GetText())
 		var tags []string
-		if text != "" {
-			for _, part := range strings.Split(text, ",") {
-				if s := strings.TrimSpace(part); s != "" {
-					tags = append(tags, s)
-				}
+
+		for _, part := range strings.Split(text, ",") {
+			if s := strings.TrimSpace(part); s != "" {
+				tags = append(tags, s)
 			}
 		}
+
 		newServer := server
 		newServer.Tags = tags
 		_ = t.serverService.UpdateServer(server, newServer)
