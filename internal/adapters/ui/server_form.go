@@ -163,7 +163,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 
-	keys := []string{}
+	keys := make([]string, 0)
 	if data.Key != "" {
 		parts := strings.Split(data.Key, ",")
 		for _, p := range parts {

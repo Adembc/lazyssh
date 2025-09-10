@@ -36,12 +36,12 @@ type FileSystem interface {
 type DefaultFileSystem struct{}
 
 func (fs DefaultFileSystem) Open(name string) (io.ReadCloser, error) {
-	// #nosec G304 -- file path is controlled internally, not user-supplied
+	// #nosec G304 -- the file path is controlled internally, not user-supplied
 	return os.Open(name)
 }
 
 func (fs DefaultFileSystem) Create(name string) (io.WriteCloser, error) {
-	// #nosec G304 -- file path is controlled internally, not user-supplied
+	// #nosec G304 -- the file path is controlled internally, not user-supplied
 	return os.Create(name)
 }
 
@@ -66,7 +66,7 @@ func (fs DefaultFileSystem) Chmod(path string, perms os.FileMode) error {
 }
 
 func (fs DefaultFileSystem) OpenFile(path string, i int, perms os.FileMode) (*os.File, error) {
-	// #nosec G304 -- file path is controlled internally, not user-supplied
+	// #nosec G304 -- the file path is controlled internally, not user-supplied
 	return os.OpenFile(path, i, perms)
 }
 
