@@ -22,6 +22,10 @@ import (
 	"github.com/rivo/tview"
 )
 
+type App interface {
+	Run() error
+}
+
 type tui struct {
 	logger *zap.SugaredLogger
 
@@ -46,7 +50,7 @@ type tui struct {
 	searchVisible bool
 }
 
-func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) *tui {
+func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) App {
 	return &tui{
 		logger:        logger,
 		app:           tview.NewApplication(),

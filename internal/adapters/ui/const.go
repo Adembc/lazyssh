@@ -14,13 +14,10 @@
 
 package ui
 
-import "time"
-
 const (
-	AppName              = "lazyssh"
-	RepoURL              = "github.com/adembc/lazyssh"
-	SplashScreenDuration = 1 * time.Second
-	Banner               = `
+	AppName = "lazyssh"
+	RepoURL = "github.com/adembc/lazyssh"
+	Banner  = `
 
 			  $$\                                                   $$\       
 			  $$ |                                                  $$ |      

@@ -2,9 +2,12 @@ module github.com/Adembc/lazyssh
 
 go 1.24.6
 
+replace github.com/kevinburke/ssh_config => github.com/adembc/ssh_config v1.4.2
+
 require (
 	github.com/atotto/clipboard v0.1.4
 	github.com/gdamore/tcell/v2 v2.9.0
+	github.com/kevinburke/ssh_config v1.4.0
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/rivo/tview v0.0.0-20250625164341-a4a78f1e05cb
 	github.com/spf13/cobra v1.9.1

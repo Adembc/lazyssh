@@ -37,7 +37,7 @@ type serverService struct {
 }
 
 // NewServerService creates a new instance of serverService.
-func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) *serverService {
+func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) ports.ServerService {
 	return &serverService{
 		logger:           logger,
 		serverRepository: sr,

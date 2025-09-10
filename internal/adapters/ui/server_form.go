@@ -82,7 +82,7 @@ func (sf *ServerForm) addFormFields() {
 			Host:  sf.original.Host,
 			User:  sf.original.User,
 			Port:  fmt.Sprint(sf.original.Port),
-			Key:   sf.original.Key,
+			Key:   strings.Join(sf.original.IdentityFiles, ", "),
 			Tags:  strings.Join(sf.original.Tags, ", "),
 		}
 	} else {
@@ -97,7 +97,7 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("Host/IP:", defaultValues.Host, 20, nil, nil)
 	sf.Form.AddInputField("User:", defaultValues.User, 20, nil, nil)
 	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
-	sf.Form.AddInputField("Key:", defaultValues.Key, 40, nil, nil)
+	sf.Form.AddInputField("Key (Comma):", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
 }
 
@@ -163,13 +163,22 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 
+	keys := make([]string, 0)
+	if data.Key != "" {
+		parts := strings.Split(data.Key, ",")
+		for _, p := range parts {
+			if k := strings.TrimSpace(p); k != "" {
+				keys = append(keys, k)
+			}
+		}
+	}
 	return domain.Server{
-		Alias: data.Alias,
-		Host:  data.Host,
-		User:  data.User,
-		Port:  port,
-		Key:   data.Key,
-		Tags:  tags,
+		Alias:         data.Alias,
+		Host:          data.Host,
+		User:          data.User,
+		Port:          port,
+		IdentityFiles: keys,
+		Tags:          tags,
 	}
 }
 
