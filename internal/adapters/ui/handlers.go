@@ -16,6 +16,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -169,11 +170,21 @@ func (t *tui) handleSearchToggle() {
 
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
-
-		t.app.Suspend(func() {
-			_ = t.serverService.SSH(server.Alias)
-		})
-		t.refreshServerList()
+		// Stop the TUI completely 
+		t.app.Stop()
+		
+		// Clear the screen and reset terminal
+		fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top
+		
+		// Use the server service SSH method 
+		fmt.Printf("Connecting to %s...\n", server.Alias)
+		if err := t.serverService.SSH(server.Alias); err != nil {
+			fmt.Fprintf(os.Stderr, "SSH connection failed: %v\n", err)
+			os.Exit(1)
+		}
+		
+		// Exit cleanly after SSH session
+		os.Exit(0)
 	}
 }
 
@@ -408,3 +419,4 @@ func (t *tui) showStatusTempColor(msg string, color string) {
 		}
 	})
 }
+

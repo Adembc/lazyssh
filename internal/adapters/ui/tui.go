@@ -62,6 +62,7 @@ func (t *tui) Run() error {
 			t.logger.Errorw("panic recovered", "error", r)
 		}
 	}()
+	
 	t.app.EnableMouse(true)
 	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData()
 	t.app.SetRoot(t.root, true)
@@ -140,3 +141,4 @@ func (t *tui) updateListTitle() {
 		t.serverList.SetTitle("Servers — Sort: " + t.sortMode.String())
 	}
 }
+

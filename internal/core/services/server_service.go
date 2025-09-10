@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kjm0001/lazyssh/internal/core/domain"
@@ -170,35 +171,17 @@ func (s *serverService) SSH(alias string) error {
 
 	s.logger.Infow("connection start", "alias", alias, "type", server.ConnectionType)
 
-	var cmd *exec.Cmd
 	switch server.ConnectionType {
 	case domain.ConnectionTypeAWS:
-		cmd, err = s.buildAWSCommand(*server)
-		if err != nil {
-			return fmt.Errorf("failed to build AWS command: %w", err)
-		}
+		// Use syscall.Exec for AWS connections to completely replace process
+		return s.execAWSConnection(*server)
 	case domain.ConnectionTypeSSH:
-		cmd = exec.Command("ssh", alias)
+		// Use syscall.Exec for SSH connections too for consistency
+		return s.execSSHConnection(alias)
 	default:
 		// Fallback to SSH connection for unknown types
-		cmd = exec.Command("ssh", alias)
+		return s.execSSHConnection(alias)
 	}
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		s.logger.Errorw("connection command failed", "alias", alias, "type", server.ConnectionType, "error", err)
-		return err
-	}
-
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record connection metadata", "alias", alias, "error", err)
-	}
-
-	s.logger.Infow("connection end", "alias", alias, "type", server.ConnectionType)
-	return nil
 }
 
 // Ping checks if the server is reachable on its SSH port.
@@ -480,4 +463,223 @@ exec aws --profile %s --region %s ssm start-session \
 	cmd.Env = os.Environ()
 
 	return cmd, nil
+}
+
+// execSSHConnection executes SSH connection using syscall.Exec (process replacement)
+func (s *serverService) execSSHConnection(alias string) error {
+	s.logger.Infow("executing SSH connection", "alias", alias)
+	
+	// Record SSH connection before exec (since we won't return)
+	if err := s.serverRepository.RecordSSH(alias); err != nil {
+		s.logger.Warnw("failed to record connection metadata", "alias", alias, "error", err)
+	}
+	
+	// Find ssh binary
+	sshPath, err := exec.LookPath("ssh")
+	if err != nil {
+		return fmt.Errorf("ssh binary not found: %w", err)
+	}
+	
+	// Replace current process with ssh
+	err = syscall.Exec(sshPath, []string{"ssh", alias}, os.Environ())
+	if err != nil {
+		return fmt.Errorf("failed to exec ssh: %w", err)
+	}
+	
+	// This should never be reached
+	return nil
+}
+
+// execAWSConnection executes AWS SSM connection using syscall.Exec (process replacement)
+func (s *serverService) execAWSConnection(server domain.Server) error {
+	s.logger.Infow("executing AWS connection", "alias", server.Alias)
+	
+	// Use server configuration from YAML (preferred) or fallback to legacy mappings
+	awsProfile := server.AWSProfile
+	awsRegion := server.AWSRegion
+	
+	// Fallback to legacy mappings if YAML config is incomplete
+	if awsProfile == "" {
+		awsProfile = mapServerToAWSProfile(server.Alias)
+	}
+	if awsRegion == "" {
+		awsRegion = mapServerToAWSRegion(server.Alias)
+	}
+	
+	// Determine target identifier for display
+	var instanceIdentifier string
+	if server.Host != "" {
+		instanceIdentifier = server.Host
+	} else if server.EC2TagFilter != "" {
+		instanceIdentifier = server.EC2TagFilter
+	} else {
+		instanceIdentifier = mapServerToInstanceName(server.Alias)
+	}
+	
+	// Set SSM document for display
+	ssmDocument := server.SSMDocument
+	if ssmDocument == "" {
+		ssmDocument = "AWS-StartInteractiveCommand"
+	}
+	
+	// Display connection information
+	fmt.Printf("\n=================== LazySsh AWS Connection ===================\n")
+	fmt.Printf("Server: %s\n", server.Alias)
+	fmt.Printf("AWS Profile: %s\n", awsProfile)
+	fmt.Printf("AWS Region: %s\n", awsRegion)
+	fmt.Printf("Target: %s\n", instanceIdentifier)
+	fmt.Printf("SSM Document: %s\n", ssmDocument)
+	fmt.Printf("Source: %s\n", server.Source)
+	fmt.Printf("==============================================================\n\n")
+	
+	// Step 1: Verify AWS credentials
+	fmt.Printf("🔍 Verifying AWS credentials...\n")
+	credCmd := exec.Command("aws", "--profile", awsProfile, "--region", awsRegion, "sts", "get-caller-identity")
+	if err := credCmd.Run(); err != nil {
+		fmt.Printf("✗ AWS credentials verification failed for profile: %s\n", awsProfile)
+		fmt.Printf("Please check your AWS profile configuration:\n")
+		fmt.Printf("  aws configure list --profile %s\n", awsProfile)
+		return fmt.Errorf("AWS credentials verification failed: %w", err)
+	}
+	fmt.Printf("✓ AWS credentials verified for profile: %s\n\n", awsProfile)
+	
+	// Record SSH connection before exec (since we won't return)
+	if err := s.serverRepository.RecordSSH(server.Alias); err != nil {
+		s.logger.Warnw("failed to record connection metadata", "alias", server.Alias, "error", err)
+	}
+	
+	// Step 2: Resolve instance ID and build command arguments
+	var instanceID string
+	if server.Host != "" {
+		// Direct instance ID connection
+		instanceID = server.Host
+		fmt.Printf("🔍 Using direct instance ID: %s\n", instanceID)
+	} else if server.EC2TagFilter != "" {
+		// EC2 tag filter connection
+		fmt.Printf("🔍 Finding EC2 instance using filters: %s\n", server.EC2TagFilter)
+		var err error
+		instanceID, err = s.resolveInstanceIDByFilters(awsProfile, awsRegion, server.EC2TagFilter)
+		if err != nil {
+			fmt.Printf("✗ Could not find running instance with filters: %s\n", server.EC2TagFilter)
+			return fmt.Errorf("failed to resolve instance ID by filters: %w", err)
+		}
+		fmt.Printf("✓ Found instance: %s\n", instanceID)
+	} else {
+		// Fallback to legacy instance name mapping
+		instanceName := mapServerToInstanceName(server.Alias)
+		fmt.Printf("🔍 Finding EC2 instance: %s (legacy mode)\n", instanceName)
+		var err error
+		instanceID, err = s.resolveInstanceIDByName(awsProfile, awsRegion, instanceName)
+		if err != nil {
+			fmt.Printf("✗ Could not find running instance: %s\n", instanceName)
+			return fmt.Errorf("failed to resolve instance ID by name: %w", err)
+		}
+		fmt.Printf("✓ Found instance: %s\n", instanceID)
+	}
+	
+	// Build AWS command arguments
+	awsArgs, env, err := s.buildAWSExecArgsWithInstanceID(server, awsProfile, awsRegion, instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to build AWS command: %w", err)
+	}
+	
+	// Display what we're about to execute
+	fmt.Printf("\n🚀 Starting SSM session...\n")
+	fmt.Printf("Command: %s\n\n", strings.Join(awsArgs, " "))
+	
+	// Find aws binary
+	awsPath, err := exec.LookPath("aws")
+	if err != nil {
+		return fmt.Errorf("aws binary not found: %w", err)
+	}
+	
+	// Replace current process with aws command
+	err = syscall.Exec(awsPath, awsArgs, env)
+	if err != nil {
+		return fmt.Errorf("failed to exec aws: %w", err)
+	}
+	
+	// This should never be reached
+	return nil
+}
+
+// buildAWSExecArgsWithInstanceID builds AWS CLI arguments for direct execution with syscall.Exec using a pre-resolved instance ID
+func (s *serverService) buildAWSExecArgsWithInstanceID(server domain.Server, awsProfile, awsRegion, instanceID string) ([]string, []string, error) {
+	if server.ConnectionType != domain.ConnectionTypeAWS {
+		return nil, nil, fmt.Errorf("server is not an AWS connection type")
+	}
+
+	s.logger.Infow("building AWS SSM exec args",
+		"server_alias", server.Alias,
+		"aws_profile", awsProfile,
+		"aws_region", awsRegion,
+		"instance_id", instanceID,
+		"ssm_document", server.SSMDocument,
+		"source", server.Source)
+
+	// Set SSM document and parameters
+	ssmDocument := server.SSMDocument
+	if ssmDocument == "" {
+		ssmDocument = "AWS-StartInteractiveCommand" // default for backward compatibility
+	}
+	
+	// Build AWS CLI arguments
+	args := []string{"aws"}
+	args = append(args, "--profile", awsProfile)
+	args = append(args, "--region", awsRegion)
+	args = append(args, "ssm", "start-session")
+	args = append(args, "--target", instanceID)
+	args = append(args, "--document-name", ssmDocument)
+	
+	// Add SSM parameters if specified
+	if server.SSMCommand != "" {
+		args = append(args, "--parameters", server.SSMCommand)
+	} else if ssmDocument == "AWS-StartInteractiveCommand" {
+		args = append(args, "--parameters", `command="sudo su - ubuntu"`)
+	}
+	
+	// Preserve current environment
+	env := os.Environ()
+	
+	return args, env, nil
+}
+
+// resolveInstanceIDByFilters resolves EC2 instance ID using tag filters
+func (s *serverService) resolveInstanceIDByFilters(profile, region, filters string) (string, error) {
+	cmd := exec.Command("aws", "--profile", profile, "--region", region, "ec2", "describe-instances",
+		"--filters", filters, "Name=instance-state-name,Values=running",
+		"--query", "Reservations[0].Instances[0].InstanceId",
+		"--output", "text")
+	
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to query EC2 instances: %w", err)
+	}
+	
+	instanceID := strings.TrimSpace(string(output))
+	if instanceID == "" || instanceID == "None" || instanceID == "null" {
+		return "", fmt.Errorf("no running instance found with filters: %s", filters)
+	}
+	
+	return instanceID, nil
+}
+
+// resolveInstanceIDByName resolves EC2 instance ID using Name tag
+func (s *serverService) resolveInstanceIDByName(profile, region, instanceName string) (string, error) {
+	cmd := exec.Command("aws", "--profile", profile, "--region", region, "ec2", "describe-instances",
+		"--filters", fmt.Sprintf("Name=tag:Name,Values=%s", instanceName), "Name=instance-state-name,Values=running",
+		"--query", "Reservations[0].Instances[0].InstanceId",
+		"--output", "text")
+	
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to query EC2 instances: %w", err)
+	}
+	
+	instanceID := strings.TrimSpace(string(output))
+	if instanceID == "" || instanceID == "None" || instanceID == "null" {
+		return "", fmt.Errorf("no running instance found with name: %s", instanceName)
+	}
+	
+	return instanceID, nil
 }
