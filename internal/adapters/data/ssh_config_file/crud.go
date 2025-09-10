@@ -97,7 +97,7 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 			{Str: server.Alias},
 		},
 		Nodes:              make([]ssh_config.Node, 0),
-		LeadingSpace:       1,
+		LeadingSpace:       4,
 		EOLComment:         "Added by lazyssh",
 		SpaceBeforeComment: strings.Repeat(" ", 4),
 	}

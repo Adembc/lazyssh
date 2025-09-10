@@ -108,14 +108,13 @@ func (r *Repository) createTempFile(dir string) (string, error) {
 	tempFileName := fmt.Sprintf("config%s%s", timestamp, TempSuffix)
 	tempFilePath := filepath.Join(dir, tempFileName)
 
-	// Create the temp file
-	file, err := r.fileSystem.Create(tempFilePath)
+	// Create the temp file with explicit 0600 permissions
+	f, err := r.fileSystem.OpenFile(tempFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, SSHConfigPerms)
 	if err != nil {
 		return "", err
 	}
-
-	if err := file.Close(); err != nil {
-		r.logger.Warnf("failed to close temporary file %s: %v", tempFilePath, err)
+	if cerr := f.Close(); cerr != nil {
+		r.logger.Warnf("failed to close temporary file %s: %v", tempFilePath, cerr)
 	}
 
 	return tempFilePath, nil
