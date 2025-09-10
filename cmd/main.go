@@ -19,7 +19,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Adembc/lazyssh/internal/adapters/data/file"
+	"github.com/Adembc/lazyssh/internal/adapters/data/ssh_config_file"
 	"github.com/Adembc/lazyssh/internal/logger"
 
 	"github.com/Adembc/lazyssh/internal/adapters/ui"
@@ -51,7 +51,7 @@ func main() {
 	sshConfigFile := filepath.Join(home, ".ssh", "config")
 	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
 
-	serverRepo := file.NewServerRepo(log, sshConfigFile, metaDataFile)
+	serverRepo := ssh_config_file.NewRepository(log, sshConfigFile, metaDataFile)
 	serverService := services.NewServerService(log, serverRepo)
 	tui := ui.NewTUI(log, serverService, version, gitCommit)
 

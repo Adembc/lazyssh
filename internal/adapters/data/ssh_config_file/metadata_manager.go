@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package file
+package ssh_config_file
 
 import (
 	"encoding/json"
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
+	"go.uber.org/zap"
 )
 
 type ServerMetadata struct {
@@ -33,10 +34,11 @@ type ServerMetadata struct {
 
 type metadataManager struct {
 	filePath string
+	logger   *zap.SugaredLogger
 }
 
-func newMetadataManager(filePath string) *metadataManager {
-	return &metadataManager{filePath: filePath}
+func newMetadataManager(filePath string, logger *zap.SugaredLogger) *metadataManager {
+	return &metadataManager{filePath: filePath, logger: logger}
 }
 
 func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
@@ -48,7 +50,8 @@ func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
 
 	data, err := os.ReadFile(m.filePath)
 	if err != nil {
-		return nil, err
+		m.logger.Errorw("failed to read metadata file", "path", m.filePath, "error", err)
+		return nil, fmt.Errorf("read metadata '%s': %w", m.filePath, err)
 	}
 
 	if len(data) == 0 {
@@ -56,7 +59,9 @@ func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
 	}
 
 	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, fmt.Errorf("failed to parse metadata JSON: %w", err)
+		m.logger.Errorw("failed to parse metadata JSON", "path", m.filePath, "error", err)
+
+		return nil, fmt.Errorf("parse metadata JSON '%s': %w", m.filePath, err)
 	}
 
 	return metadata, nil
@@ -64,21 +69,37 @@ func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
 
 func (m *metadataManager) saveAll(metadata map[string]ServerMetadata) error {
 	if err := m.ensureDirectory(); err != nil {
-		return err
+		m.logger.Errorw("failed to ensure metadata directory", "path", m.filePath, "error", err)
+
+		return fmt.Errorf("ensure metadata directory for '%s': %w", m.filePath, err)
 	}
 
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return err
+		m.logger.Errorw("failed to marshal metadata", "path", m.filePath, "error", err)
+		return fmt.Errorf("marshal metadata for '%s': %w", m.filePath, err)
 	}
 
-	return os.WriteFile(m.filePath, data, 0o600)
+	if err := os.WriteFile(m.filePath, data, 0o600); err != nil {
+		m.logger.Errorw("failed to write metadata file", "path", m.filePath, "error", err)
+		return fmt.Errorf("write metadata '%s': %w", m.filePath, err)
+	}
+	return nil
 }
 
-func (m *metadataManager) updateServer(server domain.Server) error {
+func (m *metadataManager) updateServer(server domain.Server, oldAlias string) error {
 	metadata, err := m.loadAll()
 	if err != nil {
-		metadata = make(map[string]ServerMetadata)
+		m.logger.Errorw("failed to load metadata in updateServer", "path", m.filePath, "alias", server.Alias, "old_alias", oldAlias, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
+	}
+
+	if oldAlias != server.Alias {
+		oldMeta, ok := metadata[oldAlias]
+		if ok {
+			metadata[server.Alias] = oldMeta
+		}
+		delete(metadata, oldAlias)
 	}
 
 	existing := metadata[server.Alias]
@@ -107,7 +128,8 @@ func (m *metadataManager) updateServer(server domain.Server) error {
 func (m *metadataManager) deleteServer(alias string) error {
 	metadata, err := m.loadAll()
 	if err != nil {
-		return nil
+		m.logger.Errorw("failed to load metadata in deleteServer", "path", m.filePath, "alias", alias, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
 	}
 
 	delete(metadata, alias)
@@ -117,7 +139,8 @@ func (m *metadataManager) deleteServer(alias string) error {
 func (m *metadataManager) setPinned(alias string, pinned bool) error {
 	metadata, err := m.loadAll()
 	if err != nil {
-		metadata = make(map[string]ServerMetadata)
+		m.logger.Errorw("failed to load metadata in setPinned", "path", m.filePath, "alias", alias, "pinned", pinned, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
 	}
 
 	meta := metadata[alias]
@@ -134,7 +157,8 @@ func (m *metadataManager) setPinned(alias string, pinned bool) error {
 func (m *metadataManager) recordSSH(alias string) error {
 	metadata, err := m.loadAll()
 	if err != nil {
-		metadata = make(map[string]ServerMetadata)
+		m.logger.Errorw("failed to load metadata in recordSSH", "path", m.filePath, "alias", alias, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
 	}
 
 	meta := metadata[alias]
@@ -147,5 +171,9 @@ func (m *metadataManager) recordSSH(alias string) error {
 
 func (m *metadataManager) ensureDirectory() error {
 	dir := filepath.Dir(m.filePath)
-	return os.MkdirAll(dir, 0o750)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		m.logger.Errorw("failed to create metadata directory", "dir", dir, "error", err)
+		return fmt.Errorf("mkdir '%s': %w", dir, err)
+	}
+	return nil
 }

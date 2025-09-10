@@ -18,6 +18,7 @@ import "time"
 
 type Server struct {
 	Alias    string
+	Aliases  []string
 	Host     string
 	User     string
 	Port     int
