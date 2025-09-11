@@ -109,6 +109,23 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
 	}
 
+	// Additional SSH config fields
+	r.addKVNodeIfNotEmpty(host, "ProxyCommand", server.ProxyCommand)
+	r.addKVNodeIfNotEmpty(host, "ProxyJump", server.ProxyJump)
+	r.addKVNodeIfNotEmpty(host, "ForwardAgent", server.ForwardAgent)
+	r.addKVNodeIfNotEmpty(host, "Compression", server.Compression)
+	r.addKVNodeIfNotEmpty(host, "HostKeyAlgorithms", server.HostKeyAlgorithms)
+	r.addKVNodeIfNotEmpty(host, "ServerAliveInterval", server.ServerAliveInterval)
+	r.addKVNodeIfNotEmpty(host, "ServerAliveCountMax", server.ServerAliveCountMax)
+	r.addKVNodeIfNotEmpty(host, "StrictHostKeyChecking", server.StrictHostKeyChecking)
+	r.addKVNodeIfNotEmpty(host, "UserKnownHostsFile", server.UserKnownHostsFile)
+	r.addKVNodeIfNotEmpty(host, "LogLevel", server.LogLevel)
+	r.addKVNodeIfNotEmpty(host, "PreferredAuthentications", server.PreferredAuthentications)
+	r.addKVNodeIfNotEmpty(host, "PasswordAuthentication", server.PasswordAuthentication)
+	r.addKVNodeIfNotEmpty(host, "PubkeyAuthentication", server.PubkeyAuthentication)
+	r.addKVNodeIfNotEmpty(host, "RequestTTY", server.RequestTTY)
+	r.addKVNodeIfNotEmpty(host, "RemoteCommand", server.RemoteCommand)
+
 	return host
 }
 
@@ -129,9 +146,24 @@ func (r *Repository) addKVNodeIfNotEmpty(host *ssh_config.Host, key, value strin
 // updateHostNodes updates the nodes of an existing host with new server details.
 func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Server) {
 	updates := map[string]string{
-		"hostname": newServer.Host,
-		"user":     newServer.User,
-		"port":     fmt.Sprintf("%d", newServer.Port),
+		"hostname":                 newServer.Host,
+		"user":                     newServer.User,
+		"port":                     fmt.Sprintf("%d", newServer.Port),
+		"proxycommand":             newServer.ProxyCommand,
+		"proxyjump":                newServer.ProxyJump,
+		"forwardagent":             newServer.ForwardAgent,
+		"compression":              newServer.Compression,
+		"hostkeyalgorithms":        newServer.HostKeyAlgorithms,
+		"serveraliveinterval":      newServer.ServerAliveInterval,
+		"serveralivecountmax":      newServer.ServerAliveCountMax,
+		"stricthostkeychecking":    newServer.StrictHostKeyChecking,
+		"userknownhostsfile":       newServer.UserKnownHostsFile,
+		"loglevel":                 newServer.LogLevel,
+		"preferredauthentications": newServer.PreferredAuthentications,
+		"passwordauthentication":   newServer.PasswordAuthentication,
+		"pubkeyauthentication":     newServer.PubkeyAuthentication,
+		"requesttty":               newServer.RequestTTY,
+		"remotecommand":            newServer.RemoteCommand,
 	}
 	for key, value := range updates {
 		if value != "" {
@@ -186,10 +218,25 @@ func (r *Repository) updateOrAddKVNode(host *ssh_config.Host, key, newValue stri
 // Reference: https://www.ssh.com/academy/ssh/config
 func (r *Repository) getProperKeyCase(key string) string {
 	keyMap := map[string]string{
-		"hostname":     "HostName",
-		"user":         "User",
-		"port":         "Port",
-		"identityfile": "IdentityFile",
+		"hostname":                 "HostName",
+		"user":                     "User",
+		"port":                     "Port",
+		"identityfile":             "IdentityFile",
+		"proxycommand":             "ProxyCommand",
+		"proxyjump":                "ProxyJump",
+		"forwardagent":             "ForwardAgent",
+		"compression":              "Compression",
+		"hostkeyalgorithms":        "HostKeyAlgorithms",
+		"serveraliveinterval":      "ServerAliveInterval",
+		"serveralivecountmax":      "ServerAliveCountMax",
+		"stricthostkeychecking":    "StrictHostKeyChecking",
+		"userknownhostsfile":       "UserKnownHostsFile",
+		"loglevel":                 "LogLevel",
+		"preferredauthentications": "PreferredAuthentications",
+		"passwordauthentication":   "PasswordAuthentication",
+		"pubkeyauthentication":     "PubkeyAuthentication",
+		"requesttty":               "RequestTTY",
+		"remotecommand":            "RemoteCommand",
 	}
 
 	if properCase, exists := keyMap[strings.ToLower(key)]; exists {

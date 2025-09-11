@@ -78,12 +78,27 @@ func (sf *ServerForm) addFormFields() {
 	var defaultValues ServerFormData
 	if sf.mode == ServerFormEdit && sf.original != nil {
 		defaultValues = ServerFormData{
-			Alias: sf.original.Alias,
-			Host:  sf.original.Host,
-			User:  sf.original.User,
-			Port:  fmt.Sprint(sf.original.Port),
-			Key:   strings.Join(sf.original.IdentityFiles, ", "),
-			Tags:  strings.Join(sf.original.Tags, ", "),
+			Alias:                    sf.original.Alias,
+			Host:                     sf.original.Host,
+			User:                     sf.original.User,
+			Port:                     fmt.Sprint(sf.original.Port),
+			Key:                      strings.Join(sf.original.IdentityFiles, ", "),
+			Tags:                     strings.Join(sf.original.Tags, ", "),
+			ProxyCommand:             sf.original.ProxyCommand,
+			ProxyJump:                sf.original.ProxyJump,
+			ForwardAgent:             sf.original.ForwardAgent,
+			Compression:              sf.original.Compression,
+			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
+			ServerAliveInterval:      sf.original.ServerAliveInterval,
+			ServerAliveCountMax:      sf.original.ServerAliveCountMax,
+			StrictHostKeyChecking:    sf.original.StrictHostKeyChecking,
+			UserKnownHostsFile:       sf.original.UserKnownHostsFile,
+			LogLevel:                 sf.original.LogLevel,
+			PreferredAuthentications: sf.original.PreferredAuthentications,
+			PasswordAuthentication:   sf.original.PasswordAuthentication,
+			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
+			RequestTTY:               sf.original.RequestTTY,
+			RemoteCommand:            sf.original.RemoteCommand,
 		}
 	} else {
 		defaultValues = ServerFormData{
@@ -99,6 +114,34 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
 	sf.Form.AddInputField("Key (Comma):", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+
+	// Additional SSH config fields - organized by usage frequency and relevance
+	// Connection and proxy settings (most commonly used)
+	sf.Form.AddInputField("ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
+	sf.Form.AddInputField("ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
+	sf.Form.AddInputField("RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
+	sf.Form.AddInputField("RequestTTY (yes/no/force):", defaultValues.RequestTTY, 20, nil, nil)
+
+	// Authentication settings
+	sf.Form.AddInputField("PubkeyAuthentication (yes/no):", defaultValues.PubkeyAuthentication, 20, nil, nil)
+	sf.Form.AddInputField("PasswordAuthentication (yes/no):", defaultValues.PasswordAuthentication, 20, nil, nil)
+	sf.Form.AddInputField("PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
+
+	// Agent and forwarding settings
+	sf.Form.AddInputField("ForwardAgent (yes/no):", defaultValues.ForwardAgent, 20, nil, nil)
+
+	// Connection reliability settings
+	sf.Form.AddInputField("ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 20, nil, nil)
+	sf.Form.AddInputField("ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
+	sf.Form.AddInputField("Compression (yes/no):", defaultValues.Compression, 20, nil, nil)
+
+	// Security settings
+	sf.Form.AddInputField("StrictHostKeyChecking (yes/no/ask):", defaultValues.StrictHostKeyChecking, 20, nil, nil)
+	sf.Form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
+	sf.Form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
+
+	// Debugging settings
+	sf.Form.AddInputField("LogLevel:", defaultValues.LogLevel, 20, nil, nil)
 }
 
 type ServerFormData struct {
@@ -108,6 +151,23 @@ type ServerFormData struct {
 	Port  string
 	Key   string
 	Tags  string
+
+	// Additional SSH config fields
+	ProxyCommand             string
+	ProxyJump                string
+	ForwardAgent             string
+	Compression              string
+	HostKeyAlgorithms        string
+	ServerAliveInterval      string
+	ServerAliveCountMax      string
+	StrictHostKeyChecking    string
+	UserKnownHostsFile       string
+	LogLevel                 string
+	PreferredAuthentications string
+	PasswordAuthentication   string
+	PubkeyAuthentication     string
+	RequestTTY               string
+	RemoteCommand            string
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
@@ -118,6 +178,27 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Port:  strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
 		Key:   strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
 		Tags:  strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
+		// Connection and proxy settings
+		ProxyJump:     strings.TrimSpace(sf.Form.GetFormItem(6).(*tview.InputField).GetText()),
+		ProxyCommand:  strings.TrimSpace(sf.Form.GetFormItem(7).(*tview.InputField).GetText()),
+		RemoteCommand: strings.TrimSpace(sf.Form.GetFormItem(8).(*tview.InputField).GetText()),
+		RequestTTY:    strings.TrimSpace(sf.Form.GetFormItem(9).(*tview.InputField).GetText()),
+		// Authentication settings
+		PubkeyAuthentication:     strings.TrimSpace(sf.Form.GetFormItem(10).(*tview.InputField).GetText()),
+		PasswordAuthentication:   strings.TrimSpace(sf.Form.GetFormItem(11).(*tview.InputField).GetText()),
+		PreferredAuthentications: strings.TrimSpace(sf.Form.GetFormItem(12).(*tview.InputField).GetText()),
+		// Agent and forwarding settings
+		ForwardAgent: strings.TrimSpace(sf.Form.GetFormItem(13).(*tview.InputField).GetText()),
+		// Connection reliability settings
+		ServerAliveInterval: strings.TrimSpace(sf.Form.GetFormItem(14).(*tview.InputField).GetText()),
+		ServerAliveCountMax: strings.TrimSpace(sf.Form.GetFormItem(15).(*tview.InputField).GetText()),
+		Compression:         strings.TrimSpace(sf.Form.GetFormItem(16).(*tview.InputField).GetText()),
+		// Security settings
+		StrictHostKeyChecking: strings.TrimSpace(sf.Form.GetFormItem(17).(*tview.InputField).GetText()),
+		UserKnownHostsFile:    strings.TrimSpace(sf.Form.GetFormItem(18).(*tview.InputField).GetText()),
+		HostKeyAlgorithms:     strings.TrimSpace(sf.Form.GetFormItem(19).(*tview.InputField).GetText()),
+		// Debugging settings
+		LogLevel: strings.TrimSpace(sf.Form.GetFormItem(20).(*tview.InputField).GetText()),
 	}
 }
 
@@ -173,12 +254,27 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 	return domain.Server{
-		Alias:         data.Alias,
-		Host:          data.Host,
-		User:          data.User,
-		Port:          port,
-		IdentityFiles: keys,
-		Tags:          tags,
+		Alias:                    data.Alias,
+		Host:                     data.Host,
+		User:                     data.User,
+		Port:                     port,
+		IdentityFiles:            keys,
+		Tags:                     tags,
+		ProxyCommand:             data.ProxyCommand,
+		ProxyJump:                data.ProxyJump,
+		ForwardAgent:             data.ForwardAgent,
+		Compression:              data.Compression,
+		HostKeyAlgorithms:        data.HostKeyAlgorithms,
+		ServerAliveInterval:      data.ServerAliveInterval,
+		ServerAliveCountMax:      data.ServerAliveCountMax,
+		StrictHostKeyChecking:    data.StrictHostKeyChecking,
+		UserKnownHostsFile:       data.UserKnownHostsFile,
+		LogLevel:                 data.LogLevel,
+		PreferredAuthentications: data.PreferredAuthentications,
+		PasswordAuthentication:   data.PasswordAuthentication,
+		PubkeyAuthentication:     data.PubkeyAuthentication,
+		RequestTTY:               data.RequestTTY,
+		RemoteCommand:            data.RemoteCommand,
 	}
 }
 

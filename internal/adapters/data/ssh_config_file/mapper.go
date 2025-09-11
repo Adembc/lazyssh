@@ -77,6 +77,36 @@ func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV)
 		}
 	case "identityfile":
 		server.IdentityFiles = append(server.IdentityFiles, kvNode.Value)
+	case "proxycommand":
+		server.ProxyCommand = kvNode.Value
+	case "proxyjump":
+		server.ProxyJump = kvNode.Value
+	case "forwardagent":
+		server.ForwardAgent = kvNode.Value
+	case "compression":
+		server.Compression = kvNode.Value
+	case "hostkeyalgorithms":
+		server.HostKeyAlgorithms = kvNode.Value
+	case "serveraliveinterval":
+		server.ServerAliveInterval = kvNode.Value
+	case "serveralivecountmax":
+		server.ServerAliveCountMax = kvNode.Value
+	case "stricthostkeychecking":
+		server.StrictHostKeyChecking = kvNode.Value
+	case "userknownhostsfile":
+		server.UserKnownHostsFile = kvNode.Value
+	case "loglevel":
+		server.LogLevel = kvNode.Value
+	case "preferredauthentications":
+		server.PreferredAuthentications = kvNode.Value
+	case "passwordauthentication":
+		server.PasswordAuthentication = kvNode.Value
+	case "pubkeyauthentication":
+		server.PubkeyAuthentication = kvNode.Value
+	case "requesttty":
+		server.RequestTTY = kvNode.Value
+	case "remotecommand":
+		server.RemoteCommand = kvNode.Value
 	}
 }
 

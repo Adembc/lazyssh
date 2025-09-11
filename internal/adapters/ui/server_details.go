@@ -68,11 +68,59 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		pinnedStr = "false"
 	}
 	tagsText := renderTagChips(server.Tags)
+
+	// Basic information
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: %s\nPinned: [white]%s[-]\nLast SSH: %s\nSSH Count: [white]%d[-]\n\n[::b]Commands:[-]\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin",
+		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: %s\nPinned: [white]%s[-]\nLast SSH: %s\nSSH Count: [white]%d[-]\n",
 		strings.Join(server.Aliases, ", "), server.Host, server.User, server.Port,
 		serverKey, tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
+
+	// Advanced settings section (only show non-empty fields)
+	// Organized by usage frequency and logical grouping
+	advancedFields := []struct {
+		name  string
+		value string
+	}{
+		// Connection and proxy settings (most commonly used)
+		{"ProxyJump", server.ProxyJump},
+		{"ProxyCommand", server.ProxyCommand},
+		{"RemoteCommand", server.RemoteCommand},
+		{"RequestTTY", server.RequestTTY},
+		// Authentication settings
+		{"PubkeyAuthentication", server.PubkeyAuthentication},
+		{"PasswordAuthentication", server.PasswordAuthentication},
+		{"PreferredAuthentications", server.PreferredAuthentications},
+		// Agent and forwarding settings
+		{"ForwardAgent", server.ForwardAgent},
+		// Connection reliability settings
+		{"ServerAliveInterval", server.ServerAliveInterval},
+		{"ServerAliveCountMax", server.ServerAliveCountMax},
+		{"Compression", server.Compression},
+		// Security settings
+		{"StrictHostKeyChecking", server.StrictHostKeyChecking},
+		{"UserKnownHostsFile", server.UserKnownHostsFile},
+		{"HostKeyAlgorithms", server.HostKeyAlgorithms},
+		// Debugging settings
+		{"LogLevel", server.LogLevel},
+	}
+
+	hasAdvanced := false
+	advancedText := "\n[::b]Advanced Settings:[-]\n"
+	for _, field := range advancedFields {
+		if field.value != "" {
+			hasAdvanced = true
+			advancedText += fmt.Sprintf("%s: [white]%s[-]\n", field.name, field.value)
+		}
+	}
+
+	if hasAdvanced {
+		text += advancedText
+	}
+
+	// Commands list
+	text += "\n[::b]Commands:[-]\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin"
+
 	sd.TextView.SetText(text)
 }
 

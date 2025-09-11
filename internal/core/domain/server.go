@@ -27,4 +27,32 @@ type Server struct {
 	LastSeen      time.Time
 	PinnedAt      time.Time
 	SSHCount      int
+
+	// Additional SSH config fields
+	// Connection and proxy settings
+	ProxyJump     string
+	ProxyCommand  string
+	RemoteCommand string
+	RequestTTY    string
+
+	// Authentication settings
+	PubkeyAuthentication     string
+	PasswordAuthentication   string
+	PreferredAuthentications string
+
+	// Agent and forwarding settings
+	ForwardAgent string
+
+	// Connection reliability settings
+	ServerAliveInterval string
+	ServerAliveCountMax string
+	Compression         string
+
+	// Security settings
+	StrictHostKeyChecking string
+	UserKnownHostsFile    string
+	HostKeyAlgorithms     string
+
+	// Debugging settings
+	LogLevel string
 }
