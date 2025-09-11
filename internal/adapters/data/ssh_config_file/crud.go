@@ -112,32 +112,69 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
 	}
 
-	// Connection and proxy fields - commonly used together
+	// Connection and proxy settings
 	r.addKVNodeIfNotEmpty(host, "ProxyJump", server.ProxyJump)
 	r.addKVNodeIfNotEmpty(host, "ProxyCommand", server.ProxyCommand)
 	r.addKVNodeIfNotEmpty(host, "RemoteCommand", server.RemoteCommand)
 	r.addKVNodeIfNotEmpty(host, "RequestTTY", server.RequestTTY)
+	r.addKVNodeIfNotEmpty(host, "ConnectTimeout", server.ConnectTimeout)
+	r.addKVNodeIfNotEmpty(host, "ConnectionAttempts", server.ConnectionAttempts)
 
-	// Authentication fields
+	// Port forwarding
+	for _, forward := range server.LocalForward {
+		r.addKVNodeIfNotEmpty(host, "LocalForward", forward)
+	}
+	for _, forward := range server.RemoteForward {
+		r.addKVNodeIfNotEmpty(host, "RemoteForward", forward)
+	}
+	for _, forward := range server.DynamicForward {
+		r.addKVNodeIfNotEmpty(host, "DynamicForward", forward)
+	}
+
+	// Authentication and key management
 	r.addKVNodeIfNotEmpty(host, "PubkeyAuthentication", server.PubkeyAuthentication)
 	r.addKVNodeIfNotEmpty(host, "PasswordAuthentication", server.PasswordAuthentication)
 	r.addKVNodeIfNotEmpty(host, "PreferredAuthentications", server.PreferredAuthentications)
+	r.addKVNodeIfNotEmpty(host, "IdentitiesOnly", server.IdentitiesOnly)
+	r.addKVNodeIfNotEmpty(host, "AddKeysToAgent", server.AddKeysToAgent)
+	r.addKVNodeIfNotEmpty(host, "IdentityAgent", server.IdentityAgent)
 
-	// Forwarding
+	// Agent and X11 forwarding
 	r.addKVNodeIfNotEmpty(host, "ForwardAgent", server.ForwardAgent)
+	r.addKVNodeIfNotEmpty(host, "ForwardX11", server.ForwardX11)
+	r.addKVNodeIfNotEmpty(host, "ForwardX11Trusted", server.ForwardX11Trusted)
+
+	// Connection multiplexing
+	r.addKVNodeIfNotEmpty(host, "ControlMaster", server.ControlMaster)
+	r.addKVNodeIfNotEmpty(host, "ControlPath", server.ControlPath)
+	r.addKVNodeIfNotEmpty(host, "ControlPersist", server.ControlPersist)
 
 	// Connection reliability
 	r.addKVNodeIfNotEmpty(host, "ServerAliveInterval", server.ServerAliveInterval)
 	r.addKVNodeIfNotEmpty(host, "ServerAliveCountMax", server.ServerAliveCountMax)
 	r.addKVNodeIfNotEmpty(host, "Compression", server.Compression)
+	r.addKVNodeIfNotEmpty(host, "TCPKeepAlive", server.TCPKeepAlive)
 
 	// Security
 	r.addKVNodeIfNotEmpty(host, "StrictHostKeyChecking", server.StrictHostKeyChecking)
 	r.addKVNodeIfNotEmpty(host, "UserKnownHostsFile", server.UserKnownHostsFile)
 	r.addKVNodeIfNotEmpty(host, "HostKeyAlgorithms", server.HostKeyAlgorithms)
 
+	// Command execution
+	r.addKVNodeIfNotEmpty(host, "LocalCommand", server.LocalCommand)
+	r.addKVNodeIfNotEmpty(host, "PermitLocalCommand", server.PermitLocalCommand)
+
+	// Environment settings
+	for _, env := range server.SendEnv {
+		r.addKVNodeIfNotEmpty(host, "SendEnv", env)
+	}
+	for _, env := range server.SetEnv {
+		r.addKVNodeIfNotEmpty(host, "SetEnv", env)
+	}
+
 	// Debugging
 	r.addKVNodeIfNotEmpty(host, "LogLevel", server.LogLevel)
+	r.addKVNodeIfNotEmpty(host, "BatchMode", server.BatchMode)
 
 	return host
 }
@@ -164,44 +201,83 @@ func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Ser
 		"port":                     fmt.Sprintf("%d", newServer.Port),
 		"proxycommand":             newServer.ProxyCommand,
 		"proxyjump":                newServer.ProxyJump,
+		"remotecommand":            newServer.RemoteCommand,
+		"requesttty":               newServer.RequestTTY,
+		"connecttimeout":           newServer.ConnectTimeout,
+		"connectionattempts":       newServer.ConnectionAttempts,
+		"pubkeyauthentication":     newServer.PubkeyAuthentication,
+		"passwordauthentication":   newServer.PasswordAuthentication,
+		"preferredauthentications": newServer.PreferredAuthentications,
+		"identitiesonly":           newServer.IdentitiesOnly,
+		"addkeystoagent":           newServer.AddKeysToAgent,
+		"identityagent":            newServer.IdentityAgent,
 		"forwardagent":             newServer.ForwardAgent,
-		"compression":              newServer.Compression,
-		"hostkeyalgorithms":        newServer.HostKeyAlgorithms,
+		"forwardx11":               newServer.ForwardX11,
+		"forwardx11trusted":        newServer.ForwardX11Trusted,
+		"controlmaster":            newServer.ControlMaster,
+		"controlpath":              newServer.ControlPath,
+		"controlpersist":           newServer.ControlPersist,
 		"serveraliveinterval":      newServer.ServerAliveInterval,
 		"serveralivecountmax":      newServer.ServerAliveCountMax,
+		"compression":              newServer.Compression,
+		"tcpkeepalive":             newServer.TCPKeepAlive,
 		"stricthostkeychecking":    newServer.StrictHostKeyChecking,
 		"userknownhostsfile":       newServer.UserKnownHostsFile,
+		"hostkeyalgorithms":        newServer.HostKeyAlgorithms,
+		"localcommand":             newServer.LocalCommand,
+		"permitlocalcommand":       newServer.PermitLocalCommand,
 		"loglevel":                 newServer.LogLevel,
-		"preferredauthentications": newServer.PreferredAuthentications,
-		"passwordauthentication":   newServer.PasswordAuthentication,
-		"pubkeyauthentication":     newServer.PubkeyAuthentication,
-		"requesttty":               newServer.RequestTTY,
-		"remotecommand":            newServer.RemoteCommand,
+		"batchmode":                newServer.BatchMode,
 	}
 	for key, value := range updates {
 		if value != "" {
 			r.updateOrAddKVNode(host, key, value)
 		}
 	}
-	// Replace IdentityFile entries entirely to reflect the new state.
-	// This ensures removing/clearing identity files works as expected.
-
+	
+	// Helper to remove all instances of a key
 	removeKey := func(nodes []ssh_config.Node, key string) []ssh_config.Node {
 		filtered := make([]ssh_config.Node, 0, len(nodes))
 		for _, node := range nodes {
 			if kv, ok := node.(*ssh_config.KV); ok {
 				if strings.EqualFold(kv.Key, key) {
-					continue // skip existing IdentityFile
+					continue
 				}
 			}
 			filtered = append(filtered, node)
 		}
 		return filtered
 	}
+	
+	// Replace multi-value entries entirely to reflect the new state
 	host.Nodes = removeKey(host.Nodes, "IdentityFile")
-
 	for _, identityFile := range newServer.IdentityFiles {
 		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
+	}
+	
+	host.Nodes = removeKey(host.Nodes, "LocalForward")
+	for _, forward := range newServer.LocalForward {
+		r.addKVNodeIfNotEmpty(host, "LocalForward", forward)
+	}
+	
+	host.Nodes = removeKey(host.Nodes, "RemoteForward")
+	for _, forward := range newServer.RemoteForward {
+		r.addKVNodeIfNotEmpty(host, "RemoteForward", forward)
+	}
+	
+	host.Nodes = removeKey(host.Nodes, "DynamicForward")
+	for _, forward := range newServer.DynamicForward {
+		r.addKVNodeIfNotEmpty(host, "DynamicForward", forward)
+	}
+	
+	host.Nodes = removeKey(host.Nodes, "SendEnv")
+	for _, env := range newServer.SendEnv {
+		r.addKVNodeIfNotEmpty(host, "SendEnv", env)
+	}
+	
+	host.Nodes = removeKey(host.Nodes, "SetEnv")
+	for _, env := range newServer.SetEnv {
+		r.addKVNodeIfNotEmpty(host, "SetEnv", env)
 	}
 }
 
@@ -237,19 +313,38 @@ func (r *Repository) getProperKeyCase(key string) string {
 		"identityfile":             "IdentityFile",
 		"proxycommand":             "ProxyCommand",
 		"proxyjump":                "ProxyJump",
+		"remotecommand":            "RemoteCommand",
+		"requesttty":               "RequestTTY",
+		"connecttimeout":           "ConnectTimeout",
+		"connectionattempts":       "ConnectionAttempts",
+		"localforward":             "LocalForward",
+		"remoteforward":            "RemoteForward",
+		"dynamicforward":           "DynamicForward",
+		"pubkeyauthentication":     "PubkeyAuthentication",
+		"passwordauthentication":   "PasswordAuthentication",
+		"preferredauthentications": "PreferredAuthentications",
+		"identitiesonly":           "IdentitiesOnly",
+		"addkeystoagent":           "AddKeysToAgent",
+		"identityagent":            "IdentityAgent",
 		"forwardagent":             "ForwardAgent",
-		"compression":              "Compression",
-		"hostkeyalgorithms":        "HostKeyAlgorithms",
+		"forwardx11":               "ForwardX11",
+		"forwardx11trusted":        "ForwardX11Trusted",
+		"controlmaster":            "ControlMaster",
+		"controlpath":              "ControlPath",
+		"controlpersist":           "ControlPersist",
 		"serveraliveinterval":      "ServerAliveInterval",
 		"serveralivecountmax":      "ServerAliveCountMax",
+		"compression":              "Compression",
+		"tcpkeepalive":             "TCPKeepAlive",
 		"stricthostkeychecking":    "StrictHostKeyChecking",
 		"userknownhostsfile":       "UserKnownHostsFile",
+		"hostkeyalgorithms":        "HostKeyAlgorithms",
+		"localcommand":             "LocalCommand",
+		"permitlocalcommand":       "PermitLocalCommand",
+		"sendenv":                  "SendEnv",
+		"setenv":                   "SetEnv",
 		"loglevel":                 "LogLevel",
-		"preferredauthentications": "PreferredAuthentications",
-		"passwordauthentication":   "PasswordAuthentication",
-		"pubkeyauthentication":     "PubkeyAuthentication",
-		"requesttty":               "RequestTTY",
-		"remotecommand":            "RemoteCommand",
+		"batchmode":                "BatchMode",
 	}
 
 	if properCase, exists := keyMap[strings.ToLower(key)]; exists {

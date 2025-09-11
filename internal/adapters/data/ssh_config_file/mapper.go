@@ -107,6 +107,44 @@ func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV)
 		server.RequestTTY = kvNode.Value
 	case "remotecommand":
 		server.RemoteCommand = kvNode.Value
+	case "connecttimeout":
+		server.ConnectTimeout = kvNode.Value
+	case "connectionattempts":
+		server.ConnectionAttempts = kvNode.Value
+	case "localforward":
+		server.LocalForward = append(server.LocalForward, kvNode.Value)
+	case "remoteforward":
+		server.RemoteForward = append(server.RemoteForward, kvNode.Value)
+	case "dynamicforward":
+		server.DynamicForward = append(server.DynamicForward, kvNode.Value)
+	case "identitiesonly":
+		server.IdentitiesOnly = kvNode.Value
+	case "addkeystoagent":
+		server.AddKeysToAgent = kvNode.Value
+	case "identityagent":
+		server.IdentityAgent = kvNode.Value
+	case "forwardx11":
+		server.ForwardX11 = kvNode.Value
+	case "forwardx11trusted":
+		server.ForwardX11Trusted = kvNode.Value
+	case "controlmaster":
+		server.ControlMaster = kvNode.Value
+	case "controlpath":
+		server.ControlPath = kvNode.Value
+	case "controlpersist":
+		server.ControlPersist = kvNode.Value
+	case "tcpkeepalive":
+		server.TCPKeepAlive = kvNode.Value
+	case "localcommand":
+		server.LocalCommand = kvNode.Value
+	case "permitlocalcommand":
+		server.PermitLocalCommand = kvNode.Value
+	case "sendenv":
+		server.SendEnv = append(server.SendEnv, kvNode.Value)
+	case "setenv":
+		server.SetEnv = append(server.SetEnv, kvNode.Value)
+	case "batchmode":
+		server.BatchMode = kvNode.Value
 	}
 }
 

@@ -94,21 +94,40 @@ func (sf *ServerForm) addFormFields() {
 			Port:                     fmt.Sprint(sf.original.Port),
 			Key:                      strings.Join(sf.original.IdentityFiles, ", "),
 			Tags:                     strings.Join(sf.original.Tags, ", "),
-			ProxyCommand:             sf.original.ProxyCommand,
 			ProxyJump:                sf.original.ProxyJump,
+			ProxyCommand:             sf.original.ProxyCommand,
+			RemoteCommand:            sf.original.RemoteCommand,
+			RequestTTY:               sf.original.RequestTTY,
+			ConnectTimeout:           sf.original.ConnectTimeout,
+			ConnectionAttempts:       sf.original.ConnectionAttempts,
+			LocalForward:             strings.Join(sf.original.LocalForward, ", "),
+			RemoteForward:            strings.Join(sf.original.RemoteForward, ", "),
+			DynamicForward:           strings.Join(sf.original.DynamicForward, ", "),
+			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
+			PasswordAuthentication:   sf.original.PasswordAuthentication,
+			PreferredAuthentications: sf.original.PreferredAuthentications,
+			IdentitiesOnly:           sf.original.IdentitiesOnly,
+			AddKeysToAgent:           sf.original.AddKeysToAgent,
+			IdentityAgent:            sf.original.IdentityAgent,
 			ForwardAgent:             sf.original.ForwardAgent,
-			Compression:              sf.original.Compression,
-			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
+			ForwardX11:               sf.original.ForwardX11,
+			ForwardX11Trusted:        sf.original.ForwardX11Trusted,
+			ControlMaster:            sf.original.ControlMaster,
+			ControlPath:              sf.original.ControlPath,
+			ControlPersist:           sf.original.ControlPersist,
 			ServerAliveInterval:      sf.original.ServerAliveInterval,
 			ServerAliveCountMax:      sf.original.ServerAliveCountMax,
+			Compression:              sf.original.Compression,
+			TCPKeepAlive:             sf.original.TCPKeepAlive,
 			StrictHostKeyChecking:    sf.original.StrictHostKeyChecking,
 			UserKnownHostsFile:       sf.original.UserKnownHostsFile,
+			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
+			LocalCommand:             sf.original.LocalCommand,
+			PermitLocalCommand:       sf.original.PermitLocalCommand,
+			SendEnv:                  strings.Join(sf.original.SendEnv, ", "),
+			SetEnv:                   strings.Join(sf.original.SetEnv, ", "),
 			LogLevel:                 sf.original.LogLevel,
-			PreferredAuthentications: sf.original.PreferredAuthentications,
-			PasswordAuthentication:   sf.original.PasswordAuthentication,
-			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
-			RequestTTY:               sf.original.RequestTTY,
-			RemoteCommand:            sf.original.RemoteCommand,
+			BatchMode:                sf.original.BatchMode,
 		}
 	} else {
 		defaultValues = ServerFormData{
@@ -124,7 +143,7 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("  Host/IP:", defaultValues.Host, 20, nil, nil)
 	sf.Form.AddInputField("  User:", defaultValues.User, 20, nil, nil)
 	sf.Form.AddInputField("  Port:", defaultValues.Port, 20, nil, nil)
-	sf.Form.AddInputField("  Key (Comma):", defaultValues.Key, 40, nil, nil)
+	sf.Form.AddInputField("  Key (comma):", defaultValues.Key, 40, nil, nil)
 	sf.Form.AddInputField("  Tags (comma):", defaultValues.Tags, 30, nil, nil)
 
 	// Connection and proxy settings
@@ -138,11 +157,22 @@ func (sf *ServerForm) addFormFields() {
 	requestTTYIndex := sf.findOptionIndex(requestTTYOptions, defaultValues.RequestTTY)
 	sf.Form.AddDropDown("  RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
 
-	// Authentication settings
-	sf.Form.AddTextView("[white::b]Authentication[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  ConnectTimeout (seconds):", defaultValues.ConnectTimeout, 10, nil, nil)
+	sf.Form.AddInputField("  ConnectionAttempts:", defaultValues.ConnectionAttempts, 10, nil, nil)
+
+	// Port forwarding
+	sf.Form.AddTextView("[white::b]Port Forwarding[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  LocalForward (comma):", defaultValues.LocalForward, 40, nil, nil)
+	sf.Form.AddInputField("  RemoteForward (comma):", defaultValues.RemoteForward, 40, nil, nil)
+	sf.Form.AddInputField("  DynamicForward (comma):", defaultValues.DynamicForward, 40, nil, nil)
+
+	// Authentication and key management
+	sf.Form.AddTextView("[white::b]Authentication & Key Management[-]", "", 0, 1, true, false)
+
+	// Yes/No options for dropdowns
+	yesNoOptions := []string{"", "yes", "no"}
 
 	// PubkeyAuthentication dropdown
-	yesNoOptions := []string{"", "yes", "no"}
 	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
 	sf.Form.AddDropDown("  PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
 
@@ -152,12 +182,42 @@ func (sf *ServerForm) addFormFields() {
 
 	sf.Form.AddInputField("  PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
 
-	// Agent and forwarding settings
-	sf.Form.AddTextView("[white::b]Agent & Forwarding[-]", "", 0, 1, true, false)
+	// IdentitiesOnly dropdown
+	identitiesOnlyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.IdentitiesOnly)
+	sf.Form.AddDropDown("  IdentitiesOnly:", yesNoOptions, identitiesOnlyIndex, nil)
+
+	// AddKeysToAgent dropdown
+	addKeysOptions := []string{"", "yes", "no", "ask", "confirm"}
+	addKeysIndex := sf.findOptionIndex(addKeysOptions, defaultValues.AddKeysToAgent)
+	sf.Form.AddDropDown("  AddKeysToAgent:", addKeysOptions, addKeysIndex, nil)
+
+	sf.Form.AddInputField("  IdentityAgent:", defaultValues.IdentityAgent, 40, nil, nil)
+
+	// Agent and X11 forwarding
+	sf.Form.AddTextView("[white::b]Agent & X11 Forwarding[-]", "", 0, 1, true, false)
 
 	// ForwardAgent dropdown
 	forwardAgentIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardAgent)
 	sf.Form.AddDropDown("  ForwardAgent:", yesNoOptions, forwardAgentIndex, nil)
+
+	// ForwardX11 dropdown
+	forwardX11Index := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11)
+	sf.Form.AddDropDown("  ForwardX11:", yesNoOptions, forwardX11Index, nil)
+
+	// ForwardX11Trusted dropdown
+	forwardX11TrustedIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11Trusted)
+	sf.Form.AddDropDown("  ForwardX11Trusted:", yesNoOptions, forwardX11TrustedIndex, nil)
+
+	// Connection multiplexing
+	sf.Form.AddTextView("[white::b]Connection Multiplexing[-]", "", 0, 1, true, false)
+
+	// ControlMaster dropdown
+	controlMasterOptions := []string{"", "yes", "no", "auto", "ask", "autoask"}
+	controlMasterIndex := sf.findOptionIndex(controlMasterOptions, defaultValues.ControlMaster)
+	sf.Form.AddDropDown("  ControlMaster:", controlMasterOptions, controlMasterIndex, nil)
+
+	sf.Form.AddInputField("  ControlPath:", defaultValues.ControlPath, 40, nil, nil)
+	sf.Form.AddInputField("  ControlPersist:", defaultValues.ControlPersist, 20, nil, nil)
 
 	// Connection reliability settings
 	sf.Form.AddTextView("[white::b]Connection Reliability[-]", "", 0, 1, true, false)
@@ -167,6 +227,10 @@ func (sf *ServerForm) addFormFields() {
 	// Compression dropdown
 	compressionIndex := sf.findOptionIndex(yesNoOptions, defaultValues.Compression)
 	sf.Form.AddDropDown("  Compression:", yesNoOptions, compressionIndex, nil)
+
+	// TCPKeepAlive dropdown
+	tcpKeepAliveIndex := sf.findOptionIndex(yesNoOptions, defaultValues.TCPKeepAlive)
+	sf.Form.AddDropDown("  TCPKeepAlive:", yesNoOptions, tcpKeepAliveIndex, nil)
 
 	// Security settings
 	sf.Form.AddTextView("[white::b]Security[-]", "", 0, 1, true, false)
@@ -179,6 +243,19 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("  UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
 	sf.Form.AddInputField("  HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
 
+	// Command execution
+	sf.Form.AddTextView("[white::b]Command Execution[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
+
+	// PermitLocalCommand dropdown
+	permitLocalCommandIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PermitLocalCommand)
+	sf.Form.AddDropDown("  PermitLocalCommand:", yesNoOptions, permitLocalCommandIndex, nil)
+
+	// Environment settings
+	sf.Form.AddTextView("[white::b]Environment Settings[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  SendEnv (comma):", defaultValues.SendEnv, 40, nil, nil)
+	sf.Form.AddInputField("  SetEnv (comma):", defaultValues.SetEnv, 40, nil, nil)
+
 	// Debugging settings
 	sf.Form.AddTextView("[white::b]Debugging[-]", "", 0, 1, true, false)
 
@@ -186,6 +263,10 @@ func (sf *ServerForm) addFormFields() {
 	logLevelOptions := []string{"", "QUIET", "FATAL", "ERROR", "INFO", "VERBOSE", "DEBUG", "DEBUG1", "DEBUG2", "DEBUG3"}
 	logLevelIndex := sf.findOptionIndex(logLevelOptions, strings.ToUpper(defaultValues.LogLevel))
 	sf.Form.AddDropDown("  LogLevel:", logLevelOptions, logLevelIndex, nil)
+
+	// BatchMode dropdown
+	batchModeIndex := sf.findOptionIndex(yesNoOptions, defaultValues.BatchMode)
+	sf.Form.AddDropDown("  BatchMode:", yesNoOptions, batchModeIndex, nil)
 }
 
 type ServerFormData struct {
@@ -196,22 +277,59 @@ type ServerFormData struct {
 	Key   string
 	Tags  string
 
-	// Additional SSH config fields
-	ProxyCommand             string
-	ProxyJump                string
-	ForwardAgent             string
-	Compression              string
-	HostKeyAlgorithms        string
-	ServerAliveInterval      string
-	ServerAliveCountMax      string
-	StrictHostKeyChecking    string
-	UserKnownHostsFile       string
-	LogLevel                 string
-	PreferredAuthentications string
-	PasswordAuthentication   string
+	// Connection and proxy settings
+	ProxyJump          string
+	ProxyCommand       string
+	RemoteCommand      string
+	RequestTTY         string
+	ConnectTimeout     string
+	ConnectionAttempts string
+
+	// Port forwarding
+	LocalForward   string
+	RemoteForward  string
+	DynamicForward string
+
+	// Authentication and key management
 	PubkeyAuthentication     string
-	RequestTTY               string
-	RemoteCommand            string
+	PasswordAuthentication   string
+	PreferredAuthentications string
+	IdentitiesOnly           string
+	AddKeysToAgent           string
+	IdentityAgent            string
+
+	// Agent and X11 forwarding
+	ForwardAgent      string
+	ForwardX11        string
+	ForwardX11Trusted string
+
+	// Connection multiplexing
+	ControlMaster  string
+	ControlPath    string
+	ControlPersist string
+
+	// Connection reliability
+	ServerAliveInterval string
+	ServerAliveCountMax string
+	Compression         string
+	TCPKeepAlive        string
+
+	// Security settings
+	StrictHostKeyChecking string
+	UserKnownHostsFile    string
+	HostKeyAlgorithms     string
+
+	// Command execution
+	LocalCommand       string
+	PermitLocalCommand string
+
+	// Environment settings
+	SendEnv string
+	SetEnv  string
+
+	// Debugging settings
+	LogLevel  string
+	BatchMode string
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
@@ -250,26 +368,49 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Key:   getFieldText("Key"),
 		Tags:  getFieldText("Tags"),
 		// Connection and proxy settings
-		ProxyJump:     getFieldText("ProxyJump:"),
-		ProxyCommand:  getFieldText("ProxyCommand:"),
-		RemoteCommand: getFieldText("RemoteCommand:"),
-		RequestTTY:    getDropdownValue("RequestTTY:"),
-		// Authentication settings
+		ProxyJump:          getFieldText("ProxyJump:"),
+		ProxyCommand:       getFieldText("ProxyCommand:"),
+		RemoteCommand:      getFieldText("RemoteCommand:"),
+		RequestTTY:         getDropdownValue("RequestTTY:"),
+		ConnectTimeout:     getFieldText("ConnectTimeout (seconds):"),
+		ConnectionAttempts: getFieldText("ConnectionAttempts:"),
+		// Port forwarding
+		LocalForward:   getFieldText("LocalForward"),
+		RemoteForward:  getFieldText("RemoteForward"),
+		DynamicForward: getFieldText("DynamicForward"),
+		// Authentication and key management
 		PubkeyAuthentication:     getDropdownValue("PubkeyAuthentication:"),
 		PasswordAuthentication:   getDropdownValue("PasswordAuthentication:"),
 		PreferredAuthentications: getFieldText("PreferredAuthentications:"),
-		// Agent and forwarding settings
-		ForwardAgent: getDropdownValue("ForwardAgent:"),
+		IdentitiesOnly:           getDropdownValue("IdentitiesOnly:"),
+		AddKeysToAgent:           getDropdownValue("AddKeysToAgent:"),
+		IdentityAgent:            getFieldText("IdentityAgent:"),
+		// Agent and X11 forwarding
+		ForwardAgent:      getDropdownValue("ForwardAgent:"),
+		ForwardX11:        getDropdownValue("ForwardX11:"),
+		ForwardX11Trusted: getDropdownValue("ForwardX11Trusted:"),
+		// Connection multiplexing
+		ControlMaster:  getDropdownValue("ControlMaster:"),
+		ControlPath:    getFieldText("ControlPath:"),
+		ControlPersist: getFieldText("ControlPersist:"),
 		// Connection reliability settings
 		ServerAliveInterval: getFieldText("ServerAliveInterval (seconds):"),
 		ServerAliveCountMax: getFieldText("ServerAliveCountMax:"),
 		Compression:         getDropdownValue("Compression:"),
+		TCPKeepAlive:        getDropdownValue("TCPKeepAlive:"),
 		// Security settings
 		StrictHostKeyChecking: getDropdownValue("StrictHostKeyChecking:"),
 		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
 		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
+		// Command execution
+		LocalCommand:       getFieldText("LocalCommand:"),
+		PermitLocalCommand: getDropdownValue("PermitLocalCommand:"),
+		// Environment settings
+		SendEnv: getFieldText("SendEnv"),
+		SetEnv:  getFieldText("SetEnv"),
 		// Debugging settings
-		LogLevel: strings.ToLower(getDropdownValue("LogLevel:")),
+		LogLevel:  strings.ToLower(getDropdownValue("LogLevel:")),
+		BatchMode: getDropdownValue("BatchMode:"),
 	}
 }
 
@@ -324,6 +465,21 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 			}
 		}
 	}
+
+	// Helper to split comma-separated values
+	splitComma := func(s string) []string {
+		if s == "" {
+			return nil
+		}
+		var result []string
+		for _, item := range strings.Split(s, ",") {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
+	}
+
 	return domain.Server{
 		Alias:                    data.Alias,
 		Host:                     data.Host,
@@ -331,21 +487,40 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		Port:                     port,
 		IdentityFiles:            keys,
 		Tags:                     tags,
-		ProxyCommand:             data.ProxyCommand,
 		ProxyJump:                data.ProxyJump,
+		ProxyCommand:             data.ProxyCommand,
+		RemoteCommand:            data.RemoteCommand,
+		RequestTTY:               data.RequestTTY,
+		ConnectTimeout:           data.ConnectTimeout,
+		ConnectionAttempts:       data.ConnectionAttempts,
+		LocalForward:             splitComma(data.LocalForward),
+		RemoteForward:            splitComma(data.RemoteForward),
+		DynamicForward:           splitComma(data.DynamicForward),
+		PubkeyAuthentication:     data.PubkeyAuthentication,
+		PasswordAuthentication:   data.PasswordAuthentication,
+		PreferredAuthentications: data.PreferredAuthentications,
+		IdentitiesOnly:           data.IdentitiesOnly,
+		AddKeysToAgent:           data.AddKeysToAgent,
+		IdentityAgent:            data.IdentityAgent,
 		ForwardAgent:             data.ForwardAgent,
-		Compression:              data.Compression,
-		HostKeyAlgorithms:        data.HostKeyAlgorithms,
+		ForwardX11:               data.ForwardX11,
+		ForwardX11Trusted:        data.ForwardX11Trusted,
+		ControlMaster:            data.ControlMaster,
+		ControlPath:              data.ControlPath,
+		ControlPersist:           data.ControlPersist,
 		ServerAliveInterval:      data.ServerAliveInterval,
 		ServerAliveCountMax:      data.ServerAliveCountMax,
+		Compression:              data.Compression,
+		TCPKeepAlive:             data.TCPKeepAlive,
 		StrictHostKeyChecking:    data.StrictHostKeyChecking,
 		UserKnownHostsFile:       data.UserKnownHostsFile,
+		HostKeyAlgorithms:        data.HostKeyAlgorithms,
+		LocalCommand:             data.LocalCommand,
+		PermitLocalCommand:       data.PermitLocalCommand,
+		SendEnv:                  splitComma(data.SendEnv),
+		SetEnv:                   splitComma(data.SetEnv),
 		LogLevel:                 data.LogLevel,
-		PreferredAuthentications: data.PreferredAuthentications,
-		PasswordAuthentication:   data.PasswordAuthentication,
-		PubkeyAuthentication:     data.PubkeyAuthentication,
-		RequestTTY:               data.RequestTTY,
-		RemoteCommand:            data.RemoteCommand,
+		BatchMode:                data.BatchMode,
 	}
 }
 

@@ -34,25 +34,52 @@ type Server struct {
 	ProxyCommand  string
 	RemoteCommand string
 	RequestTTY    string
+	ConnectTimeout      string
+	ConnectionAttempts  string
 
-	// Authentication settings
+	// Port forwarding settings
+	LocalForward  []string
+	RemoteForward []string
+	DynamicForward []string
+
+	// Authentication and key management
 	PubkeyAuthentication     string
 	PasswordAuthentication   string
 	PreferredAuthentications string
+	IdentitiesOnly           string
+	AddKeysToAgent           string
+	IdentityAgent            string
 
-	// Agent and forwarding settings
+	// Agent and X11 forwarding
 	ForwardAgent string
+	ForwardX11   string
+	ForwardX11Trusted string
+
+	// Connection multiplexing
+	ControlMaster  string
+	ControlPath    string
+	ControlPersist string
 
 	// Connection reliability settings
 	ServerAliveInterval string
 	ServerAliveCountMax string
 	Compression         string
+	TCPKeepAlive        string
 
 	// Security settings
 	StrictHostKeyChecking string
 	UserKnownHostsFile    string
 	HostKeyAlgorithms     string
 
+	// Command execution
+	LocalCommand       string
+	PermitLocalCommand string
+
+	// Environment settings
+	SendEnv []string
+	SetEnv  []string
+
 	// Debugging settings
 	LogLevel string
+	BatchMode string
 }

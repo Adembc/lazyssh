@@ -119,17 +119,33 @@ func humanizeDuration(t time.Time) string {
 func BuildSSHCommand(s domain.Server) string {
 	parts := []string{"ssh"}
 
-	// Add proxy options
+	// Add proxy and connection options
 	addProxyOptions(&parts, s)
+	addConnectionTimingOptions(&parts, s)
+
+	// Add port forwarding options
+	addPortForwardingOptions(&parts, s)
 
 	// Add authentication options
 	addAuthOptions(&parts, s)
 
-	// Add connection options
+	// Add agent and forwarding options
+	addForwardingOptions(&parts, s)
+
+	// Add connection multiplexing options
+	addMultiplexingOptions(&parts, s)
+
+	// Add connection reliability options
 	addConnectionOptions(&parts, s)
 
 	// Add security options
 	addSecurityOptions(&parts, s)
+
+	// Add command execution options
+	addCommandExecutionOptions(&parts, s)
+
+	// Add environment options
+	addEnvironmentOptions(&parts, s)
 
 	// Add TTY and logging options
 	addTTYAndLoggingOptions(&parts, s)
@@ -176,6 +192,29 @@ func addProxyOptions(parts *[]string, s domain.Server) {
 	}
 }
 
+// addConnectionTimingOptions adds connection timing options to the SSH command
+func addConnectionTimingOptions(parts *[]string, s domain.Server) {
+	if s.ConnectTimeout != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("ConnectTimeout=%s", s.ConnectTimeout))
+	}
+	if s.ConnectionAttempts != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("ConnectionAttempts=%s", s.ConnectionAttempts))
+	}
+}
+
+// addPortForwardingOptions adds port forwarding options to the SSH command
+func addPortForwardingOptions(parts *[]string, s domain.Server) {
+	for _, forward := range s.LocalForward {
+		*parts = append(*parts, "-L", forward)
+	}
+	for _, forward := range s.RemoteForward {
+		*parts = append(*parts, "-R", forward)
+	}
+	for _, forward := range s.DynamicForward {
+		*parts = append(*parts, "-D", forward)
+	}
+}
+
 // addAuthOptions adds authentication-related options to the SSH command
 func addAuthOptions(parts *[]string, s domain.Server) {
 	if s.PubkeyAuthentication != "" {
@@ -187,12 +226,48 @@ func addAuthOptions(parts *[]string, s domain.Server) {
 	if s.PreferredAuthentications != "" {
 		*parts = append(*parts, "-o", fmt.Sprintf("PreferredAuthentications=%s", s.PreferredAuthentications))
 	}
+	if s.IdentitiesOnly != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("IdentitiesOnly=%s", s.IdentitiesOnly))
+	}
+	if s.AddKeysToAgent != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("AddKeysToAgent=%s", s.AddKeysToAgent))
+	}
+	if s.IdentityAgent != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("IdentityAgent=%s", quoteIfNeeded(s.IdentityAgent)))
+	}
+}
+
+// addForwardingOptions adds agent and X11 forwarding options to the SSH command
+func addForwardingOptions(parts *[]string, s domain.Server) {
 	if s.ForwardAgent != "" {
 		if s.ForwardAgent == sshYes {
 			*parts = append(*parts, "-A")
 		} else if s.ForwardAgent == sshNo {
 			*parts = append(*parts, "-a")
 		}
+	}
+	if s.ForwardX11 != "" {
+		if s.ForwardX11 == sshYes {
+			*parts = append(*parts, "-X")
+		} else if s.ForwardX11 == sshNo {
+			*parts = append(*parts, "-x")
+		}
+	}
+	if s.ForwardX11Trusted == sshYes {
+		*parts = append(*parts, "-Y")
+	}
+}
+
+// addMultiplexingOptions adds connection multiplexing options to the SSH command
+func addMultiplexingOptions(parts *[]string, s domain.Server) {
+	if s.ControlMaster != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("ControlMaster=%s", s.ControlMaster))
+	}
+	if s.ControlPath != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("ControlPath=%s", quoteIfNeeded(s.ControlPath)))
+	}
+	if s.ControlPersist != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("ControlPersist=%s", s.ControlPersist))
 	}
 }
 
@@ -206,6 +281,29 @@ func addConnectionOptions(parts *[]string, s domain.Server) {
 	}
 	if s.Compression == sshYes {
 		*parts = append(*parts, "-C")
+	}
+	if s.TCPKeepAlive != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("TCPKeepAlive=%s", s.TCPKeepAlive))
+	}
+}
+
+// addCommandExecutionOptions adds command execution options to the SSH command
+func addCommandExecutionOptions(parts *[]string, s domain.Server) {
+	if s.LocalCommand != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("LocalCommand=%s", quoteIfNeeded(s.LocalCommand)))
+	}
+	if s.PermitLocalCommand != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("PermitLocalCommand=%s", s.PermitLocalCommand))
+	}
+}
+
+// addEnvironmentOptions adds environment variable options to the SSH command
+func addEnvironmentOptions(parts *[]string, s domain.Server) {
+	for _, env := range s.SendEnv {
+		*parts = append(*parts, "-o", fmt.Sprintf("SendEnv=%s", env))
+	}
+	for _, env := range s.SetEnv {
+		*parts = append(*parts, "-o", fmt.Sprintf("SetEnv=%s", quoteIfNeeded(env)))
 	}
 }
 
@@ -255,6 +353,11 @@ func addTTYAndLoggingOptions(parts *[]string, s domain.Server) {
 		case "debug3":
 			*parts = append(*parts, "-vvv")
 		}
+	}
+
+	// BatchMode option
+	if s.BatchMode == sshYes {
+		*parts = append(*parts, "-o", "BatchMode=yes")
 	}
 }
 
