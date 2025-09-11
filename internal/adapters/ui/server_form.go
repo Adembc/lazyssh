@@ -122,7 +122,7 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("  ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
 	sf.Form.AddInputField("  ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
 	sf.Form.AddInputField("  RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
-	sf.Form.AddInputField("  RequestTTY (yes/no/force):", defaultValues.RequestTTY, 20, nil, nil)
+	sf.Form.AddInputField("  RequestTTY (yes/no/force/auto):", defaultValues.RequestTTY, 20, nil, nil)
 
 	// Authentication settings
 	sf.Form.AddTextView("[white::b]Authentication[-]", "", 0, 1, true, false)

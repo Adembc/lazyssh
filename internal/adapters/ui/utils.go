@@ -28,6 +28,7 @@ const (
 	sshYes   = "yes"
 	sshNo    = "no"
 	sshForce = "force"
+	sshAuto  = "auto"
 )
 
 // renderTagBadgesForList renders up to two colored tag chips for the server list.
@@ -232,6 +233,11 @@ func addTTYAndLoggingOptions(parts *[]string, s domain.Server) {
 			*parts = append(*parts, "-T")
 		case sshForce:
 			*parts = append(*parts, "-tt")
+		case sshAuto:
+			// auto is the default behavior, no flag needed
+		default:
+			// For any other value, pass it as-is via -o
+			*parts = append(*parts, "-o", fmt.Sprintf("RequestTTY=%s", s.RequestTTY))
 		}
 	}
 
