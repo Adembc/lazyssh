@@ -108,40 +108,47 @@ func (sf *ServerForm) addFormFields() {
 		}
 	}
 
-	sf.Form.AddInputField("Alias:", defaultValues.Alias, 20, nil, nil)
-	sf.Form.AddInputField("Host/IP:", defaultValues.Host, 20, nil, nil)
-	sf.Form.AddInputField("User:", defaultValues.User, 20, nil, nil)
-	sf.Form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
-	sf.Form.AddInputField("Key (Comma):", defaultValues.Key, 40, nil, nil)
-	sf.Form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+	// Basic configuration
+	sf.Form.AddTextView("[white::b]Basic Configuration[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  Alias:", defaultValues.Alias, 20, nil, nil)
+	sf.Form.AddInputField("  Host/IP:", defaultValues.Host, 20, nil, nil)
+	sf.Form.AddInputField("  User:", defaultValues.User, 20, nil, nil)
+	sf.Form.AddInputField("  Port:", defaultValues.Port, 20, nil, nil)
+	sf.Form.AddInputField("  Key (Comma):", defaultValues.Key, 40, nil, nil)
+	sf.Form.AddInputField("  Tags (comma):", defaultValues.Tags, 30, nil, nil)
 
-	// Additional SSH config fields - organized by usage frequency and relevance
-	// Connection and proxy settings (most commonly used)
-	sf.Form.AddInputField("ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
-	sf.Form.AddInputField("ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
-	sf.Form.AddInputField("RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
-	sf.Form.AddInputField("RequestTTY (yes/no/force):", defaultValues.RequestTTY, 20, nil, nil)
+	// Connection and proxy settings
+	sf.Form.AddTextView("[white::b]Connection & Proxy[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
+	sf.Form.AddInputField("  ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
+	sf.Form.AddInputField("  RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
+	sf.Form.AddInputField("  RequestTTY (yes/no/force):", defaultValues.RequestTTY, 20, nil, nil)
 
 	// Authentication settings
-	sf.Form.AddInputField("PubkeyAuthentication (yes/no):", defaultValues.PubkeyAuthentication, 20, nil, nil)
-	sf.Form.AddInputField("PasswordAuthentication (yes/no):", defaultValues.PasswordAuthentication, 20, nil, nil)
-	sf.Form.AddInputField("PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
+	sf.Form.AddTextView("[white::b]Authentication[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  PubkeyAuthentication (yes/no):", defaultValues.PubkeyAuthentication, 20, nil, nil)
+	sf.Form.AddInputField("  PasswordAuthentication (yes/no):", defaultValues.PasswordAuthentication, 20, nil, nil)
+	sf.Form.AddInputField("  PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
 
 	// Agent and forwarding settings
-	sf.Form.AddInputField("ForwardAgent (yes/no):", defaultValues.ForwardAgent, 20, nil, nil)
+	sf.Form.AddTextView("[white::b]Agent & Forwarding[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  ForwardAgent (yes/no):", defaultValues.ForwardAgent, 20, nil, nil)
 
 	// Connection reliability settings
-	sf.Form.AddInputField("ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 20, nil, nil)
-	sf.Form.AddInputField("ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
-	sf.Form.AddInputField("Compression (yes/no):", defaultValues.Compression, 20, nil, nil)
+	sf.Form.AddTextView("[white::b]Connection Reliability[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 20, nil, nil)
+	sf.Form.AddInputField("  ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
+	sf.Form.AddInputField("  Compression (yes/no):", defaultValues.Compression, 20, nil, nil)
 
 	// Security settings
-	sf.Form.AddInputField("StrictHostKeyChecking (yes/no/ask):", defaultValues.StrictHostKeyChecking, 20, nil, nil)
-	sf.Form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
-	sf.Form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
+	sf.Form.AddTextView("[white::b]Security[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  StrictHostKeyChecking (yes/no/ask):", defaultValues.StrictHostKeyChecking, 20, nil, nil)
+	sf.Form.AddInputField("  UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
+	sf.Form.AddInputField("  HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
 
 	// Debugging settings
-	sf.Form.AddInputField("LogLevel:", defaultValues.LogLevel, 20, nil, nil)
+	sf.Form.AddTextView("[white::b]Debugging[-]", "", 0, 1, true, false)
+	sf.Form.AddInputField("  LogLevel:", defaultValues.LogLevel, 20, nil, nil)
 }
 
 type ServerFormData struct {
@@ -171,34 +178,47 @@ type ServerFormData struct {
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
+	// Helper function to get text from InputField, skipping TextViews
+	getFieldText := func(fieldName string) string {
+		for i := 0; i < sf.Form.GetFormItemCount(); i++ {
+			if field, ok := sf.Form.GetFormItem(i).(*tview.InputField); ok {
+				label := strings.TrimSpace(field.GetLabel())
+				if strings.HasPrefix(label, fieldName) {
+					return strings.TrimSpace(field.GetText())
+				}
+			}
+		}
+		return ""
+	}
+
 	return ServerFormData{
-		Alias: strings.TrimSpace(sf.Form.GetFormItem(0).(*tview.InputField).GetText()),
-		Host:  strings.TrimSpace(sf.Form.GetFormItem(1).(*tview.InputField).GetText()),
-		User:  strings.TrimSpace(sf.Form.GetFormItem(2).(*tview.InputField).GetText()),
-		Port:  strings.TrimSpace(sf.Form.GetFormItem(3).(*tview.InputField).GetText()),
-		Key:   strings.TrimSpace(sf.Form.GetFormItem(4).(*tview.InputField).GetText()),
-		Tags:  strings.TrimSpace(sf.Form.GetFormItem(5).(*tview.InputField).GetText()),
+		Alias: getFieldText("Alias:"),
+		Host:  getFieldText("Host/IP:"),
+		User:  getFieldText("User:"),
+		Port:  getFieldText("Port:"),
+		Key:   getFieldText("Key"),
+		Tags:  getFieldText("Tags"),
 		// Connection and proxy settings
-		ProxyJump:     strings.TrimSpace(sf.Form.GetFormItem(6).(*tview.InputField).GetText()),
-		ProxyCommand:  strings.TrimSpace(sf.Form.GetFormItem(7).(*tview.InputField).GetText()),
-		RemoteCommand: strings.TrimSpace(sf.Form.GetFormItem(8).(*tview.InputField).GetText()),
-		RequestTTY:    strings.TrimSpace(sf.Form.GetFormItem(9).(*tview.InputField).GetText()),
+		ProxyJump:     getFieldText("ProxyJump:"),
+		ProxyCommand:  getFieldText("ProxyCommand:"),
+		RemoteCommand: getFieldText("RemoteCommand:"),
+		RequestTTY:    getFieldText("RequestTTY"),
 		// Authentication settings
-		PubkeyAuthentication:     strings.TrimSpace(sf.Form.GetFormItem(10).(*tview.InputField).GetText()),
-		PasswordAuthentication:   strings.TrimSpace(sf.Form.GetFormItem(11).(*tview.InputField).GetText()),
-		PreferredAuthentications: strings.TrimSpace(sf.Form.GetFormItem(12).(*tview.InputField).GetText()),
+		PubkeyAuthentication:     getFieldText("PubkeyAuthentication"),
+		PasswordAuthentication:   getFieldText("PasswordAuthentication"),
+		PreferredAuthentications: getFieldText("PreferredAuthentications:"),
 		// Agent and forwarding settings
-		ForwardAgent: strings.TrimSpace(sf.Form.GetFormItem(13).(*tview.InputField).GetText()),
+		ForwardAgent: getFieldText("ForwardAgent"),
 		// Connection reliability settings
-		ServerAliveInterval: strings.TrimSpace(sf.Form.GetFormItem(14).(*tview.InputField).GetText()),
-		ServerAliveCountMax: strings.TrimSpace(sf.Form.GetFormItem(15).(*tview.InputField).GetText()),
-		Compression:         strings.TrimSpace(sf.Form.GetFormItem(16).(*tview.InputField).GetText()),
+		ServerAliveInterval: getFieldText("ServerAliveInterval"),
+		ServerAliveCountMax: getFieldText("ServerAliveCountMax:"),
+		Compression:         getFieldText("Compression"),
 		// Security settings
-		StrictHostKeyChecking: strings.TrimSpace(sf.Form.GetFormItem(17).(*tview.InputField).GetText()),
-		UserKnownHostsFile:    strings.TrimSpace(sf.Form.GetFormItem(18).(*tview.InputField).GetText()),
-		HostKeyAlgorithms:     strings.TrimSpace(sf.Form.GetFormItem(19).(*tview.InputField).GetText()),
+		StrictHostKeyChecking: getFieldText("StrictHostKeyChecking"),
+		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
+		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
 		// Debugging settings
-		LogLevel: strings.TrimSpace(sf.Form.GetFormItem(20).(*tview.InputField).GetText()),
+		LogLevel: getFieldText("LogLevel:"),
 	}
 }
 

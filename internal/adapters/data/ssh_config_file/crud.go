@@ -102,29 +102,42 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 		SpaceBeforeComment: strings.Repeat(" ", 4),
 	}
 
+	// Basic config - always present
 	r.addKVNodeIfNotEmpty(host, "HostName", server.Host)
 	r.addKVNodeIfNotEmpty(host, "User", server.User)
-	r.addKVNodeIfNotEmpty(host, "Port", fmt.Sprintf("%d", server.Port))
+	if server.Port != 22 && server.Port != 0 {
+		r.addKVNodeIfNotEmpty(host, "Port", fmt.Sprintf("%d", server.Port))
+	}
 	for _, identityFile := range server.IdentityFiles {
 		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
 	}
 
-	// Additional SSH config fields
-	r.addKVNodeIfNotEmpty(host, "ProxyCommand", server.ProxyCommand)
+	// Connection and proxy fields - commonly used together
 	r.addKVNodeIfNotEmpty(host, "ProxyJump", server.ProxyJump)
+	r.addKVNodeIfNotEmpty(host, "ProxyCommand", server.ProxyCommand)
+	r.addKVNodeIfNotEmpty(host, "RemoteCommand", server.RemoteCommand)
+	r.addKVNodeIfNotEmpty(host, "RequestTTY", server.RequestTTY)
+
+	// Authentication fields
+	r.addKVNodeIfNotEmpty(host, "PubkeyAuthentication", server.PubkeyAuthentication)
+	r.addKVNodeIfNotEmpty(host, "PasswordAuthentication", server.PasswordAuthentication)
+	r.addKVNodeIfNotEmpty(host, "PreferredAuthentications", server.PreferredAuthentications)
+
+	// Forwarding
 	r.addKVNodeIfNotEmpty(host, "ForwardAgent", server.ForwardAgent)
-	r.addKVNodeIfNotEmpty(host, "Compression", server.Compression)
-	r.addKVNodeIfNotEmpty(host, "HostKeyAlgorithms", server.HostKeyAlgorithms)
+
+	// Connection reliability
 	r.addKVNodeIfNotEmpty(host, "ServerAliveInterval", server.ServerAliveInterval)
 	r.addKVNodeIfNotEmpty(host, "ServerAliveCountMax", server.ServerAliveCountMax)
+	r.addKVNodeIfNotEmpty(host, "Compression", server.Compression)
+
+	// Security
 	r.addKVNodeIfNotEmpty(host, "StrictHostKeyChecking", server.StrictHostKeyChecking)
 	r.addKVNodeIfNotEmpty(host, "UserKnownHostsFile", server.UserKnownHostsFile)
+	r.addKVNodeIfNotEmpty(host, "HostKeyAlgorithms", server.HostKeyAlgorithms)
+
+	// Debugging
 	r.addKVNodeIfNotEmpty(host, "LogLevel", server.LogLevel)
-	r.addKVNodeIfNotEmpty(host, "PreferredAuthentications", server.PreferredAuthentications)
-	r.addKVNodeIfNotEmpty(host, "PasswordAuthentication", server.PasswordAuthentication)
-	r.addKVNodeIfNotEmpty(host, "PubkeyAuthentication", server.PubkeyAuthentication)
-	r.addKVNodeIfNotEmpty(host, "RequestTTY", server.RequestTTY)
-	r.addKVNodeIfNotEmpty(host, "RemoteCommand", server.RemoteCommand)
 
 	return host
 }
