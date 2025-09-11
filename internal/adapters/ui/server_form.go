@@ -74,6 +74,16 @@ func (sf *ServerForm) titleForMode() string {
 	return "Add Server"
 }
 
+// findOptionIndex finds the index of a value in options slice
+func (sf *ServerForm) findOptionIndex(options []string, value string) int {
+	for i, opt := range options {
+		if strings.EqualFold(opt, value) {
+			return i
+		}
+	}
+	return 0 // Default to first option (empty/"")
+}
+
 func (sf *ServerForm) addFormFields() {
 	var defaultValues ServerFormData
 	if sf.mode == ServerFormEdit && sf.original != nil {
@@ -122,33 +132,60 @@ func (sf *ServerForm) addFormFields() {
 	sf.Form.AddInputField("  ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
 	sf.Form.AddInputField("  ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
 	sf.Form.AddInputField("  RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
-	sf.Form.AddInputField("  RequestTTY (yes/no/force/auto):", defaultValues.RequestTTY, 20, nil, nil)
+
+	// RequestTTY dropdown
+	requestTTYOptions := []string{"", "yes", "no", "force", "auto"}
+	requestTTYIndex := sf.findOptionIndex(requestTTYOptions, defaultValues.RequestTTY)
+	sf.Form.AddDropDown("  RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
 
 	// Authentication settings
 	sf.Form.AddTextView("[white::b]Authentication[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  PubkeyAuthentication (yes/no):", defaultValues.PubkeyAuthentication, 20, nil, nil)
-	sf.Form.AddInputField("  PasswordAuthentication (yes/no):", defaultValues.PasswordAuthentication, 20, nil, nil)
+
+	// PubkeyAuthentication dropdown
+	yesNoOptions := []string{"", "yes", "no"}
+	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
+	sf.Form.AddDropDown("  PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
+
+	// PasswordAuthentication dropdown
+	passwordIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PasswordAuthentication)
+	sf.Form.AddDropDown("  PasswordAuthentication:", yesNoOptions, passwordIndex, nil)
+
 	sf.Form.AddInputField("  PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
 
 	// Agent and forwarding settings
 	sf.Form.AddTextView("[white::b]Agent & Forwarding[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  ForwardAgent (yes/no):", defaultValues.ForwardAgent, 20, nil, nil)
+
+	// ForwardAgent dropdown
+	forwardAgentIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardAgent)
+	sf.Form.AddDropDown("  ForwardAgent:", yesNoOptions, forwardAgentIndex, nil)
 
 	// Connection reliability settings
 	sf.Form.AddTextView("[white::b]Connection Reliability[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 20, nil, nil)
+	sf.Form.AddInputField("  ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 10, nil, nil)
 	sf.Form.AddInputField("  ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
-	sf.Form.AddInputField("  Compression (yes/no):", defaultValues.Compression, 20, nil, nil)
+
+	// Compression dropdown
+	compressionIndex := sf.findOptionIndex(yesNoOptions, defaultValues.Compression)
+	sf.Form.AddDropDown("  Compression:", yesNoOptions, compressionIndex, nil)
 
 	// Security settings
 	sf.Form.AddTextView("[white::b]Security[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  StrictHostKeyChecking (yes/no/ask):", defaultValues.StrictHostKeyChecking, 20, nil, nil)
+
+	// StrictHostKeyChecking dropdown
+	strictHostKeyOptions := []string{"", "yes", "no", "ask", "accept-new"}
+	strictHostKeyIndex := sf.findOptionIndex(strictHostKeyOptions, defaultValues.StrictHostKeyChecking)
+	sf.Form.AddDropDown("  StrictHostKeyChecking:", strictHostKeyOptions, strictHostKeyIndex, nil)
+
 	sf.Form.AddInputField("  UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
 	sf.Form.AddInputField("  HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
 
 	// Debugging settings
 	sf.Form.AddTextView("[white::b]Debugging[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  LogLevel:", defaultValues.LogLevel, 20, nil, nil)
+
+	// LogLevel dropdown
+	logLevelOptions := []string{"", "QUIET", "FATAL", "ERROR", "INFO", "VERBOSE", "DEBUG", "DEBUG1", "DEBUG2", "DEBUG3"}
+	logLevelIndex := sf.findOptionIndex(logLevelOptions, strings.ToUpper(defaultValues.LogLevel))
+	sf.Form.AddDropDown("  LogLevel:", logLevelOptions, logLevelIndex, nil)
 }
 
 type ServerFormData struct {
@@ -178,13 +215,27 @@ type ServerFormData struct {
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
-	// Helper function to get text from InputField, skipping TextViews
+	// Helper function to get text from InputField
 	getFieldText := func(fieldName string) string {
 		for i := 0; i < sf.Form.GetFormItemCount(); i++ {
 			if field, ok := sf.Form.GetFormItem(i).(*tview.InputField); ok {
 				label := strings.TrimSpace(field.GetLabel())
 				if strings.HasPrefix(label, fieldName) {
 					return strings.TrimSpace(field.GetText())
+				}
+			}
+		}
+		return ""
+	}
+
+	// Helper function to get selected option from DropDown
+	getDropdownValue := func(fieldName string) string {
+		for i := 0; i < sf.Form.GetFormItemCount(); i++ {
+			if dropdown, ok := sf.Form.GetFormItem(i).(*tview.DropDown); ok {
+				label := strings.TrimSpace(dropdown.GetLabel())
+				if strings.HasPrefix(label, fieldName) {
+					_, text := dropdown.GetCurrentOption()
+					return text
 				}
 			}
 		}
@@ -202,23 +253,23 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		ProxyJump:     getFieldText("ProxyJump:"),
 		ProxyCommand:  getFieldText("ProxyCommand:"),
 		RemoteCommand: getFieldText("RemoteCommand:"),
-		RequestTTY:    getFieldText("RequestTTY"),
+		RequestTTY:    getDropdownValue("RequestTTY:"),
 		// Authentication settings
-		PubkeyAuthentication:     getFieldText("PubkeyAuthentication"),
-		PasswordAuthentication:   getFieldText("PasswordAuthentication"),
+		PubkeyAuthentication:     getDropdownValue("PubkeyAuthentication:"),
+		PasswordAuthentication:   getDropdownValue("PasswordAuthentication:"),
 		PreferredAuthentications: getFieldText("PreferredAuthentications:"),
 		// Agent and forwarding settings
-		ForwardAgent: getFieldText("ForwardAgent"),
+		ForwardAgent: getDropdownValue("ForwardAgent:"),
 		// Connection reliability settings
-		ServerAliveInterval: getFieldText("ServerAliveInterval"),
+		ServerAliveInterval: getFieldText("ServerAliveInterval (seconds):"),
 		ServerAliveCountMax: getFieldText("ServerAliveCountMax:"),
-		Compression:         getFieldText("Compression"),
+		Compression:         getDropdownValue("Compression:"),
 		// Security settings
-		StrictHostKeyChecking: getFieldText("StrictHostKeyChecking"),
+		StrictHostKeyChecking: getDropdownValue("StrictHostKeyChecking:"),
 		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
 		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
 		// Debugging settings
-		LogLevel: getFieldText("LogLevel:"),
+		LogLevel: strings.ToLower(getDropdownValue("LogLevel:")),
 	}
 }
 
