@@ -30,16 +30,16 @@ type Server struct {
 
 	// Additional SSH config fields
 	// Connection and proxy settings
-	ProxyJump     string
-	ProxyCommand  string
-	RemoteCommand string
-	RequestTTY    string
-	ConnectTimeout      string
-	ConnectionAttempts  string
+	ProxyJump          string
+	ProxyCommand       string
+	RemoteCommand      string
+	RequestTTY         string
+	ConnectTimeout     string
+	ConnectionAttempts string
 
 	// Port forwarding settings
-	LocalForward  []string
-	RemoteForward []string
+	LocalForward   []string
+	RemoteForward  []string
 	DynamicForward []string
 
 	// Authentication and key management
@@ -51,8 +51,8 @@ type Server struct {
 	IdentityAgent            string
 
 	// Agent and X11 forwarding
-	ForwardAgent string
-	ForwardX11   string
+	ForwardAgent      string
+	ForwardX11        string
 	ForwardX11Trusted string
 
 	// Connection multiplexing
@@ -80,6 +80,6 @@ type Server struct {
 	SetEnv  []string
 
 	// Debugging settings
-	LogLevel string
+	LogLevel  string
 	BatchMode string
 }

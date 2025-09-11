@@ -65,87 +65,183 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 
 // mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
 func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV) {
-	switch strings.ToLower(kvNode.Key) {
+	key := strings.ToLower(kvNode.Key)
+	value := kvNode.Value
+
+	// Try mapping in order of categories
+	if r.mapBasicConfig(server, key, value) {
+		return
+	}
+	if r.mapConnectionConfig(server, key, value) {
+		return
+	}
+	if r.mapForwardingConfig(server, key, value) {
+		return
+	}
+	if r.mapAuthenticationConfig(server, key, value) {
+		return
+	}
+	if r.mapMultiplexingConfig(server, key, value) {
+		return
+	}
+	if r.mapSecurityConfig(server, key, value) {
+		return
+	}
+	if r.mapEnvironmentConfig(server, key, value) {
+		return
+	}
+	r.mapDebugConfig(server, key, value)
+}
+
+// mapBasicConfig maps basic SSH configuration fields
+func (r *Repository) mapBasicConfig(server *domain.Server, key, value string) bool {
+	switch key {
 	case "hostname":
-		server.Host = kvNode.Value
+		server.Host = value
 	case "user":
-		server.User = kvNode.Value
+		server.User = value
 	case "port":
-		port, err := strconv.Atoi(kvNode.Value)
+		port, err := strconv.Atoi(value)
 		if err == nil {
 			server.Port = port
 		}
 	case "identityfile":
-		server.IdentityFiles = append(server.IdentityFiles, kvNode.Value)
-	case "proxycommand":
-		server.ProxyCommand = kvNode.Value
-	case "proxyjump":
-		server.ProxyJump = kvNode.Value
-	case "forwardagent":
-		server.ForwardAgent = kvNode.Value
-	case "compression":
-		server.Compression = kvNode.Value
-	case "hostkeyalgorithms":
-		server.HostKeyAlgorithms = kvNode.Value
-	case "serveraliveinterval":
-		server.ServerAliveInterval = kvNode.Value
-	case "serveralivecountmax":
-		server.ServerAliveCountMax = kvNode.Value
-	case "stricthostkeychecking":
-		server.StrictHostKeyChecking = kvNode.Value
-	case "userknownhostsfile":
-		server.UserKnownHostsFile = kvNode.Value
-	case "loglevel":
-		server.LogLevel = kvNode.Value
-	case "preferredauthentications":
-		server.PreferredAuthentications = kvNode.Value
-	case "passwordauthentication":
-		server.PasswordAuthentication = kvNode.Value
-	case "pubkeyauthentication":
-		server.PubkeyAuthentication = kvNode.Value
-	case "requesttty":
-		server.RequestTTY = kvNode.Value
-	case "remotecommand":
-		server.RemoteCommand = kvNode.Value
-	case "connecttimeout":
-		server.ConnectTimeout = kvNode.Value
-	case "connectionattempts":
-		server.ConnectionAttempts = kvNode.Value
-	case "localforward":
-		server.LocalForward = append(server.LocalForward, kvNode.Value)
-	case "remoteforward":
-		server.RemoteForward = append(server.RemoteForward, kvNode.Value)
-	case "dynamicforward":
-		server.DynamicForward = append(server.DynamicForward, kvNode.Value)
-	case "identitiesonly":
-		server.IdentitiesOnly = kvNode.Value
-	case "addkeystoagent":
-		server.AddKeysToAgent = kvNode.Value
-	case "identityagent":
-		server.IdentityAgent = kvNode.Value
-	case "forwardx11":
-		server.ForwardX11 = kvNode.Value
-	case "forwardx11trusted":
-		server.ForwardX11Trusted = kvNode.Value
-	case "controlmaster":
-		server.ControlMaster = kvNode.Value
-	case "controlpath":
-		server.ControlPath = kvNode.Value
-	case "controlpersist":
-		server.ControlPersist = kvNode.Value
-	case "tcpkeepalive":
-		server.TCPKeepAlive = kvNode.Value
-	case "localcommand":
-		server.LocalCommand = kvNode.Value
-	case "permitlocalcommand":
-		server.PermitLocalCommand = kvNode.Value
-	case "sendenv":
-		server.SendEnv = append(server.SendEnv, kvNode.Value)
-	case "setenv":
-		server.SetEnv = append(server.SetEnv, kvNode.Value)
-	case "batchmode":
-		server.BatchMode = kvNode.Value
+		server.IdentityFiles = append(server.IdentityFiles, value)
+	default:
+		return false
 	}
+	return true
+}
+
+// mapConnectionConfig maps connection and proxy configuration fields
+func (r *Repository) mapConnectionConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "proxycommand":
+		server.ProxyCommand = value
+	case "proxyjump":
+		server.ProxyJump = value
+	case "remotecommand":
+		server.RemoteCommand = value
+	case "requesttty":
+		server.RequestTTY = value
+	case "connecttimeout":
+		server.ConnectTimeout = value
+	case "connectionattempts":
+		server.ConnectionAttempts = value
+	case "serveraliveinterval":
+		server.ServerAliveInterval = value
+	case "serveralivecountmax":
+		server.ServerAliveCountMax = value
+	case "compression":
+		server.Compression = value
+	case "tcpkeepalive":
+		server.TCPKeepAlive = value
+	default:
+		return false
+	}
+	return true
+}
+
+// mapForwardingConfig maps port forwarding and agent forwarding fields
+func (r *Repository) mapForwardingConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "localforward":
+		server.LocalForward = append(server.LocalForward, value)
+	case "remoteforward":
+		server.RemoteForward = append(server.RemoteForward, value)
+	case "dynamicforward":
+		server.DynamicForward = append(server.DynamicForward, value)
+	case "forwardagent":
+		server.ForwardAgent = value
+	case "forwardx11":
+		server.ForwardX11 = value
+	case "forwardx11trusted":
+		server.ForwardX11Trusted = value
+	default:
+		return false
+	}
+	return true
+}
+
+// mapAuthenticationConfig maps authentication-related fields
+func (r *Repository) mapAuthenticationConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "pubkeyauthentication":
+		server.PubkeyAuthentication = value
+	case "passwordauthentication":
+		server.PasswordAuthentication = value
+	case "preferredauthentications":
+		server.PreferredAuthentications = value
+	case "identitiesonly":
+		server.IdentitiesOnly = value
+	case "addkeystoagent":
+		server.AddKeysToAgent = value
+	case "identityagent":
+		server.IdentityAgent = value
+	default:
+		return false
+	}
+	return true
+}
+
+// mapMultiplexingConfig maps connection multiplexing fields
+func (r *Repository) mapMultiplexingConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "controlmaster":
+		server.ControlMaster = value
+	case "controlpath":
+		server.ControlPath = value
+	case "controlpersist":
+		server.ControlPersist = value
+	default:
+		return false
+	}
+	return true
+}
+
+// mapSecurityConfig maps security-related fields
+func (r *Repository) mapSecurityConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "stricthostkeychecking":
+		server.StrictHostKeyChecking = value
+	case "userknownhostsfile":
+		server.UserKnownHostsFile = value
+	case "hostkeyalgorithms":
+		server.HostKeyAlgorithms = value
+	default:
+		return false
+	}
+	return true
+}
+
+// mapEnvironmentConfig maps environment and command execution fields
+func (r *Repository) mapEnvironmentConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "localcommand":
+		server.LocalCommand = value
+	case "permitlocalcommand":
+		server.PermitLocalCommand = value
+	case "sendenv":
+		server.SendEnv = append(server.SendEnv, value)
+	case "setenv":
+		server.SetEnv = append(server.SetEnv, value)
+	default:
+		return false
+	}
+	return true
+}
+
+// mapDebugConfig maps debugging-related fields
+func (r *Repository) mapDebugConfig(server *domain.Server, key, value string) bool {
+	switch key {
+	case "loglevel":
+		server.LogLevel = value
+	case "batchmode":
+		server.BatchMode = value
+	default:
+		return false
+	}
+	return true
 }
 
 // mergeMetadata merges additional metadata into the servers.

@@ -234,7 +234,7 @@ func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Ser
 			r.updateOrAddKVNode(host, key, value)
 		}
 	}
-	
+
 	// Helper to remove all instances of a key
 	removeKey := func(nodes []ssh_config.Node, key string) []ssh_config.Node {
 		filtered := make([]ssh_config.Node, 0, len(nodes))
@@ -248,33 +248,33 @@ func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Ser
 		}
 		return filtered
 	}
-	
+
 	// Replace multi-value entries entirely to reflect the new state
 	host.Nodes = removeKey(host.Nodes, "IdentityFile")
 	for _, identityFile := range newServer.IdentityFiles {
 		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
 	}
-	
+
 	host.Nodes = removeKey(host.Nodes, "LocalForward")
 	for _, forward := range newServer.LocalForward {
 		r.addKVNodeIfNotEmpty(host, "LocalForward", forward)
 	}
-	
+
 	host.Nodes = removeKey(host.Nodes, "RemoteForward")
 	for _, forward := range newServer.RemoteForward {
 		r.addKVNodeIfNotEmpty(host, "RemoteForward", forward)
 	}
-	
+
 	host.Nodes = removeKey(host.Nodes, "DynamicForward")
 	for _, forward := range newServer.DynamicForward {
 		r.addKVNodeIfNotEmpty(host, "DynamicForward", forward)
 	}
-	
+
 	host.Nodes = removeKey(host.Nodes, "SendEnv")
 	for _, env := range newServer.SendEnv {
 		r.addKVNodeIfNotEmpty(host, "SendEnv", env)
 	}
-	
+
 	host.Nodes = removeKey(host.Nodes, "SetEnv")
 	for _, env := range newServer.SetEnv {
 		r.addKVNodeIfNotEmpty(host, "SetEnv", env)
