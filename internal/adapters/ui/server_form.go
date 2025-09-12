@@ -33,6 +33,10 @@ const (
 	ServerFormEdit
 )
 
+const (
+	tabSeparator = "[gray]|[-] " // Tab separator with gray color
+)
+
 type ServerForm struct {
 	*tview.Flex
 	pages      *tview.Pages
@@ -40,6 +44,7 @@ type ServerForm struct {
 	forms      map[string]*tview.Form
 	currentTab string
 	tabs       []string
+	tabAbbrev  map[string]string // Abbreviated tab names for narrow views
 	mode       ServerFormMode
 	original   *domain.Server
 	onSave     func(domain.Server, *domain.Server)
@@ -61,6 +66,14 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 			"Authentication",
 			"Multiplexing",
 			"Advanced",
+		},
+		tabAbbrev: map[string]string{
+			"Basic":          "Basic",
+			"Connection":     "Conn",
+			"Forwarding":     "Fwd",
+			"Authentication": "Auth",
+			"Multiplexing":   "Mux",
+			"Advanced":       "Adv",
 		},
 	}
 	form.currentTab = "Basic"
@@ -112,15 +125,138 @@ func (sf *ServerForm) titleForMode() string {
 	return "Add Server - [yellow]Ctrl+L[white]: Next | [yellow]Ctrl+H[white]: Prev | [yellow]Ctrl+S[white]: Save | [yellow]Esc[white]: Cancel"
 }
 
-func (sf *ServerForm) updateTabBar() {
-	// Get current tab index
-	currentIdx := 0
+func (sf *ServerForm) getCurrentTabIndex() int {
 	for i, tab := range sf.tabs {
 		if tab == sf.currentTab {
-			currentIdx = i
+			return i
+		}
+	}
+	return 0
+}
+
+func (sf *ServerForm) calculateTabsWidth(useAbbrev bool) int {
+	width := 0
+	for i, tab := range sf.tabs {
+		tabName := tab
+		if useAbbrev {
+			tabName = sf.tabAbbrev[tab]
+		}
+		width += len(tabName) + 2 // space + name + space
+		if i < len(sf.tabs)-1 {
+			width += 3 // " | " separator
+		}
+	}
+	return width
+}
+
+func (sf *ServerForm) determineDisplayMode(width int) string {
+	if width <= 20 { // Width unknown or too small
+		return "full"
+	}
+
+	fullWidth := sf.calculateTabsWidth(false)
+	if fullWidth <= width-10 {
+		return "full"
+	}
+
+	abbrevWidth := sf.calculateTabsWidth(true)
+	if abbrevWidth <= width-10 {
+		return "abbrev"
+	}
+
+	return "scroll"
+}
+
+func (sf *ServerForm) renderTab(tab string, isCurrent bool, useAbbrev bool, index int) string {
+	tabName := tab
+	if useAbbrev {
+		tabName = sf.tabAbbrev[tab]
+	}
+	regionID := fmt.Sprintf("tab_%d", index)
+	if isCurrent {
+		return fmt.Sprintf("[%q][black:white:b] %s [-:-:-][%q] ", regionID, tabName, "")
+	}
+	return fmt.Sprintf("[%q][gray::u] %s [-:-:-][%q] ", regionID, tabName, "")
+}
+
+func (sf *ServerForm) renderScrollableTabs(currentIdx, width int) string {
+	var tabText string
+	availableWidth := width - 8 // Reserve space for scroll indicators
+
+	// Calculate visible count
+	visibleCount := sf.calculateVisibleTabCount(availableWidth)
+	if visibleCount < 2 {
+		visibleCount = 2
+	}
+
+	// Add left scroll indicator
+	if currentIdx > 0 {
+		tabText = "[gray]◀ [-]"
+	}
+
+	// Calculate range
+	start, end := sf.calculateVisibleRange(currentIdx, visibleCount, len(sf.tabs))
+
+	// Render visible tabs
+	for i := start; i < end && i < len(sf.tabs); i++ {
+		tabText += sf.renderTab(sf.tabs[i], sf.tabs[i] == sf.currentTab, true, i)
+		if i < end-1 && i < len(sf.tabs)-1 {
+			tabText += tabSeparator
+		}
+	}
+
+	// Add right scroll indicator
+	if currentIdx < len(sf.tabs)-1 {
+		tabText += " [gray]▶[-]"
+	}
+
+	return tabText
+}
+
+func (sf *ServerForm) calculateVisibleTabCount(availableWidth int) int {
+	visibleCount := 0
+	currentWidth := 0
+
+	for i := 0; i < len(sf.tabs) && currentWidth < availableWidth; i++ {
+		abbrev := sf.tabAbbrev[sf.tabs[i]]
+		tabWidth := len(abbrev) + 2
+		if i > 0 {
+			tabWidth += 3 // separator
+		}
+		if currentWidth+tabWidth <= availableWidth {
+			visibleCount++
+			currentWidth += tabWidth
+		} else {
 			break
 		}
 	}
+
+	return visibleCount
+}
+
+func (sf *ServerForm) calculateVisibleRange(currentIdx, visibleCount, totalTabs int) (int, int) {
+	halfVisible := visibleCount / 2
+	start := currentIdx - halfVisible + 1
+	end := start + visibleCount
+
+	// Adjust boundaries
+	if start < 0 {
+		start = 0
+		end = visibleCount
+	}
+	if end > totalTabs {
+		end = totalTabs
+		start = end - visibleCount
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	return start, end
+}
+
+func (sf *ServerForm) updateTabBar() {
+	currentIdx := sf.getCurrentTabIndex()
 
 	// Build tab text with scroll indicator if needed
 	var tabText string
@@ -131,103 +267,25 @@ func (sf *ServerForm) updateTabBar() {
 	_ = y
 	_ = height
 
-	// Calculate the actual visible width needed for all tabs
-	// We need to calculate the actual rendered text length without ANSI codes
-	estimatedWidth := 0
-	for i, tab := range sf.tabs {
-		// Each tab has: space + name + space
-		estimatedWidth += len(tab) + 2
-		if i < len(sf.tabs)-1 {
-			// Separator: space + | + space
-			estimatedWidth += 3
-		}
-	}
+	displayMode := sf.determineDisplayMode(width)
 
-	// Only show scroll indicators if:
-	// 1. Width is known and positive (not 0 from initial render)
-	// 2. The estimated width actually exceeds available width
-	// When width is 0 or unknown, default to showing all tabs
-	showScrollIndicators := width > 20 && estimatedWidth > (width-10)
-
-	if showScrollIndicators {
-		// Calculate how many tabs we can fit
-		// Reserve space for scroll indicators (4 chars each: "◀ " and " ▶")
-		availableWidth := width - 8
-
-		// Calculate how many tabs can fit
-		visibleCount := 0
-		currentWidth := 0
-
-		for i := 0; i < len(sf.tabs) && currentWidth < availableWidth; i++ {
-			tabWidth := len(sf.tabs[i]) + 2
-			if i > 0 {
-				tabWidth += 3 // separator
-			}
-			if currentWidth+tabWidth <= availableWidth {
-				visibleCount++
-				currentWidth += tabWidth
-			} else {
-				break
-			}
-		}
-
-		// Ensure at least 2 tabs are visible
-		if visibleCount < 2 {
-			visibleCount = 2
-		}
-
-		// Show scroll indicator on the left if not at first tab
-		if currentIdx > 0 {
-			tabText = "[gray]◀ [-]"
-		}
-
-		// Calculate visible range centered on current tab
-		halfVisible := visibleCount / 2
-		start := currentIdx - halfVisible + 1
-		end := start + visibleCount
-
-		// Adjust boundaries
-		if start < 0 {
-			start = 0
-			end = visibleCount
-		}
-		if end > len(sf.tabs) {
-			end = len(sf.tabs)
-			start = end - visibleCount
-			if start < 0 {
-				start = 0
-			}
-		}
-
-		// Build visible tabs
-		for i := start; i < end && i < len(sf.tabs); i++ {
-			tab := sf.tabs[i]
-			regionID := fmt.Sprintf("tab_%d", i)
-			if tab == sf.currentTab {
-				tabText += fmt.Sprintf("[%q][black:white:b] %s [-:-:-][%q] ", regionID, tab, "")
-			} else {
-				tabText += fmt.Sprintf("[%q][gray::u] %s [-:-:-][%q] ", regionID, tab, "")
-			}
-			if i < end-1 && i < len(sf.tabs)-1 {
-				tabText += "[gray]|[-] "
-			}
-		}
-
-		// Show scroll indicator on the right if not at last tab
-		if currentIdx < len(sf.tabs)-1 {
-			tabText += " [gray]▶[-]"
-		}
-	} else {
-		// Show all tabs if they fit
+	switch displayMode {
+	case "scroll":
+		tabText = sf.renderScrollableTabs(currentIdx, width)
+	case "abbrev":
+		// Show all tabs with abbreviated names
 		for i, tab := range sf.tabs {
-			regionID := fmt.Sprintf("tab_%d", i)
-			if tab == sf.currentTab {
-				tabText += fmt.Sprintf("[%q][black:white:b] %s [-:-:-][%q] ", regionID, tab, "")
-			} else {
-				tabText += fmt.Sprintf("[%q][gray::u] %s [-:-:-][%q] ", regionID, tab, "")
-			}
+			tabText += sf.renderTab(tab, tab == sf.currentTab, true, i)
 			if i < len(sf.tabs)-1 {
-				tabText += "[gray]|[-] "
+				tabText += tabSeparator
+			}
+		}
+	default: // "full"
+		// Show all tabs with full names
+		for i, tab := range sf.tabs {
+			tabText += sf.renderTab(tab, tab == sf.currentTab, false, i)
+			if i < len(sf.tabs)-1 {
+				tabText += tabSeparator
 			}
 		}
 	}
