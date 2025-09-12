@@ -101,6 +101,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		{"StrictHostKeyChecking", server.StrictHostKeyChecking},
 		{"UserKnownHostsFile", server.UserKnownHostsFile},
 		{"HostKeyAlgorithms", server.HostKeyAlgorithms},
+		{"MACs", server.MACs},
 		// Debugging settings
 		{"LogLevel", server.LogLevel},
 	}

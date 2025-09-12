@@ -70,6 +70,7 @@ type Server struct {
 	StrictHostKeyChecking string
 	UserKnownHostsFile    string
 	HostKeyAlgorithms     string
+	MACs                  string
 
 	// Command execution
 	LocalCommand       string

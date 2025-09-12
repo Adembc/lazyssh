@@ -484,6 +484,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			StrictHostKeyChecking:    sf.original.StrictHostKeyChecking,
 			UserKnownHostsFile:       sf.original.UserKnownHostsFile,
 			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
+			MACs:                     sf.original.MACs,
 			LocalCommand:             sf.original.LocalCommand,
 			PermitLocalCommand:       sf.original.PermitLocalCommand,
 			SendEnv:                  strings.Join(sf.original.SendEnv, ", "),
@@ -675,6 +676,29 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
 	form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
 
+	// MACs dropdown with common MAC algorithms
+	macsOptions := []string{
+		"",
+		"hmac-sha2-256",
+		"hmac-sha2-512",
+		"hmac-sha1",
+		"hmac-sha1-96",
+		"hmac-md5",
+		"hmac-md5-96",
+		"umac-64@openssh.com",
+		"umac-128@openssh.com",
+		"hmac-sha2-256-etm@openssh.com",
+		"hmac-sha2-512-etm@openssh.com",
+		"hmac-sha1-etm@openssh.com",
+		"hmac-sha1-96-etm@openssh.com",
+		"hmac-md5-etm@openssh.com",
+		"hmac-md5-96-etm@openssh.com",
+		"umac-64-etm@openssh.com",
+		"umac-128-etm@openssh.com",
+	}
+	macsIndex := sf.findOptionIndex(macsOptions, defaultValues.MACs)
+	form.AddDropDown("MACs:", macsOptions, macsIndex, nil)
+
 	form.AddTextView("[yellow]Command Execution[-]", "", 0, 1, true, false)
 	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
 
@@ -757,6 +781,7 @@ type ServerFormData struct {
 	StrictHostKeyChecking string
 	UserKnownHostsFile    string
 	HostKeyAlgorithms     string
+	MACs                  string
 
 	// Command execution
 	LocalCommand       string
@@ -845,6 +870,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		StrictHostKeyChecking: getDropdownValue("StrictHostKeyChecking:"),
 		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
 		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
+		MACs:                  getDropdownValue("MACs:"),
 		// Command execution
 		LocalCommand:       getFieldText("LocalCommand:"),
 		PermitLocalCommand: getDropdownValue("PermitLocalCommand:"),
@@ -959,6 +985,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		StrictHostKeyChecking:    data.StrictHostKeyChecking,
 		UserKnownHostsFile:       data.UserKnownHostsFile,
 		HostKeyAlgorithms:        data.HostKeyAlgorithms,
+		MACs:                     data.MACs,
 		LocalCommand:             data.LocalCommand,
 		PermitLocalCommand:       data.PermitLocalCommand,
 		SendEnv:                  splitComma(data.SendEnv),

@@ -208,6 +208,8 @@ func (r *Repository) mapSecurityConfig(server *domain.Server, key, value string)
 		server.UserKnownHostsFile = value
 	case "hostkeyalgorithms":
 		server.HostKeyAlgorithms = value
+	case "macs":
+		server.MACs = value
 	default:
 		return false
 	}

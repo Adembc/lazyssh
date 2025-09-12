@@ -318,6 +318,9 @@ func addSecurityOptions(parts *[]string, s domain.Server) {
 	if s.HostKeyAlgorithms != "" {
 		*parts = append(*parts, "-o", fmt.Sprintf("HostKeyAlgorithms=%s", s.HostKeyAlgorithms))
 	}
+	if s.MACs != "" {
+		*parts = append(*parts, "-m", s.MACs)
+	}
 }
 
 // addTTYAndLoggingOptions adds TTY and logging options to the SSH command
