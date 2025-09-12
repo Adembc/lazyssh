@@ -35,10 +35,11 @@ const (
 
 type ServerForm struct {
 	*tview.Form
-	mode     ServerFormMode
-	original *domain.Server
-	onSave   func(domain.Server, *domain.Server)
-	onCancel func()
+	mode          ServerFormMode
+	original      *domain.Server
+	prefilledData *ServerFormData
+	onSave        func(domain.Server, *domain.Server)
+	onCancel      func()
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -46,6 +47,18 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 		Form:     tview.NewForm(),
 		mode:     mode,
 		original: original,
+	}
+	form.build()
+	return form
+}
+
+// NewServerFormFromData creates a new ServerForm from ServerFormData
+func NewServerFormFromData(mode ServerFormMode, data ServerFormData) *ServerForm {
+	form := &ServerForm{
+		Form:          tview.NewForm(),
+		mode:          mode,
+		original:      nil,
+		prefilledData: &data,
 	}
 	form.build()
 	return form
@@ -76,7 +89,11 @@ func (sf *ServerForm) titleForMode() string {
 
 func (sf *ServerForm) addFormFields() {
 	var defaultValues ServerFormData
-	if sf.mode == ServerFormEdit && sf.original != nil {
+	switch {
+	case sf.prefilledData != nil:
+		// Use prefilled data
+		defaultValues = *sf.prefilledData
+	case sf.mode == ServerFormEdit && sf.original != nil:
 		defaultValues = ServerFormData{
 			Alias: sf.original.Alias,
 			Host:  sf.original.Host,
@@ -85,7 +102,7 @@ func (sf *ServerForm) addFormFields() {
 			Key:   strings.Join(sf.original.IdentityFiles, ", "),
 			Tags:  strings.Join(sf.original.Tags, ", "),
 		}
-	} else {
+	default:
 		defaultValues = ServerFormData{
 			User: "root",
 			Port: "22",

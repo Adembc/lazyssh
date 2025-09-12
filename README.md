@@ -15,6 +15,7 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 ### Server Management
 - 📜 Read & display servers from your `~/.ssh/config` in a scrollable list.
 - ➕ Add a new server from the UI by specifying alias, host/IP, username, port, identity file.
+- 📋 Paste SSH command from clipboard (e.g., paste `ssh user@host -p 2222` to quickly add a server).
 - ✏ Edit existing server entries directly from the UI.
 - 🗑 Delete server entries safely.
 - 📌 Pin / unpin servers to keep favorites at the top.
@@ -146,22 +147,23 @@ make run
 
 ## ⌨️ Key Bindings
 
-| Key   | Action                        |
-| ----- | ----------------------------- |
-| /     | Toggle search bar             |
-| ↑↓/jk | Navigate servers              |
-| Enter | SSH into selected server      |
-| c     | Copy SSH command to clipboard |
-| g     | Ping selected server          |
-| r     | Refresh background data       |
-| a     | Add server                    |
-| e     | Edit server                   |
-| t     | Edit tags                     |
-| d     | Delete server                 |
-| p     | Pin/Unpin server              |
-| s     | Toggle sort field             |
-| S     | Reverse sort order            |
-| q     | Quit                          |
+| Key   | Action                                         |
+| ----- | ---------------------------------------------- |
+| /     | Toggle search bar                              |
+| ↑↓/jk | Navigate servers                               |
+| Enter | SSH into selected server                       |
+| c     | Copy SSH command to clipboard                  |
+| v     | Paste SSH command from clipboard as new server |
+| g     | Ping selected server                           |
+| r     | Refresh background data                        |
+| a     | Add server                                     |
+| e     | Edit server                                    |
+| t     | Edit tags                                      |
+| d     | Delete server                                  |
+| p     | Pin/Unpin server                               |
+| s     | Toggle sort field                              |
+| S     | Reverse sort order                             |
+| q     | Quit                                           |
 
 Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
