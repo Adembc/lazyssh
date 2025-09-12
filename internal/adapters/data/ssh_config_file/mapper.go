@@ -81,9 +81,6 @@ func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV)
 	if r.mapAuthenticationConfig(server, key, value) {
 		return
 	}
-	if r.mapMultiplexingConfig(server, key, value) {
-		return
-	}
 	if r.mapSecurityConfig(server, key, value) {
 		return
 	}
@@ -140,6 +137,12 @@ func (r *Repository) mapConnectionConfig(server *domain.Server, key, value strin
 		server.Compression = value
 	case "tcpkeepalive":
 		server.TCPKeepAlive = value
+	case "controlmaster":
+		server.ControlMaster = value
+	case "controlpath":
+		server.ControlPath = value
+	case "controlpersist":
+		server.ControlPersist = value
 	default:
 		return false
 	}
@@ -182,21 +185,6 @@ func (r *Repository) mapAuthenticationConfig(server *domain.Server, key, value s
 		server.AddKeysToAgent = value
 	case "identityagent":
 		server.IdentityAgent = value
-	default:
-		return false
-	}
-	return true
-}
-
-// mapMultiplexingConfig maps connection multiplexing fields
-func (r *Repository) mapMultiplexingConfig(server *domain.Server, key, value string) bool {
-	switch key {
-	case "controlmaster":
-		server.ControlMaster = value
-	case "controlpath":
-		server.ControlPath = value
-	case "controlpersist":
-		server.ControlPersist = value
 	default:
 		return false
 	}

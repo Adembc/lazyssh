@@ -64,7 +64,6 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 			"Connection",
 			"Forwarding",
 			"Authentication",
-			"Multiplexing",
 			"Advanced",
 		},
 		tabAbbrev: map[string]string{
@@ -72,7 +71,6 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 			"Connection":     "Conn",
 			"Forwarding":     "Fwd",
 			"Authentication": "Auth",
-			"Multiplexing":   "Mux",
 			"Advanced":       "Adv",
 		},
 	}
@@ -89,7 +87,6 @@ func (sf *ServerForm) build() {
 	sf.createConnectionForm()
 	sf.createForwardingForm()
 	sf.createAuthenticationForm()
-	sf.createMultiplexingForm()
 	sf.createAdvancedForm()
 
 	// Setup tab bar
@@ -567,6 +564,14 @@ func (sf *ServerForm) createConnectionForm() {
 	tcpKeepAliveIndex := sf.findOptionIndex(yesNoOptions, defaultValues.TCPKeepAlive)
 	form.AddDropDown("TCPKeepAlive:", yesNoOptions, tcpKeepAliveIndex, nil)
 
+	form.AddTextView("[yellow]Multiplexing[-]", "", 0, 1, true, false)
+	// ControlMaster dropdown
+	controlMasterOptions := []string{"", "yes", "no", "auto", "ask", "autoask"}
+	controlMasterIndex := sf.findOptionIndex(controlMasterOptions, defaultValues.ControlMaster)
+	form.AddDropDown("ControlMaster:", controlMasterOptions, controlMasterIndex, nil)
+	form.AddInputField("ControlPath:", defaultValues.ControlPath, 40, nil, nil)
+	form.AddInputField("ControlPersist:", defaultValues.ControlPersist, 20, nil, nil)
+
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSave)
 	form.AddButton("Cancel", sf.handleCancel)
@@ -650,30 +655,6 @@ func (sf *ServerForm) createAuthenticationForm() {
 
 	sf.forms["Authentication"] = form
 	sf.pages.AddPage("Authentication", form, true, false)
-}
-
-// createMultiplexingForm creates the Connection Multiplexing tab
-func (sf *ServerForm) createMultiplexingForm() {
-	form := tview.NewForm()
-	defaultValues := sf.getDefaultValues()
-
-	// ControlMaster dropdown
-	controlMasterOptions := []string{"", "yes", "no", "auto", "ask", "autoask"}
-	controlMasterIndex := sf.findOptionIndex(controlMasterOptions, defaultValues.ControlMaster)
-	form.AddDropDown("ControlMaster:", controlMasterOptions, controlMasterIndex, nil)
-
-	form.AddInputField("ControlPath:", defaultValues.ControlPath, 40, nil, nil)
-	form.AddInputField("ControlPersist:", defaultValues.ControlPersist, 20, nil, nil)
-
-	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSave)
-	form.AddButton("Cancel", sf.handleCancel)
-
-	// Set up form-level input capture for shortcuts
-	sf.setupFormShortcuts(form)
-
-	sf.forms["Multiplexing"] = form
-	sf.pages.AddPage("Multiplexing", form, true, false)
 }
 
 // createAdvancedForm creates the Advanced settings tab
