@@ -87,6 +87,8 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		{"ProxyCommand", server.ProxyCommand},
 		{"RemoteCommand", server.RemoteCommand},
 		{"RequestTTY", server.RequestTTY},
+		{"BindAddress", server.BindAddress},
+		{"BindInterface", server.BindInterface},
 		// Authentication settings
 		{"PubkeyAuthentication", server.PubkeyAuthentication},
 		{"PasswordAuthentication", server.PasswordAuthentication},
@@ -102,6 +104,8 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		{"UserKnownHostsFile", server.UserKnownHostsFile},
 		{"HostKeyAlgorithms", server.HostKeyAlgorithms},
 		{"MACs", server.MACs},
+		{"Ciphers", server.Ciphers},
+		{"KexAlgorithms", server.KexAlgorithms},
 		// Debugging settings
 		{"LogLevel", server.LogLevel},
 	}

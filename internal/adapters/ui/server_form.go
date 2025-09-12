@@ -462,6 +462,8 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			RequestTTY:               sf.original.RequestTTY,
 			ConnectTimeout:           sf.original.ConnectTimeout,
 			ConnectionAttempts:       sf.original.ConnectionAttempts,
+			BindAddress:              sf.original.BindAddress,
+			BindInterface:            sf.original.BindInterface,
 			LocalForward:             strings.Join(sf.original.LocalForward, ", "),
 			RemoteForward:            strings.Join(sf.original.RemoteForward, ", "),
 			DynamicForward:           strings.Join(sf.original.DynamicForward, ", "),
@@ -485,6 +487,8 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			UserKnownHostsFile:       sf.original.UserKnownHostsFile,
 			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
 			MACs:                     sf.original.MACs,
+			Ciphers:                  sf.original.Ciphers,
+			KexAlgorithms:            sf.original.KexAlgorithms,
 			LocalCommand:             sf.original.LocalCommand,
 			PermitLocalCommand:       sf.original.PermitLocalCommand,
 			SendEnv:                  strings.Join(sf.original.SendEnv, ", "),
@@ -539,6 +543,16 @@ func (sf *ServerForm) createConnectionForm() {
 
 	form.AddInputField("ConnectTimeout (seconds):", defaultValues.ConnectTimeout, 10, nil, nil)
 	form.AddInputField("ConnectionAttempts:", defaultValues.ConnectionAttempts, 10, nil, nil)
+
+	form.AddTextView("[yellow]Bind Options[-]", "", 0, 1, true, false)
+	form.AddInputField("BindAddress:", defaultValues.BindAddress, 40, nil, nil)
+
+	// BindInterface dropdown with available network interfaces
+	interfaceOptions := append([]string{""}, GetNetworkInterfaces()...)
+	bindInterfaceIndex := sf.findOptionIndex(interfaceOptions, defaultValues.BindInterface)
+	form.AddDropDown("BindInterface:", interfaceOptions, bindInterfaceIndex, nil)
+
+	form.AddTextView("[yellow]Keep-Alive[-]", "", 0, 1, true, false)
 	form.AddInputField("ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 10, nil, nil)
 	form.AddInputField("ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
 
@@ -674,7 +688,25 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddDropDown("StrictHostKeyChecking:", strictHostKeyOptions, strictHostKeyIndex, nil)
 
 	form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
-	form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
+
+	form.AddTextView("[yellow]Cryptography[-]", "", 0, 1, true, false)
+
+	// Ciphers dropdown with common cipher algorithms
+	ciphersOptions := []string{
+		"",
+		"aes128-ctr",
+		"aes192-ctr",
+		"aes256-ctr",
+		"aes128-gcm@openssh.com",
+		"aes256-gcm@openssh.com",
+		"chacha20-poly1305@openssh.com",
+		"aes128-cbc",
+		"aes192-cbc",
+		"aes256-cbc",
+		"3des-cbc",
+	}
+	ciphersIndex := sf.findOptionIndex(ciphersOptions, defaultValues.Ciphers)
+	form.AddDropDown("Ciphers:", ciphersOptions, ciphersIndex, nil)
 
 	// MACs dropdown with common MAC algorithms
 	macsOptions := []string{
@@ -698,6 +730,25 @@ func (sf *ServerForm) createAdvancedForm() {
 	}
 	macsIndex := sf.findOptionIndex(macsOptions, defaultValues.MACs)
 	form.AddDropDown("MACs:", macsOptions, macsIndex, nil)
+
+	// KexAlgorithms dropdown with common key exchange algorithms
+	kexOptions := []string{
+		"",
+		"curve25519-sha256",
+		"curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256",
+		"ecdh-sha2-nistp384",
+		"ecdh-sha2-nistp521",
+		"diffie-hellman-group-exchange-sha256",
+		"diffie-hellman-group16-sha512",
+		"diffie-hellman-group18-sha512",
+		"diffie-hellman-group14-sha256",
+		"diffie-hellman-group14-sha1",
+	}
+	kexIndex := sf.findOptionIndex(kexOptions, defaultValues.KexAlgorithms)
+	form.AddDropDown("KexAlgorithms:", kexOptions, kexIndex, nil)
+
+	form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
 
 	form.AddTextView("[yellow]Command Execution[-]", "", 0, 1, true, false)
 	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
@@ -747,6 +798,8 @@ type ServerFormData struct {
 	RequestTTY         string
 	ConnectTimeout     string
 	ConnectionAttempts string
+	BindAddress        string
+	BindInterface      string
 
 	// Port forwarding
 	LocalForward   string
@@ -782,6 +835,8 @@ type ServerFormData struct {
 	UserKnownHostsFile    string
 	HostKeyAlgorithms     string
 	MACs                  string
+	Ciphers               string
+	KexAlgorithms         string
 
 	// Command execution
 	LocalCommand       string
@@ -842,6 +897,8 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		RequestTTY:         getDropdownValue("RequestTTY:"),
 		ConnectTimeout:     getFieldText("ConnectTimeout (seconds):"),
 		ConnectionAttempts: getFieldText("ConnectionAttempts:"),
+		BindAddress:        getFieldText("BindAddress:"),
+		BindInterface:      getDropdownValue("BindInterface:"),
 		// Port forwarding
 		LocalForward:   getFieldText("LocalForward"),
 		RemoteForward:  getFieldText("RemoteForward"),
@@ -871,6 +928,8 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
 		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
 		MACs:                  getDropdownValue("MACs:"),
+		Ciphers:               getDropdownValue("Ciphers:"),
+		KexAlgorithms:         getDropdownValue("KexAlgorithms:"),
 		// Command execution
 		LocalCommand:       getFieldText("LocalCommand:"),
 		PermitLocalCommand: getDropdownValue("PermitLocalCommand:"),
@@ -963,6 +1022,8 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		RequestTTY:               data.RequestTTY,
 		ConnectTimeout:           data.ConnectTimeout,
 		ConnectionAttempts:       data.ConnectionAttempts,
+		BindAddress:              data.BindAddress,
+		BindInterface:            data.BindInterface,
 		LocalForward:             splitComma(data.LocalForward),
 		RemoteForward:            splitComma(data.RemoteForward),
 		DynamicForward:           splitComma(data.DynamicForward),
@@ -986,6 +1047,8 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		UserKnownHostsFile:       data.UserKnownHostsFile,
 		HostKeyAlgorithms:        data.HostKeyAlgorithms,
 		MACs:                     data.MACs,
+		Ciphers:                  data.Ciphers,
+		KexAlgorithms:            data.KexAlgorithms,
 		LocalCommand:             data.LocalCommand,
 		PermitLocalCommand:       data.PermitLocalCommand,
 		SendEnv:                  splitComma(data.SendEnv),

@@ -200,6 +200,12 @@ func addConnectionTimingOptions(parts *[]string, s domain.Server) {
 	if s.ConnectionAttempts != "" {
 		*parts = append(*parts, "-o", fmt.Sprintf("ConnectionAttempts=%s", s.ConnectionAttempts))
 	}
+	if s.BindAddress != "" {
+		*parts = append(*parts, "-b", s.BindAddress)
+	}
+	if s.BindInterface != "" {
+		*parts = append(*parts, "-B", s.BindInterface)
+	}
 }
 
 // addPortForwardingOptions adds port forwarding options to the SSH command
@@ -320,6 +326,12 @@ func addSecurityOptions(parts *[]string, s domain.Server) {
 	}
 	if s.MACs != "" {
 		*parts = append(*parts, "-m", s.MACs)
+	}
+	if s.Ciphers != "" {
+		*parts = append(*parts, "-c", s.Ciphers)
+	}
+	if s.KexAlgorithms != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("KexAlgorithms=%s", s.KexAlgorithms))
 	}
 }
 

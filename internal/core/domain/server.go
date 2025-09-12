@@ -36,6 +36,8 @@ type Server struct {
 	RequestTTY         string
 	ConnectTimeout     string
 	ConnectionAttempts string
+	BindAddress        string
+	BindInterface      string
 
 	// Port forwarding settings
 	LocalForward   []string
@@ -66,11 +68,13 @@ type Server struct {
 	Compression         string
 	TCPKeepAlive        string
 
-	// Security settings
+	// Security and cryptography settings
 	StrictHostKeyChecking string
 	UserKnownHostsFile    string
 	HostKeyAlgorithms     string
 	MACs                  string
+	Ciphers               string
+	KexAlgorithms         string
 
 	// Command execution
 	LocalCommand       string

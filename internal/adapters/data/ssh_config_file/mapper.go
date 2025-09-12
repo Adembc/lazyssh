@@ -128,6 +128,10 @@ func (r *Repository) mapConnectionConfig(server *domain.Server, key, value strin
 		server.ConnectTimeout = value
 	case "connectionattempts":
 		server.ConnectionAttempts = value
+	case "bindaddress":
+		server.BindAddress = value
+	case "bindinterface":
+		server.BindInterface = value
 	case "serveraliveinterval":
 		server.ServerAliveInterval = value
 	case "serveralivecountmax":
@@ -210,6 +214,10 @@ func (r *Repository) mapSecurityConfig(server *domain.Server, key, value string)
 		server.HostKeyAlgorithms = value
 	case "macs":
 		server.MACs = value
+	case "ciphers":
+		server.Ciphers = value
+	case "kexalgorithms":
+		server.KexAlgorithms = value
 	default:
 		return false
 	}
