@@ -125,3 +125,29 @@ func (r *Repository) findBackupFiles(dir string) ([]os.FileInfo, error) {
 
 	return backupFiles, nil
 }
+
+// createOriginalBackupIfNeeded creates a one-time original backup of the current SSH config.
+func (r *Repository) createOriginalBackupIfNeeded() error {
+	// If no SSH config file, nothing to do.
+	if _, err := r.fileSystem.Stat(r.configPath); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to check if config file exists: %w", err)
+	}
+
+	configDir := filepath.Dir(r.configPath)
+	originalBackupPath := filepath.Join(configDir, "config.original.backup")
+
+	if _, err := r.fileSystem.Stat(originalBackupPath); err == nil {
+		return nil
+	} else if !r.fileSystem.IsNotExist(err) {
+		return fmt.Errorf("failed to check if original backup exists: %w", err)
+	}
+
+	if err := r.copyFile(r.configPath, originalBackupPath); err != nil {
+		return fmt.Errorf("failed to create original backup: %w", err)
+	}
+
+	r.logger.Infof("Created original backup: %s", originalBackupPath)
+	return nil
+}

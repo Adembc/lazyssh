@@ -53,6 +53,14 @@ It is simply a UI/TUI wrapper around your existing `~/.ssh/config` file.
 - File permissions on your SSH config are preserved to ensure security.
 
 
+## 🛡️ Config Safety: Non‑destructive writes and backups
+
+- Non‑destructive edits: lazyssh only writes the minimal required changes to your ~/.ssh/config. It uses a parser that preserves existing comments, spacing, order, and any settings it didn’t touch. Your handcrafted comments and formatting remain intact.
+- Atomic writes: updates are written to a temporary file and then atomically renamed over the original, minimizing the risk of partial writes.
+- Backups:
+  - One‑time original backup: before lazyssh makes its first change, it creates a single snapshot named config.original.backup beside your SSH config. If this file is present, it will never be recreated or overwritten.
+  - Rolling backups: on every subsequent save, lazyssh also creates a timestamped backup named like: ~/.ssh/config-<timestamp>-lazyssh.backup. The app keeps at most 10 of these backups, automatically removing the oldest ones.
+
 ## 📷 Screenshots
 
 <div align="center">
