@@ -532,6 +532,7 @@ func (sf *ServerForm) createConnectionForm() {
 	form := tview.NewForm()
 	defaultValues := sf.getDefaultValues()
 
+	form.AddTextView("[yellow]Proxy & Command[-]", "", 0, 1, true, false)
 	form.AddInputField("ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
 	form.AddInputField("ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
 	form.AddInputField("RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
@@ -541,6 +542,7 @@ func (sf *ServerForm) createConnectionForm() {
 	requestTTYIndex := sf.findOptionIndex(requestTTYOptions, defaultValues.RequestTTY)
 	form.AddDropDown("RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
 
+	form.AddTextView("[yellow]Connection Settings[-]", "", 0, 1, true, false)
 	form.AddInputField("ConnectTimeout (seconds):", defaultValues.ConnectTimeout, 10, nil, nil)
 	form.AddInputField("ConnectionAttempts:", defaultValues.ConnectionAttempts, 10, nil, nil)
 
