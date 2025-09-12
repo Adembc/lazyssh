@@ -34,19 +34,36 @@ const (
 )
 
 type ServerForm struct {
-	*tview.Form
-	mode     ServerFormMode
-	original *domain.Server
-	onSave   func(domain.Server, *domain.Server)
-	onCancel func()
+	*tview.Flex
+	pages      *tview.Pages
+	tabBar     *tview.TextView
+	forms      map[string]*tview.Form
+	currentTab string
+	tabs       []string
+	mode       ServerFormMode
+	original   *domain.Server
+	onSave     func(domain.Server, *domain.Server)
+	onCancel   func()
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 	form := &ServerForm{
-		Form:     tview.NewForm(),
+		Flex:     tview.NewFlex().SetDirection(tview.FlexRow),
+		pages:    tview.NewPages(),
+		tabBar:   tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetRegions(true),
+		forms:    make(map[string]*tview.Form),
 		mode:     mode,
 		original: original,
+		tabs: []string{
+			"Basic",
+			"Connection",
+			"Forwarding",
+			"Authentication",
+			"Multiplexing",
+			"Advanced",
+		},
 	}
+	form.currentTab = "Basic"
 	form.build()
 	return form
 }
@@ -54,24 +71,311 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 func (sf *ServerForm) build() {
 	title := sf.titleForMode()
 
-	sf.Form.SetBorder(true).
+	// Create forms for each tab
+	sf.createBasicForm()
+	sf.createConnectionForm()
+	sf.createForwardingForm()
+	sf.createAuthenticationForm()
+	sf.createMultiplexingForm()
+	sf.createAdvancedForm()
+
+	// Setup tab bar
+	sf.updateTabBar()
+
+	// Setup layout
+	sf.Flex.SetBorder(true).
 		SetTitle(title).
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(tcell.Color238).
 		SetTitleColor(tcell.Color250)
 
-	sf.addFormFields()
+	sf.Flex.AddItem(sf.tabBar, 1, 0, false).
+		AddItem(sf.pages, 0, 1, true)
 
-	sf.Form.AddButton("Save", sf.handleSave)
-	sf.Form.AddButton("Cancel", sf.handleCancel)
-	sf.Form.SetCancelFunc(sf.handleCancel)
+	// Setup keyboard shortcuts
+	sf.setupKeyboardShortcuts()
+
+	// Set a draw function for the tab bar to update on each draw
+	// This ensures the tab bar updates when the window is resized
+	sf.tabBar.SetDrawFunc(func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
+		// Update tab bar if size changed
+		sf.updateTabBar()
+		// Return the original dimensions
+		return x, y, width, height
+	})
 }
 
 func (sf *ServerForm) titleForMode() string {
 	if sf.mode == ServerFormEdit {
-		return "Edit Server"
+		return "Edit Server - [yellow]Ctrl+L[white]: Next | [yellow]Ctrl+H[white]: Prev | [yellow]Ctrl+S[white]: Save | [yellow]Esc[white]: Cancel"
 	}
-	return "Add Server"
+	return "Add Server - [yellow]Ctrl+L[white]: Next | [yellow]Ctrl+H[white]: Prev | [yellow]Ctrl+S[white]: Save | [yellow]Esc[white]: Cancel"
+}
+
+func (sf *ServerForm) updateTabBar() {
+	// Get current tab index
+	currentIdx := 0
+	for i, tab := range sf.tabs {
+		if tab == sf.currentTab {
+			currentIdx = i
+			break
+		}
+	}
+
+	// Build tab text with scroll indicator if needed
+	var tabText string
+
+	// Check if we need to show scroll indicators
+	x, y, width, height := sf.tabBar.GetInnerRect()
+	_ = x
+	_ = y
+	_ = height
+
+	// Calculate the actual visible width needed for all tabs
+	// We need to calculate the actual rendered text length without ANSI codes
+	estimatedWidth := 0
+	for i, tab := range sf.tabs {
+		// Each tab has: space + name + space
+		estimatedWidth += len(tab) + 2
+		if i < len(sf.tabs)-1 {
+			// Separator: space + | + space
+			estimatedWidth += 3
+		}
+	}
+
+	// Only show scroll indicators if:
+	// 1. Width is known and positive (not 0 from initial render)
+	// 2. The estimated width actually exceeds available width
+	// When width is 0 or unknown, default to showing all tabs
+	showScrollIndicators := width > 20 && estimatedWidth > (width-10)
+
+	if showScrollIndicators {
+		// Calculate how many tabs we can fit
+		// Reserve space for scroll indicators (4 chars each: "◀ " and " ▶")
+		availableWidth := width - 8
+
+		// Calculate how many tabs can fit
+		visibleCount := 0
+		currentWidth := 0
+
+		for i := 0; i < len(sf.tabs) && currentWidth < availableWidth; i++ {
+			tabWidth := len(sf.tabs[i]) + 2
+			if i > 0 {
+				tabWidth += 3 // separator
+			}
+			if currentWidth+tabWidth <= availableWidth {
+				visibleCount++
+				currentWidth += tabWidth
+			} else {
+				break
+			}
+		}
+
+		// Ensure at least 2 tabs are visible
+		if visibleCount < 2 {
+			visibleCount = 2
+		}
+
+		// Show scroll indicator on the left if not at first tab
+		if currentIdx > 0 {
+			tabText = "[gray]◀ [-]"
+		}
+
+		// Calculate visible range centered on current tab
+		halfVisible := visibleCount / 2
+		start := currentIdx - halfVisible + 1
+		end := start + visibleCount
+
+		// Adjust boundaries
+		if start < 0 {
+			start = 0
+			end = visibleCount
+		}
+		if end > len(sf.tabs) {
+			end = len(sf.tabs)
+			start = end - visibleCount
+			if start < 0 {
+				start = 0
+			}
+		}
+
+		// Build visible tabs
+		for i := start; i < end && i < len(sf.tabs); i++ {
+			tab := sf.tabs[i]
+			regionID := fmt.Sprintf("tab_%d", i)
+			if tab == sf.currentTab {
+				tabText += fmt.Sprintf("[%q][black:white:b] %s [-:-:-][%q] ", regionID, tab, "")
+			} else {
+				tabText += fmt.Sprintf("[%q][gray::u] %s [-:-:-][%q] ", regionID, tab, "")
+			}
+			if i < end-1 && i < len(sf.tabs)-1 {
+				tabText += "[gray]|[-] "
+			}
+		}
+
+		// Show scroll indicator on the right if not at last tab
+		if currentIdx < len(sf.tabs)-1 {
+			tabText += " [gray]▶[-]"
+		}
+	} else {
+		// Show all tabs if they fit
+		for i, tab := range sf.tabs {
+			regionID := fmt.Sprintf("tab_%d", i)
+			if tab == sf.currentTab {
+				tabText += fmt.Sprintf("[%q][black:white:b] %s [-:-:-][%q] ", regionID, tab, "")
+			} else {
+				tabText += fmt.Sprintf("[%q][gray::u] %s [-:-:-][%q] ", regionID, tab, "")
+			}
+			if i < len(sf.tabs)-1 {
+				tabText += "[gray]|[-] "
+			}
+		}
+	}
+
+	sf.tabBar.SetText(tabText)
+
+	// Set up mouse click handler using highlight regions
+	sf.tabBar.SetHighlightedFunc(func(added, removed, remaining []string) {
+		if len(added) > 0 {
+			// Extract tab index from region ID (format: "tab_0", "tab_1", etc)
+			for _, regionID := range added {
+				if len(regionID) > 4 && regionID[:4] == "tab_" {
+					idx := int(regionID[4] - '0')
+					if idx < len(sf.tabs) {
+						sf.switchToTab(sf.tabs[idx])
+					}
+				}
+			}
+		}
+	})
+}
+
+func (sf *ServerForm) switchToTab(tabName string) {
+	for _, tab := range sf.tabs {
+		if tab == tabName {
+			sf.currentTab = tabName
+			sf.pages.SwitchToPage(tabName)
+			sf.updateTabBar()
+			break
+		}
+	}
+}
+
+func (sf *ServerForm) nextTab() {
+	for i, tab := range sf.tabs {
+		if tab == sf.currentTab {
+			// Loop to first tab if at the last tab
+			if i == len(sf.tabs)-1 {
+				sf.switchToTab(sf.tabs[0])
+			} else {
+				sf.switchToTab(sf.tabs[i+1])
+			}
+			break
+		}
+	}
+}
+
+func (sf *ServerForm) prevTab() {
+	for i, tab := range sf.tabs {
+		if tab == sf.currentTab {
+			// Loop to last tab if at the first tab
+			if i == 0 {
+				sf.switchToTab(sf.tabs[len(sf.tabs)-1])
+			} else {
+				sf.switchToTab(sf.tabs[i-1])
+			}
+			break
+		}
+	}
+}
+
+func (sf *ServerForm) setupKeyboardShortcuts() {
+	// Set input capture for the main flex container
+	sf.Flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Check for Ctrl key combinations with regular keys
+		if event.Key() == tcell.KeyRune && event.Modifiers()&tcell.ModCtrl != 0 {
+			switch event.Rune() {
+			case 'h', 'H', 8: // 8 is ASCII for Ctrl+H (backspace)
+				// Ctrl+H: Previous tab
+				sf.prevTab()
+				return nil
+			case 'l', 'L', 12: // 12 is ASCII for Ctrl+L (form feed)
+				// Ctrl+L: Next tab
+				sf.nextTab()
+				return nil
+			case 's', 'S', 19: // 19 is ASCII for Ctrl+S
+				// Ctrl+S: Save
+				sf.handleSave()
+				return nil
+			}
+		}
+
+		// Handle special keys
+		//nolint:exhaustive // We only handle specific keys and pass through others
+		switch event.Key() {
+		case tcell.KeyCtrlS:
+			// Ctrl+S: Save (backup handler)
+			sf.handleSave()
+			return nil
+		case tcell.KeyEscape:
+			// ESC: Cancel
+			sf.handleCancel()
+			return nil
+		case tcell.KeyCtrlH:
+			// Ctrl+H: Previous tab (backup handler)
+			sf.prevTab()
+			return nil
+		case tcell.KeyCtrlL:
+			// Ctrl+L: Next tab (backup handler)
+			sf.nextTab()
+			return nil
+		default:
+			// Pass through all other keys
+		}
+
+		return event
+	})
+}
+
+// setupFormShortcuts sets up keyboard shortcuts for a form
+func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
+	form.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Check for Ctrl key combinations
+		if event.Key() == tcell.KeyRune && event.Modifiers()&tcell.ModCtrl != 0 {
+			switch event.Rune() {
+			case 'h', 'H', 8: // Ctrl+H: Previous tab
+				sf.prevTab()
+				return nil
+			case 'l', 'L', 12: // Ctrl+L: Next tab
+				sf.nextTab()
+				return nil
+			case 's', 'S', 19: // Ctrl+S: Save
+				sf.handleSave()
+				return nil
+			}
+		}
+
+		// Handle special keys
+		//nolint:exhaustive // We only handle specific keys and pass through others
+		switch event.Key() {
+		case tcell.KeyEscape:
+			sf.handleCancel()
+			return nil
+		case tcell.KeyCtrlH:
+			sf.prevTab()
+			return nil
+		case tcell.KeyCtrlL:
+			sf.nextTab()
+			return nil
+		case tcell.KeyCtrlS:
+			sf.handleSave()
+			return nil
+		default:
+			// Pass through all other keys
+		}
+
+		return event
+	})
 }
 
 // findOptionIndex finds the index of a value in options slice
@@ -84,10 +388,10 @@ func (sf *ServerForm) findOptionIndex(options []string, value string) int {
 	return 0 // Default to first option (empty/"")
 }
 
-func (sf *ServerForm) addFormFields() {
-	var defaultValues ServerFormData
+// getDefaultValues returns default form values based on mode
+func (sf *ServerForm) getDefaultValues() ServerFormData {
 	if sf.mode == ServerFormEdit && sf.original != nil {
-		defaultValues = ServerFormData{
+		return ServerFormData{
 			Alias:                    sf.original.Alias,
 			Host:                     sf.original.Host,
 			User:                     sf.original.User,
@@ -129,144 +433,221 @@ func (sf *ServerForm) addFormFields() {
 			LogLevel:                 sf.original.LogLevel,
 			BatchMode:                sf.original.BatchMode,
 		}
-	} else {
-		defaultValues = ServerFormData{
-			User: "root",
-			Port: "22",
-			Key:  "~/.ssh/id_ed25519",
-		}
 	}
+	return ServerFormData{
+		User: "root",
+		Port: "22",
+		Key:  "~/.ssh/id_ed25519",
+	}
+}
 
-	// Basic configuration
-	sf.Form.AddTextView("[white::b]Basic Configuration[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  Alias:", defaultValues.Alias, 20, nil, nil)
-	sf.Form.AddInputField("  Host/IP:", defaultValues.Host, 20, nil, nil)
-	sf.Form.AddInputField("  User:", defaultValues.User, 20, nil, nil)
-	sf.Form.AddInputField("  Port:", defaultValues.Port, 20, nil, nil)
-	sf.Form.AddInputField("  Key (comma):", defaultValues.Key, 40, nil, nil)
-	sf.Form.AddInputField("  Tags (comma):", defaultValues.Tags, 30, nil, nil)
+// createBasicForm creates the Basic configuration tab
+func (sf *ServerForm) createBasicForm() {
+	form := tview.NewForm()
+	defaultValues := sf.getDefaultValues()
 
-	// Connection and proxy settings
-	sf.Form.AddTextView("[white::b]Connection & Proxy[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
-	sf.Form.AddInputField("  ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
-	sf.Form.AddInputField("  RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
+	form.AddInputField("Alias:", defaultValues.Alias, 20, nil, nil)
+	form.AddInputField("Host/IP:", defaultValues.Host, 20, nil, nil)
+	form.AddInputField("User:", defaultValues.User, 20, nil, nil)
+	form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
+	form.AddInputField("Key (comma):", defaultValues.Key, 40, nil, nil)
+	form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+
+	// Add save and cancel buttons
+	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Cancel", sf.handleCancel)
+
+	// Set up form-level input capture for shortcuts
+	sf.setupFormShortcuts(form)
+
+	sf.forms["Basic"] = form
+	sf.pages.AddPage("Basic", form, true, true)
+}
+
+// createConnectionForm creates the Connection & Proxy tab
+func (sf *ServerForm) createConnectionForm() {
+	form := tview.NewForm()
+	defaultValues := sf.getDefaultValues()
+
+	form.AddInputField("ProxyJump:", defaultValues.ProxyJump, 40, nil, nil)
+	form.AddInputField("ProxyCommand:", defaultValues.ProxyCommand, 40, nil, nil)
+	form.AddInputField("RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
 
 	// RequestTTY dropdown
 	requestTTYOptions := []string{"", "yes", "no", "force", "auto"}
 	requestTTYIndex := sf.findOptionIndex(requestTTYOptions, defaultValues.RequestTTY)
-	sf.Form.AddDropDown("  RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
+	form.AddDropDown("RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
 
-	sf.Form.AddInputField("  ConnectTimeout (seconds):", defaultValues.ConnectTimeout, 10, nil, nil)
-	sf.Form.AddInputField("  ConnectionAttempts:", defaultValues.ConnectionAttempts, 10, nil, nil)
+	form.AddInputField("ConnectTimeout (seconds):", defaultValues.ConnectTimeout, 10, nil, nil)
+	form.AddInputField("ConnectionAttempts:", defaultValues.ConnectionAttempts, 10, nil, nil)
+	form.AddInputField("ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 10, nil, nil)
+	form.AddInputField("ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
 
-	// Port forwarding
-	sf.Form.AddTextView("[white::b]Port Forwarding[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  LocalForward (comma):", defaultValues.LocalForward, 40, nil, nil)
-	sf.Form.AddInputField("  RemoteForward (comma):", defaultValues.RemoteForward, 40, nil, nil)
-	sf.Form.AddInputField("  DynamicForward (comma):", defaultValues.DynamicForward, 40, nil, nil)
+	// Compression dropdown
+	yesNoOptions := []string{"", "yes", "no"}
+	compressionIndex := sf.findOptionIndex(yesNoOptions, defaultValues.Compression)
+	form.AddDropDown("Compression:", yesNoOptions, compressionIndex, nil)
 
-	// Authentication and key management
-	sf.Form.AddTextView("[white::b]Authentication & Key Management[-]", "", 0, 1, true, false)
+	// TCPKeepAlive dropdown
+	tcpKeepAliveIndex := sf.findOptionIndex(yesNoOptions, defaultValues.TCPKeepAlive)
+	form.AddDropDown("TCPKeepAlive:", yesNoOptions, tcpKeepAliveIndex, nil)
 
-	// Yes/No options for dropdowns
+	// Add save and cancel buttons
+	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Cancel", sf.handleCancel)
+
+	// Set up form-level input capture for shortcuts
+	sf.setupFormShortcuts(form)
+
+	sf.forms["Connection"] = form
+	sf.pages.AddPage("Connection", form, true, false)
+}
+
+// createForwardingForm creates the Port Forwarding tab
+func (sf *ServerForm) createForwardingForm() {
+	form := tview.NewForm()
+	defaultValues := sf.getDefaultValues()
+	yesNoOptions := []string{"", "yes", "no"}
+
+	form.AddTextView("[yellow]Port Forwarding[-]", "", 0, 1, true, false)
+	form.AddInputField("LocalForward (comma):", defaultValues.LocalForward, 40, nil, nil)
+	form.AddInputField("RemoteForward (comma):", defaultValues.RemoteForward, 40, nil, nil)
+	form.AddInputField("DynamicForward (comma):", defaultValues.DynamicForward, 40, nil, nil)
+
+	form.AddTextView("[yellow]Agent & X11 Forwarding[-]", "", 0, 1, true, false)
+
+	// ForwardAgent dropdown
+	forwardAgentIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardAgent)
+	form.AddDropDown("ForwardAgent:", yesNoOptions, forwardAgentIndex, nil)
+
+	// ForwardX11 dropdown
+	forwardX11Index := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11)
+	form.AddDropDown("ForwardX11:", yesNoOptions, forwardX11Index, nil)
+
+	// ForwardX11Trusted dropdown
+	forwardX11TrustedIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11Trusted)
+	form.AddDropDown("ForwardX11Trusted:", yesNoOptions, forwardX11TrustedIndex, nil)
+
+	// Add save and cancel buttons
+	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Cancel", sf.handleCancel)
+
+	// Set up form-level input capture for shortcuts
+	sf.setupFormShortcuts(form)
+
+	sf.forms["Forwarding"] = form
+	sf.pages.AddPage("Forwarding", form, true, false)
+}
+
+// createAuthenticationForm creates the Authentication tab
+func (sf *ServerForm) createAuthenticationForm() {
+	form := tview.NewForm()
+	defaultValues := sf.getDefaultValues()
 	yesNoOptions := []string{"", "yes", "no"}
 
 	// PubkeyAuthentication dropdown
 	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
-	sf.Form.AddDropDown("  PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
+	form.AddDropDown("PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
 
 	// PasswordAuthentication dropdown
 	passwordIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PasswordAuthentication)
-	sf.Form.AddDropDown("  PasswordAuthentication:", yesNoOptions, passwordIndex, nil)
+	form.AddDropDown("PasswordAuthentication:", yesNoOptions, passwordIndex, nil)
 
-	sf.Form.AddInputField("  PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
+	form.AddInputField("PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
 
 	// IdentitiesOnly dropdown
 	identitiesOnlyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.IdentitiesOnly)
-	sf.Form.AddDropDown("  IdentitiesOnly:", yesNoOptions, identitiesOnlyIndex, nil)
+	form.AddDropDown("IdentitiesOnly:", yesNoOptions, identitiesOnlyIndex, nil)
 
 	// AddKeysToAgent dropdown
 	addKeysOptions := []string{"", "yes", "no", "ask", "confirm"}
 	addKeysIndex := sf.findOptionIndex(addKeysOptions, defaultValues.AddKeysToAgent)
-	sf.Form.AddDropDown("  AddKeysToAgent:", addKeysOptions, addKeysIndex, nil)
+	form.AddDropDown("AddKeysToAgent:", addKeysOptions, addKeysIndex, nil)
 
-	sf.Form.AddInputField("  IdentityAgent:", defaultValues.IdentityAgent, 40, nil, nil)
+	form.AddInputField("IdentityAgent:", defaultValues.IdentityAgent, 40, nil, nil)
 
-	// Agent and X11 forwarding
-	sf.Form.AddTextView("[white::b]Agent & X11 Forwarding[-]", "", 0, 1, true, false)
+	// Add save and cancel buttons
+	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Cancel", sf.handleCancel)
 
-	// ForwardAgent dropdown
-	forwardAgentIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardAgent)
-	sf.Form.AddDropDown("  ForwardAgent:", yesNoOptions, forwardAgentIndex, nil)
+	// Set up form-level input capture for shortcuts
+	sf.setupFormShortcuts(form)
 
-	// ForwardX11 dropdown
-	forwardX11Index := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11)
-	sf.Form.AddDropDown("  ForwardX11:", yesNoOptions, forwardX11Index, nil)
+	sf.forms["Authentication"] = form
+	sf.pages.AddPage("Authentication", form, true, false)
+}
 
-	// ForwardX11Trusted dropdown
-	forwardX11TrustedIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11Trusted)
-	sf.Form.AddDropDown("  ForwardX11Trusted:", yesNoOptions, forwardX11TrustedIndex, nil)
-
-	// Connection multiplexing
-	sf.Form.AddTextView("[white::b]Connection Multiplexing[-]", "", 0, 1, true, false)
+// createMultiplexingForm creates the Connection Multiplexing tab
+func (sf *ServerForm) createMultiplexingForm() {
+	form := tview.NewForm()
+	defaultValues := sf.getDefaultValues()
 
 	// ControlMaster dropdown
 	controlMasterOptions := []string{"", "yes", "no", "auto", "ask", "autoask"}
 	controlMasterIndex := sf.findOptionIndex(controlMasterOptions, defaultValues.ControlMaster)
-	sf.Form.AddDropDown("  ControlMaster:", controlMasterOptions, controlMasterIndex, nil)
+	form.AddDropDown("ControlMaster:", controlMasterOptions, controlMasterIndex, nil)
 
-	sf.Form.AddInputField("  ControlPath:", defaultValues.ControlPath, 40, nil, nil)
-	sf.Form.AddInputField("  ControlPersist:", defaultValues.ControlPersist, 20, nil, nil)
+	form.AddInputField("ControlPath:", defaultValues.ControlPath, 40, nil, nil)
+	form.AddInputField("ControlPersist:", defaultValues.ControlPersist, 20, nil, nil)
 
-	// Connection reliability settings
-	sf.Form.AddTextView("[white::b]Connection Reliability[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 10, nil, nil)
-	sf.Form.AddInputField("  ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
+	// Add save and cancel buttons
+	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Cancel", sf.handleCancel)
 
-	// Compression dropdown
-	compressionIndex := sf.findOptionIndex(yesNoOptions, defaultValues.Compression)
-	sf.Form.AddDropDown("  Compression:", yesNoOptions, compressionIndex, nil)
+	// Set up form-level input capture for shortcuts
+	sf.setupFormShortcuts(form)
 
-	// TCPKeepAlive dropdown
-	tcpKeepAliveIndex := sf.findOptionIndex(yesNoOptions, defaultValues.TCPKeepAlive)
-	sf.Form.AddDropDown("  TCPKeepAlive:", yesNoOptions, tcpKeepAliveIndex, nil)
+	sf.forms["Multiplexing"] = form
+	sf.pages.AddPage("Multiplexing", form, true, false)
+}
 
-	// Security settings
-	sf.Form.AddTextView("[white::b]Security[-]", "", 0, 1, true, false)
+// createAdvancedForm creates the Advanced settings tab
+func (sf *ServerForm) createAdvancedForm() {
+	form := tview.NewForm()
+	defaultValues := sf.getDefaultValues()
+	yesNoOptions := []string{"", "yes", "no"}
+
+	form.AddTextView("[yellow]Security[-]", "", 0, 1, true, false)
 
 	// StrictHostKeyChecking dropdown
 	strictHostKeyOptions := []string{"", "yes", "no", "ask", "accept-new"}
 	strictHostKeyIndex := sf.findOptionIndex(strictHostKeyOptions, defaultValues.StrictHostKeyChecking)
-	sf.Form.AddDropDown("  StrictHostKeyChecking:", strictHostKeyOptions, strictHostKeyIndex, nil)
+	form.AddDropDown("StrictHostKeyChecking:", strictHostKeyOptions, strictHostKeyIndex, nil)
 
-	sf.Form.AddInputField("  UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
-	sf.Form.AddInputField("  HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
+	form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
+	form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
 
-	// Command execution
-	sf.Form.AddTextView("[white::b]Command Execution[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
+	form.AddTextView("[yellow]Command Execution[-]", "", 0, 1, true, false)
+	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
 
 	// PermitLocalCommand dropdown
 	permitLocalCommandIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PermitLocalCommand)
-	sf.Form.AddDropDown("  PermitLocalCommand:", yesNoOptions, permitLocalCommandIndex, nil)
+	form.AddDropDown("PermitLocalCommand:", yesNoOptions, permitLocalCommandIndex, nil)
 
-	// Environment settings
-	sf.Form.AddTextView("[white::b]Environment Settings[-]", "", 0, 1, true, false)
-	sf.Form.AddInputField("  SendEnv (comma):", defaultValues.SendEnv, 40, nil, nil)
-	sf.Form.AddInputField("  SetEnv (comma):", defaultValues.SetEnv, 40, nil, nil)
+	form.AddTextView("[yellow]Environment[-]", "", 0, 1, true, false)
+	form.AddInputField("SendEnv (comma):", defaultValues.SendEnv, 40, nil, nil)
+	form.AddInputField("SetEnv (comma):", defaultValues.SetEnv, 40, nil, nil)
 
-	// Debugging settings
-	sf.Form.AddTextView("[white::b]Debugging[-]", "", 0, 1, true, false)
+	form.AddTextView("[yellow]Debugging[-]", "", 0, 1, true, false)
 
 	// LogLevel dropdown
 	logLevelOptions := []string{"", "QUIET", "FATAL", "ERROR", "INFO", "VERBOSE", "DEBUG", "DEBUG1", "DEBUG2", "DEBUG3"}
 	logLevelIndex := sf.findOptionIndex(logLevelOptions, strings.ToUpper(defaultValues.LogLevel))
-	sf.Form.AddDropDown("  LogLevel:", logLevelOptions, logLevelIndex, nil)
+	form.AddDropDown("LogLevel:", logLevelOptions, logLevelIndex, nil)
 
 	// BatchMode dropdown
 	batchModeIndex := sf.findOptionIndex(yesNoOptions, defaultValues.BatchMode)
-	sf.Form.AddDropDown("  BatchMode:", yesNoOptions, batchModeIndex, nil)
+	form.AddDropDown("BatchMode:", yesNoOptions, batchModeIndex, nil)
+
+	// Add save and cancel buttons
+	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Cancel", sf.handleCancel)
+
+	// Set up form-level input capture for shortcuts
+	sf.setupFormShortcuts(form)
+
+	sf.forms["Advanced"] = form
+	sf.pages.AddPage("Advanced", form, true, false)
 }
 
 type ServerFormData struct {
@@ -333,27 +714,31 @@ type ServerFormData struct {
 }
 
 func (sf *ServerForm) getFormData() ServerFormData {
-	// Helper function to get text from InputField
+	// Helper function to get text from InputField across all forms
 	getFieldText := func(fieldName string) string {
-		for i := 0; i < sf.Form.GetFormItemCount(); i++ {
-			if field, ok := sf.Form.GetFormItem(i).(*tview.InputField); ok {
-				label := strings.TrimSpace(field.GetLabel())
-				if strings.HasPrefix(label, fieldName) {
-					return strings.TrimSpace(field.GetText())
+		for _, form := range sf.forms {
+			for i := 0; i < form.GetFormItemCount(); i++ {
+				if field, ok := form.GetFormItem(i).(*tview.InputField); ok {
+					label := strings.TrimSpace(field.GetLabel())
+					if strings.HasPrefix(label, fieldName) {
+						return strings.TrimSpace(field.GetText())
+					}
 				}
 			}
 		}
 		return ""
 	}
 
-	// Helper function to get selected option from DropDown
+	// Helper function to get selected option from DropDown across all forms
 	getDropdownValue := func(fieldName string) string {
-		for i := 0; i < sf.Form.GetFormItemCount(); i++ {
-			if dropdown, ok := sf.Form.GetFormItem(i).(*tview.DropDown); ok {
-				label := strings.TrimSpace(dropdown.GetLabel())
-				if strings.HasPrefix(label, fieldName) {
-					_, text := dropdown.GetCurrentOption()
-					return text
+		for _, form := range sf.forms {
+			for i := 0; i < form.GetFormItemCount(); i++ {
+				if dropdown, ok := form.GetFormItem(i).(*tview.DropDown); ok {
+					label := strings.TrimSpace(dropdown.GetLabel())
+					if strings.HasPrefix(label, fieldName) {
+						_, text := dropdown.GetCurrentOption()
+						return text
+					}
 				}
 			}
 		}
@@ -418,14 +803,15 @@ func (sf *ServerForm) handleSave() {
 	data := sf.getFormData()
 
 	if errMsg := validateServerForm(data); errMsg != "" {
-
-		sf.Form.SetTitle(fmt.Sprintf("%s — [red::b]%s[-]", sf.titleForMode(), errMsg))
-		sf.Form.SetBorderColor(tcell.ColorRed)
+		// Show error in title bar
+		sf.Flex.SetTitle(fmt.Sprintf("%s — [red::b]%s[-]", sf.titleForMode(), errMsg))
+		sf.Flex.SetBorderColor(tcell.ColorRed)
 		return
 	}
 
-	sf.Form.SetTitle(sf.titleForMode())
-	sf.Form.SetBorderColor(tcell.Color238)
+	// Reset title and border on success
+	sf.Flex.SetTitle(sf.titleForMode())
+	sf.Flex.SetBorderColor(tcell.Color238)
 
 	server := sf.dataToServer(data)
 	if sf.onSave != nil {
