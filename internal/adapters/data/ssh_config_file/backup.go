@@ -136,7 +136,7 @@ func (r *Repository) createOriginalBackupIfNeeded() error {
 	}
 
 	configDir := filepath.Dir(r.configPath)
-	originalBackupPath := filepath.Join(configDir, "config.original.backup")
+	originalBackupPath := filepath.Join(configDir, OriginalBackupName)
 
 	if _, err := r.fileSystem.Stat(originalBackupPath); err == nil {
 		return nil
