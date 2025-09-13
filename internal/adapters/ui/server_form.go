@@ -443,6 +443,45 @@ func (sf *ServerForm) findOptionIndex(options []string, value string) int {
 	return 0 // Default to first option (empty/"")
 }
 
+// createAlgorithmAutocomplete creates an autocomplete function for algorithm input fields
+func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(string) []string {
+	return func(currentText string) []string {
+		if currentText == "" {
+			return suggestions
+		}
+
+		// Find the current word being typed
+		words := strings.Split(currentText, ",")
+		lastWord := strings.TrimSpace(words[len(words)-1])
+
+		// Handle prefix characters
+		prefix := ""
+		searchTerm := lastWord
+		if lastWord != "" && (lastWord[0] == '+' || lastWord[0] == '-' || lastWord[0] == '^') {
+			prefix = string(lastWord[0])
+			if len(lastWord) > 1 {
+				searchTerm = lastWord[1:]
+			} else {
+				searchTerm = ""
+			}
+		}
+
+		// Filter suggestions
+		var filtered []string
+		for _, s := range suggestions {
+			if searchTerm == "" || strings.HasPrefix(strings.ToLower(s), strings.ToLower(searchTerm)) {
+				// Build the complete text with the suggestion
+				newWords := make([]string, len(words)-1)
+				copy(newWords, words[:len(words)-1])
+				newWords = append(newWords, prefix+s)
+				filtered = append(filtered, strings.Join(newWords, ","))
+			}
+		}
+
+		return filtered
+	}
+}
+
 // getDefaultValues returns default form values based on mode
 func (sf *ServerForm) getDefaultValues() ServerFormData {
 	if sf.mode == ServerFormEdit && sf.original != nil {
@@ -620,6 +659,67 @@ func (sf *ServerForm) createForwardingForm() {
 	sf.pages.AddPage("Forwarding", form, true, false)
 }
 
+// Algorithm suggestions for autocomplete
+var (
+	pubkeyAlgorithms = []string{
+		"ssh-ed25519", "ssh-ed25519-cert-v01@openssh.com",
+		"sk-ssh-ed25519@openssh.com", "sk-ssh-ed25519-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
+		"ecdsa-sha2-nistp256-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp384-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp521-cert-v01@openssh.com",
+		"sk-ecdsa-sha2-nistp256@openssh.com",
+		"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com",
+		"rsa-sha2-512", "rsa-sha2-256",
+		"rsa-sha2-512-cert-v01@openssh.com",
+		"rsa-sha2-256-cert-v01@openssh.com",
+		"ssh-rsa", "ssh-rsa-cert-v01@openssh.com",
+		"ssh-dss", "ssh-dss-cert-v01@openssh.com",
+	}
+
+	cipherAlgorithms = []string{
+		"aes128-ctr", "aes192-ctr", "aes256-ctr",
+		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
+		"chacha20-poly1305@openssh.com",
+		"aes128-cbc", "aes192-cbc", "aes256-cbc", "3des-cbc",
+	}
+
+	macAlgorithms = []string{
+		"hmac-sha2-256", "hmac-sha2-512",
+		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com",
+		"umac-64@openssh.com", "umac-128@openssh.com",
+		"umac-64-etm@openssh.com", "umac-128-etm@openssh.com",
+		"hmac-sha1", "hmac-sha1-96",
+		"hmac-sha1-etm@openssh.com", "hmac-sha1-96-etm@openssh.com",
+		"hmac-md5", "hmac-md5-96",
+		"hmac-md5-etm@openssh.com", "hmac-md5-96-etm@openssh.com",
+	}
+
+	kexAlgorithms = []string{
+		"curve25519-sha256", "curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
+		"diffie-hellman-group-exchange-sha256",
+		"diffie-hellman-group16-sha512", "diffie-hellman-group18-sha512",
+		"diffie-hellman-group14-sha256", "diffie-hellman-group14-sha1",
+		"diffie-hellman-group-exchange-sha1",
+		"diffie-hellman-group1-sha1",
+	}
+
+	hostKeyAlgorithms = []string{
+		"ssh-ed25519", "ssh-ed25519-cert-v01@openssh.com",
+		"sk-ssh-ed25519@openssh.com", "sk-ssh-ed25519-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
+		"ecdsa-sha2-nistp256-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp384-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp521-cert-v01@openssh.com",
+		"rsa-sha2-512", "rsa-sha2-256",
+		"rsa-sha2-512-cert-v01@openssh.com",
+		"rsa-sha2-256-cert-v01@openssh.com",
+		"ssh-rsa", "ssh-rsa-cert-v01@openssh.com",
+		"ssh-dss", "ssh-dss-cert-v01@openssh.com",
+	}
+)
+
 // createAuthenticationForm creates the Authentication tab
 func (sf *ServerForm) createAuthenticationForm() {
 	form := tview.NewForm()
@@ -630,32 +730,15 @@ func (sf *ServerForm) createAuthenticationForm() {
 	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
 	form.AddDropDown("PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
 
-	// PubkeyAcceptedAlgorithms dropdown with common algorithms
-	pubkeyAlgorithmsOptions := []string{
-		"",
-		"ssh-ed25519",
-		"ssh-ed25519-cert-v01@openssh.com",
-		"sk-ssh-ed25519@openssh.com",
-		"sk-ssh-ed25519-cert-v01@openssh.com",
-		"ecdsa-sha2-nistp256",
-		"ecdsa-sha2-nistp384",
-		"ecdsa-sha2-nistp521",
-		"ecdsa-sha2-nistp256-cert-v01@openssh.com",
-		"ecdsa-sha2-nistp384-cert-v01@openssh.com",
-		"ecdsa-sha2-nistp521-cert-v01@openssh.com",
-		"sk-ecdsa-sha2-nistp256@openssh.com",
-		"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com",
-		"rsa-sha2-512",
-		"rsa-sha2-256",
-		"rsa-sha2-512-cert-v01@openssh.com",
-		"rsa-sha2-256-cert-v01@openssh.com",
-		"ssh-rsa",
-		"ssh-rsa-cert-v01@openssh.com",
-		"ssh-dss",
-		"ssh-dss-cert-v01@openssh.com",
+	// PubkeyAcceptedAlgorithms with autocomplete support
+	form.AddTextView("[dim]Tab: autocomplete | Examples: ssh-ed25519,ecdsa-sha2-nistp256 | +ssh-rsa | -ssh-dss[-]", "", 0, 1, true, false)
+	form.AddInputField("PubkeyAcceptedAlgorithms:", defaultValues.PubkeyAcceptedAlgorithms, 40, nil, nil)
+	// Get the last added form item and set autocomplete
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(pubkeyAlgorithms))
+		}
 	}
-	pubkeyAlgorithmsIndex := sf.findOptionIndex(pubkeyAlgorithmsOptions, defaultValues.PubkeyAcceptedAlgorithms)
-	form.AddDropDown("PubkeyAcceptedAlgorithms:", pubkeyAlgorithmsOptions, pubkeyAlgorithmsIndex, nil)
 
 	// PasswordAuthentication dropdown
 	passwordIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PasswordAuthentication)
@@ -701,65 +784,39 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
 
 	form.AddTextView("[yellow]Cryptography[-]", "", 0, 1, true, false)
+	form.AddTextView("[dim]Tab: autocomplete | Syntax: comma-separated, prefix: +append -remove ^prepend[-]", "", 0, 1, true, false)
 
-	// Ciphers dropdown with common cipher algorithms
-	ciphersOptions := []string{
-		"",
-		"aes128-ctr",
-		"aes192-ctr",
-		"aes256-ctr",
-		"aes128-gcm@openssh.com",
-		"aes256-gcm@openssh.com",
-		"chacha20-poly1305@openssh.com",
-		"aes128-cbc",
-		"aes192-cbc",
-		"aes256-cbc",
-		"3des-cbc",
+	// Ciphers with autocomplete support
+	form.AddInputField("Ciphers:", defaultValues.Ciphers, 40, nil, nil)
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(cipherAlgorithms))
+		}
 	}
-	ciphersIndex := sf.findOptionIndex(ciphersOptions, defaultValues.Ciphers)
-	form.AddDropDown("Ciphers:", ciphersOptions, ciphersIndex, nil)
 
-	// MACs dropdown with common MAC algorithms
-	macsOptions := []string{
-		"",
-		"hmac-sha2-256",
-		"hmac-sha2-512",
-		"hmac-sha1",
-		"hmac-sha1-96",
-		"hmac-md5",
-		"hmac-md5-96",
-		"umac-64@openssh.com",
-		"umac-128@openssh.com",
-		"hmac-sha2-256-etm@openssh.com",
-		"hmac-sha2-512-etm@openssh.com",
-		"hmac-sha1-etm@openssh.com",
-		"hmac-sha1-96-etm@openssh.com",
-		"hmac-md5-etm@openssh.com",
-		"hmac-md5-96-etm@openssh.com",
-		"umac-64-etm@openssh.com",
-		"umac-128-etm@openssh.com",
+	// MACs with autocomplete support
+	form.AddInputField("MACs:", defaultValues.MACs, 40, nil, nil)
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(macAlgorithms))
+		}
 	}
-	macsIndex := sf.findOptionIndex(macsOptions, defaultValues.MACs)
-	form.AddDropDown("MACs:", macsOptions, macsIndex, nil)
 
-	// KexAlgorithms dropdown with common key exchange algorithms
-	kexOptions := []string{
-		"",
-		"curve25519-sha256",
-		"curve25519-sha256@libssh.org",
-		"ecdh-sha2-nistp256",
-		"ecdh-sha2-nistp384",
-		"ecdh-sha2-nistp521",
-		"diffie-hellman-group-exchange-sha256",
-		"diffie-hellman-group16-sha512",
-		"diffie-hellman-group18-sha512",
-		"diffie-hellman-group14-sha256",
-		"diffie-hellman-group14-sha1",
+	// KexAlgorithms with autocomplete support
+	form.AddInputField("KexAlgorithms:", defaultValues.KexAlgorithms, 40, nil, nil)
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(kexAlgorithms))
+		}
 	}
-	kexIndex := sf.findOptionIndex(kexOptions, defaultValues.KexAlgorithms)
-	form.AddDropDown("KexAlgorithms:", kexOptions, kexIndex, nil)
 
+	// HostKeyAlgorithms with autocomplete support
 	form.AddInputField("HostKeyAlgorithms:", defaultValues.HostKeyAlgorithms, 40, nil, nil)
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(hostKeyAlgorithms))
+		}
+	}
 
 	form.AddTextView("[yellow]Command Execution[-]", "", 0, 1, true, false)
 	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
@@ -919,7 +976,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		PubkeyAuthentication:     getDropdownValue("PubkeyAuthentication:"),
 		PasswordAuthentication:   getDropdownValue("PasswordAuthentication:"),
 		PreferredAuthentications: getFieldText("PreferredAuthentications:"),
-		PubkeyAcceptedAlgorithms: getDropdownValue("PubkeyAcceptedAlgorithms:"),
+		PubkeyAcceptedAlgorithms: getFieldText("PubkeyAcceptedAlgorithms:"),
 		IdentitiesOnly:           getDropdownValue("IdentitiesOnly:"),
 		AddKeysToAgent:           getDropdownValue("AddKeysToAgent:"),
 		IdentityAgent:            getFieldText("IdentityAgent:"),
@@ -940,9 +997,9 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		StrictHostKeyChecking: getDropdownValue("StrictHostKeyChecking:"),
 		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
 		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
-		MACs:                  getDropdownValue("MACs:"),
-		Ciphers:               getDropdownValue("Ciphers:"),
-		KexAlgorithms:         getDropdownValue("KexAlgorithms:"),
+		MACs:                  getFieldText("MACs:"),
+		Ciphers:               getFieldText("Ciphers:"),
+		KexAlgorithms:         getFieldText("KexAlgorithms:"),
 		// Command execution
 		LocalCommand:       getFieldText("LocalCommand:"),
 		PermitLocalCommand: getDropdownValue("PermitLocalCommand:"),
