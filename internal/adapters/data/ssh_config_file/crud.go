@@ -197,10 +197,16 @@ func (r *Repository) addKVNodeIfNotEmpty(host *ssh_config.Host, key, value strin
 
 // updateHostNodes updates the nodes of an existing host with new server details.
 func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Server) {
+	// Handle Port specially - don't include if it's the default (22)
+	portValue := ""
+	if newServer.Port != 22 && newServer.Port != 0 {
+		portValue = fmt.Sprintf("%d", newServer.Port)
+	}
+
 	updates := map[string]string{
 		"hostname":                    newServer.Host,
 		"user":                        newServer.User,
-		"port":                        fmt.Sprintf("%d", newServer.Port),
+		"port":                        portValue,
 		"proxycommand":                newServer.ProxyCommand,
 		"proxyjump":                   newServer.ProxyJump,
 		"remotecommand":               newServer.RemoteCommand,
@@ -241,9 +247,14 @@ func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Ser
 		"loglevel":                    newServer.LogLevel,
 		"batchmode":                   newServer.BatchMode,
 	}
+
+	// Update or remove nodes based on value
 	for key, value := range updates {
 		if value != "" {
 			r.updateOrAddKVNode(host, key, value)
+		} else {
+			// Remove the key if value is empty (user selected default)
+			r.removeKVNode(host, key)
 		}
 	}
 
@@ -313,6 +324,20 @@ func (r *Repository) updateOrAddKVNode(host *ssh_config.Host, key, newValue stri
 		LeadingSpace: 4,
 	}
 	host.Nodes = append(host.Nodes, kvNode)
+}
+
+// removeKVNode removes a key-value node from the host if it exists.
+func (r *Repository) removeKVNode(host *ssh_config.Host, key string) {
+	filtered := make([]ssh_config.Node, 0, len(host.Nodes))
+	for _, node := range host.Nodes {
+		if kvNode, ok := node.(*ssh_config.KV); ok {
+			if strings.EqualFold(kvNode.Key, key) {
+				continue // Skip this node (remove it)
+			}
+		}
+		filtered = append(filtered, node)
+	}
+	host.Nodes = filtered
 }
 
 // getProperKeyCase returns the proper case for known SSH config keys.

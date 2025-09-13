@@ -26,6 +26,44 @@ import (
 	"github.com/rivo/tview"
 )
 
+// sshDefaults contains the default values for SSH configuration options
+// Based on OpenSSH defaults (version 8.x+)
+var sshDefaults = map[string]string{
+	// Connection settings
+	"Port":                "22",
+	"ConnectTimeout":      "none",
+	"ConnectionAttempts":  "1",
+	"TCPKeepAlive":        "yes",
+	"ServerAliveInterval": "0",
+	"ServerAliveCountMax": "3",
+	"Compression":         "no",
+
+	// Authentication
+	"PubkeyAuthentication":   "yes",
+	"PasswordAuthentication": "yes",
+	"IdentitiesOnly":         "no",
+	"AddKeysToAgent":         "no",
+
+	// Forwarding
+	"ForwardAgent":      "no",
+	"ForwardX11":        "no",
+	"ForwardX11Trusted": "no",
+
+	// Multiplexing
+	"ControlMaster":  "no",
+	"ControlPath":    "none",
+	"ControlPersist": "no",
+
+	// Security
+	"StrictHostKeyChecking": "ask",
+	"PermitLocalCommand":    "no",
+	"BatchMode":             "no",
+
+	// Other
+	"RequestTTY": "auto",
+	"LogLevel":   "INFO",
+}
+
 type ServerFormMode int
 
 const (
@@ -433,14 +471,50 @@ func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
 	})
 }
 
+// createOptionsWithDefault creates dropdown options with default value indicated
+func createOptionsWithDefault(fieldName string, baseOptions []string) []string {
+	defaultValue, hasDefault := sshDefaults[fieldName]
+	if !hasDefault {
+		return baseOptions
+	}
+
+	options := make([]string, len(baseOptions))
+	for i, opt := range baseOptions {
+		if opt == "" {
+			options[i] = fmt.Sprintf("default (%s)", defaultValue)
+		} else {
+			options[i] = opt
+		}
+	}
+	return options
+}
+
+// parseOptionValue extracts the actual value from an option (handles "default (value)" format)
+func parseOptionValue(option string) string {
+	if strings.HasPrefix(option, "default (") && strings.HasSuffix(option, ")") {
+		return "" // Return empty string for default values
+	}
+	return option
+}
+
 // findOptionIndex finds the index of a value in options slice
 func (sf *ServerForm) findOptionIndex(options []string, value string) int {
+	// Empty value should match "default (...)" option
+	if value == "" {
+		for i, opt := range options {
+			if strings.HasPrefix(opt, "default (") {
+				return i
+			}
+		}
+	}
+
+	// Look for exact match
 	for i, opt := range options {
 		if strings.EqualFold(opt, value) {
 			return i
 		}
 	}
-	return 0 // Default to first option (empty/"")
+	return 0 // Default to first option
 }
 
 // matchesSequence checks if all characters in pattern appear in sequence within text
@@ -612,7 +686,7 @@ func (sf *ServerForm) createConnectionForm() {
 	form.AddInputField("RemoteCommand:", defaultValues.RemoteCommand, 40, nil, nil)
 
 	// RequestTTY dropdown
-	requestTTYOptions := []string{"", "yes", "no", "force", "auto"}
+	requestTTYOptions := createOptionsWithDefault("RequestTTY", []string{"", "yes", "no", "force", "auto"})
 	requestTTYIndex := sf.findOptionIndex(requestTTYOptions, defaultValues.RequestTTY)
 	form.AddDropDown("RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
 
@@ -633,17 +707,18 @@ func (sf *ServerForm) createConnectionForm() {
 	form.AddInputField("ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
 
 	// Compression dropdown
-	yesNoOptions := []string{"", "yes", "no"}
-	compressionIndex := sf.findOptionIndex(yesNoOptions, defaultValues.Compression)
-	form.AddDropDown("Compression:", yesNoOptions, compressionIndex, nil)
+	compressionOptions := createOptionsWithDefault("Compression", []string{"", "yes", "no"})
+	compressionIndex := sf.findOptionIndex(compressionOptions, defaultValues.Compression)
+	form.AddDropDown("Compression:", compressionOptions, compressionIndex, nil)
 
 	// TCPKeepAlive dropdown
-	tcpKeepAliveIndex := sf.findOptionIndex(yesNoOptions, defaultValues.TCPKeepAlive)
-	form.AddDropDown("TCPKeepAlive:", yesNoOptions, tcpKeepAliveIndex, nil)
+	tcpKeepAliveOptions := createOptionsWithDefault("TCPKeepAlive", []string{"", "yes", "no"})
+	tcpKeepAliveIndex := sf.findOptionIndex(tcpKeepAliveOptions, defaultValues.TCPKeepAlive)
+	form.AddDropDown("TCPKeepAlive:", tcpKeepAliveOptions, tcpKeepAliveIndex, nil)
 
 	form.AddTextView("[yellow]Multiplexing[-]", "", 0, 1, true, false)
 	// ControlMaster dropdown
-	controlMasterOptions := []string{"", "yes", "no", "auto", "ask", "autoask"}
+	controlMasterOptions := createOptionsWithDefault("ControlMaster", []string{"", "yes", "no", "auto", "ask", "autoask"})
 	controlMasterIndex := sf.findOptionIndex(controlMasterOptions, defaultValues.ControlMaster)
 	form.AddDropDown("ControlMaster:", controlMasterOptions, controlMasterIndex, nil)
 	form.AddInputField("ControlPath:", defaultValues.ControlPath, 40, nil, nil)
@@ -664,7 +739,6 @@ func (sf *ServerForm) createConnectionForm() {
 func (sf *ServerForm) createForwardingForm() {
 	form := tview.NewForm()
 	defaultValues := sf.getDefaultValues()
-	yesNoOptions := []string{"", "yes", "no"}
 
 	form.AddTextView("[yellow]Port Forwarding[-]", "", 0, 1, true, false)
 	form.AddInputField("LocalForward (comma):", defaultValues.LocalForward, 40, nil, nil)
@@ -674,16 +748,19 @@ func (sf *ServerForm) createForwardingForm() {
 	form.AddTextView("[yellow]Agent & X11 Forwarding[-]", "", 0, 1, true, false)
 
 	// ForwardAgent dropdown
-	forwardAgentIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardAgent)
-	form.AddDropDown("ForwardAgent:", yesNoOptions, forwardAgentIndex, nil)
+	forwardAgentOptions := createOptionsWithDefault("ForwardAgent", []string{"", "yes", "no"})
+	forwardAgentIndex := sf.findOptionIndex(forwardAgentOptions, defaultValues.ForwardAgent)
+	form.AddDropDown("ForwardAgent:", forwardAgentOptions, forwardAgentIndex, nil)
 
 	// ForwardX11 dropdown
-	forwardX11Index := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11)
-	form.AddDropDown("ForwardX11:", yesNoOptions, forwardX11Index, nil)
+	forwardX11Options := createOptionsWithDefault("ForwardX11", []string{"", "yes", "no"})
+	forwardX11Index := sf.findOptionIndex(forwardX11Options, defaultValues.ForwardX11)
+	form.AddDropDown("ForwardX11:", forwardX11Options, forwardX11Index, nil)
 
 	// ForwardX11Trusted dropdown
-	forwardX11TrustedIndex := sf.findOptionIndex(yesNoOptions, defaultValues.ForwardX11Trusted)
-	form.AddDropDown("ForwardX11Trusted:", yesNoOptions, forwardX11TrustedIndex, nil)
+	forwardX11TrustedOptions := createOptionsWithDefault("ForwardX11Trusted", []string{"", "yes", "no"})
+	forwardX11TrustedIndex := sf.findOptionIndex(forwardX11TrustedOptions, defaultValues.ForwardX11Trusted)
+	form.AddDropDown("ForwardX11Trusted:", forwardX11TrustedOptions, forwardX11TrustedIndex, nil)
 
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSave)
@@ -761,24 +838,26 @@ var (
 func (sf *ServerForm) createAuthenticationForm() {
 	form := tview.NewForm()
 	defaultValues := sf.getDefaultValues()
-	yesNoOptions := []string{"", "yes", "no"}
 
 	// PubkeyAuthentication dropdown
-	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
-	form.AddDropDown("PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
+	pubkeyOptions := createOptionsWithDefault("PubkeyAuthentication", []string{"", "yes", "no"})
+	pubkeyIndex := sf.findOptionIndex(pubkeyOptions, defaultValues.PubkeyAuthentication)
+	form.AddDropDown("PubkeyAuthentication:", pubkeyOptions, pubkeyIndex, nil)
 
 	// PasswordAuthentication dropdown
-	passwordIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PasswordAuthentication)
-	form.AddDropDown("PasswordAuthentication:", yesNoOptions, passwordIndex, nil)
+	passwordOptions := createOptionsWithDefault("PasswordAuthentication", []string{"", "yes", "no"})
+	passwordIndex := sf.findOptionIndex(passwordOptions, defaultValues.PasswordAuthentication)
+	form.AddDropDown("PasswordAuthentication:", passwordOptions, passwordIndex, nil)
 
 	form.AddInputField("PreferredAuthentications:", defaultValues.PreferredAuthentications, 40, nil, nil)
 
 	// IdentitiesOnly dropdown
-	identitiesOnlyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.IdentitiesOnly)
-	form.AddDropDown("IdentitiesOnly:", yesNoOptions, identitiesOnlyIndex, nil)
+	identitiesOnlyOptions := createOptionsWithDefault("IdentitiesOnly", []string{"", "yes", "no"})
+	identitiesOnlyIndex := sf.findOptionIndex(identitiesOnlyOptions, defaultValues.IdentitiesOnly)
+	form.AddDropDown("IdentitiesOnly:", identitiesOnlyOptions, identitiesOnlyIndex, nil)
 
 	// AddKeysToAgent dropdown
-	addKeysOptions := []string{"", "yes", "no", "ask", "confirm"}
+	addKeysOptions := createOptionsWithDefault("AddKeysToAgent", []string{"", "yes", "no", "ask", "confirm"})
 	addKeysIndex := sf.findOptionIndex(addKeysOptions, defaultValues.AddKeysToAgent)
 	form.AddDropDown("AddKeysToAgent:", addKeysOptions, addKeysIndex, nil)
 
@@ -799,12 +878,11 @@ func (sf *ServerForm) createAuthenticationForm() {
 func (sf *ServerForm) createAdvancedForm() {
 	form := tview.NewForm()
 	defaultValues := sf.getDefaultValues()
-	yesNoOptions := []string{"", "yes", "no"}
 
 	form.AddTextView("[yellow]Security[-]", "", 0, 1, true, false)
 
 	// StrictHostKeyChecking dropdown
-	strictHostKeyOptions := []string{"", "yes", "no", "ask", "accept-new"}
+	strictHostKeyOptions := createOptionsWithDefault("StrictHostKeyChecking", []string{"", "yes", "no", "ask", "accept-new"})
 	strictHostKeyIndex := sf.findOptionIndex(strictHostKeyOptions, defaultValues.StrictHostKeyChecking)
 	form.AddDropDown("StrictHostKeyChecking:", strictHostKeyOptions, strictHostKeyIndex, nil)
 
@@ -864,8 +942,9 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
 
 	// PermitLocalCommand dropdown
-	permitLocalCommandIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PermitLocalCommand)
-	form.AddDropDown("PermitLocalCommand:", yesNoOptions, permitLocalCommandIndex, nil)
+	permitLocalCommandOptions := createOptionsWithDefault("PermitLocalCommand", []string{"", "yes", "no"})
+	permitLocalCommandIndex := sf.findOptionIndex(permitLocalCommandOptions, defaultValues.PermitLocalCommand)
+	form.AddDropDown("PermitLocalCommand:", permitLocalCommandOptions, permitLocalCommandIndex, nil)
 
 	form.AddTextView("[yellow]Environment[-]", "", 0, 1, true, false)
 	form.AddInputField("SendEnv (comma):", defaultValues.SendEnv, 40, nil, nil)
@@ -874,13 +953,14 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddTextView("[yellow]Debugging[-]", "", 0, 1, true, false)
 
 	// LogLevel dropdown
-	logLevelOptions := []string{"", "QUIET", "FATAL", "ERROR", "INFO", "VERBOSE", "DEBUG", "DEBUG1", "DEBUG2", "DEBUG3"}
+	logLevelOptions := createOptionsWithDefault("LogLevel", []string{"", "QUIET", "FATAL", "ERROR", "INFO", "VERBOSE", "DEBUG", "DEBUG1", "DEBUG2", "DEBUG3"})
 	logLevelIndex := sf.findOptionIndex(logLevelOptions, strings.ToUpper(defaultValues.LogLevel))
 	form.AddDropDown("LogLevel:", logLevelOptions, logLevelIndex, nil)
 
 	// BatchMode dropdown
-	batchModeIndex := sf.findOptionIndex(yesNoOptions, defaultValues.BatchMode)
-	form.AddDropDown("BatchMode:", yesNoOptions, batchModeIndex, nil)
+	batchModeOptions := createOptionsWithDefault("BatchMode", []string{"", "yes", "no"})
+	batchModeIndex := sf.findOptionIndex(batchModeOptions, defaultValues.BatchMode)
+	form.AddDropDown("BatchMode:", batchModeOptions, batchModeIndex, nil)
 
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSave)
@@ -987,7 +1067,8 @@ func (sf *ServerForm) getFormData() ServerFormData {
 					label := strings.TrimSpace(dropdown.GetLabel())
 					if strings.HasPrefix(label, fieldName) {
 						_, text := dropdown.GetCurrentOption()
-						return text
+						// Parse the option value to handle "default (value)" format
+						return parseOptionValue(text)
 					}
 				}
 			}
