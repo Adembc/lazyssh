@@ -77,28 +77,30 @@ const (
 )
 
 type ServerForm struct {
-	*tview.Flex
-	pages      *tview.Pages
-	tabBar     *tview.TextView
-	forms      map[string]*tview.Form
-	currentTab string
-	tabs       []string
-	tabAbbrev  map[string]string // Abbreviated tab names for narrow views
-	mode       ServerFormMode
-	original   *domain.Server
-	onSave     func(domain.Server, *domain.Server)
-	onCancel   func()
-	app        *tview.Application // Reference to app for showing modals
+	*tview.Flex             // The root container (includes form panel and hint bar)
+	formPanel   *tview.Flex // The actual form panel
+	pages       *tview.Pages
+	tabBar      *tview.TextView
+	forms       map[string]*tview.Form
+	currentTab  string
+	tabs        []string
+	tabAbbrev   map[string]string // Abbreviated tab names for narrow views
+	mode        ServerFormMode
+	original    *domain.Server
+	onSave      func(domain.Server, *domain.Server)
+	onCancel    func()
+	app         *tview.Application // Reference to app for showing modals
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 	form := &ServerForm{
-		Flex:     tview.NewFlex().SetDirection(tview.FlexRow),
-		pages:    tview.NewPages(),
-		tabBar:   tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetRegions(true),
-		forms:    make(map[string]*tview.Form),
-		mode:     mode,
-		original: original,
+		Flex:      tview.NewFlex().SetDirection(tview.FlexRow),
+		formPanel: tview.NewFlex().SetDirection(tview.FlexRow),
+		pages:     tview.NewPages(),
+		tabBar:    tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetRegions(true),
+		forms:     make(map[string]*tview.Form),
+		mode:      mode,
+		original:  original,
 		tabs: []string{
 			"Basic",
 			"Connection",
@@ -132,21 +134,24 @@ func (sf *ServerForm) build() {
 	// Setup tab bar
 	sf.updateTabBar()
 
-	// Create hint bar with shortcuts
-	hintBar := tview.NewTextView().
-		SetTextAlign(tview.AlignCenter).
-		SetDynamicColors(true).
-		SetText("^H/^L Navigate • ^S Save • Esc Cancel")
-
-	// Setup layout
-	sf.Flex.SetBorder(true).
+	// Setup form panel
+	sf.formPanel.SetBorder(true).
 		SetTitle(title).
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(tcell.Color238).
 		SetTitleColor(tcell.Color250)
 
-	sf.Flex.AddItem(sf.tabBar, 1, 0, false).
-		AddItem(sf.pages, 0, 1, true).
+	sf.formPanel.AddItem(sf.tabBar, 1, 0, false).
+		AddItem(sf.pages, 0, 1, true)
+
+	// Create hint bar with same background as main screen's status bar
+	hintBar := tview.NewTextView().SetDynamicColors(true)
+	hintBar.SetBackgroundColor(tcell.Color235)
+	hintBar.SetTextAlign(tview.AlignCenter)
+	hintBar.SetText("[white]^H/^L[-] Navigate  • [white]^S[-] Save  • [white]Esc[-] Cancel")
+
+	// Setup main container - hint bar at bottom like status bar
+	sf.Flex.AddItem(sf.formPanel, 0, 1, true).
 		AddItem(hintBar, 1, 0, false)
 
 	// Setup keyboard shortcuts
