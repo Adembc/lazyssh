@@ -45,13 +45,14 @@ type Server struct {
 	DynamicForward []string
 
 	// Authentication and key management
-	PubkeyAuthentication     string
-	PubkeyAcceptedAlgorithms string
-	PasswordAuthentication   string
-	PreferredAuthentications string
-	IdentitiesOnly           string
-	AddKeysToAgent           string
-	IdentityAgent            string
+	PubkeyAuthentication        string
+	PubkeyAcceptedAlgorithms    string
+	HostbasedAcceptedAlgorithms string
+	PasswordAuthentication      string
+	PreferredAuthentications    string
+	IdentitiesOnly              string
+	AddKeysToAgent              string
+	IdentityAgent               string
 
 	// Agent and X11 forwarding
 	ForwardAgent      string

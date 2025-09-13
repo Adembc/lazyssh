@@ -176,7 +176,11 @@ func (r *Repository) mapAuthenticationConfig(server *domain.Server, key, value s
 	case "pubkeyauthentication":
 		server.PubkeyAuthentication = value
 	case "pubkeyacceptedalgorithms", "pubkeyacceptedkeytypes":
+		// PubkeyAcceptedKeyTypes is deprecated alias for PubkeyAcceptedAlgorithms (since OpenSSH 8.5)
 		server.PubkeyAcceptedAlgorithms = value
+	case "hostbasedacceptedalgorithms", "hostbasedkeytypes", "hostbasedacceptedkeytypes":
+		// HostbasedKeyTypes and HostbasedAcceptedKeyTypes are deprecated aliases (since OpenSSH 8.5)
+		server.HostbasedAcceptedAlgorithms = value
 	case "passwordauthentication":
 		server.PasswordAuthentication = value
 	case "preferredauthentications":

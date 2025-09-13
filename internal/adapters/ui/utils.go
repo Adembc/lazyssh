@@ -229,6 +229,9 @@ func addAuthOptions(parts *[]string, s domain.Server) {
 	if s.PubkeyAcceptedAlgorithms != "" {
 		*parts = append(*parts, "-o", fmt.Sprintf("PubkeyAcceptedAlgorithms=%s", s.PubkeyAcceptedAlgorithms))
 	}
+	if s.HostbasedAcceptedAlgorithms != "" {
+		*parts = append(*parts, "-o", fmt.Sprintf("HostbasedAcceptedAlgorithms=%s", s.HostbasedAcceptedAlgorithms))
+	}
 	if s.PasswordAuthentication != "" {
 		*parts = append(*parts, "-o", fmt.Sprintf("PasswordAuthentication=%s", s.PasswordAuthentication))
 	}
