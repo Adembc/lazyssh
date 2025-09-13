@@ -443,6 +443,30 @@ func (sf *ServerForm) findOptionIndex(options []string, value string) int {
 	return 0 // Default to first option (empty/"")
 }
 
+// matchesSequence checks if all characters in pattern appear in sequence within text
+func matchesSequence(text, pattern string) bool {
+	if pattern == "" {
+		return true
+	}
+
+	textIdx := 0
+	for _, ch := range pattern {
+		found := false
+		for textIdx < len(text) {
+			if rune(text[textIdx]) == ch {
+				found = true
+				textIdx++
+				break
+			}
+			textIdx++
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // createAlgorithmAutocomplete creates an autocomplete function for algorithm input fields
 func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(string) []string {
 	return func(currentText string) []string {
@@ -473,10 +497,10 @@ func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(str
 			}
 		}
 
-		// Filter suggestions
+		// Filter suggestions - check if all characters appear in sequence
 		var filtered []string
 		for _, s := range suggestions {
-			if searchTerm == "" || strings.HasPrefix(strings.ToLower(s), strings.ToLower(searchTerm)) {
+			if searchTerm == "" || matchesSequence(strings.ToLower(s), strings.ToLower(searchTerm)) {
 				// Build the complete text with the suggestion
 				newWords := make([]string, len(words)-1)
 				copy(newWords, words[:len(words)-1])
