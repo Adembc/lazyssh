@@ -64,12 +64,102 @@ func pinnedIcon(pinnedAt time.Time) string {
 	return "📌" // pinned
 }
 
-func formatServerLine(s domain.Server) (primary, secondary string) {
+func formatServerLine(s domain.Server, width int) (primary, secondary string) {
 	icon := cellPad(pinnedIcon(s.PinnedAt), 2)
-	// Use a consistent color for alias; the icon reflects pinning
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+
+	// Build main content
+	mainText := fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s",
+		icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+
+	// Format ping status (4 chars max for value)
+	pingIndicator := ""
+	if s.PingStatus != "" {
+		switch s.PingStatus {
+		case "up":
+			if s.PingLatency > 0 {
+				ms := s.PingLatency.Milliseconds()
+				var statusText string
+				if ms < 100 {
+					statusText = fmt.Sprintf("%dms", ms) // e.g., "57ms"
+				} else {
+					// Format as #.#s for >= 100ms
+					seconds := float64(ms) / 1000.0
+					statusText = fmt.Sprintf("%.1fs", seconds) // e.g., "0.3s", "1.5s"
+				}
+				// Ensure exactly 4 chars
+				statusText = fmt.Sprintf("%-4s", statusText)
+				pingIndicator = fmt.Sprintf("[#4AF626]● %s[-]", statusText)
+			} else {
+				pingIndicator = "[#4AF626]● UP  [-]"
+			}
+		case "down":
+			pingIndicator = "[#FF6B6B]● DOWN[-]"
+		case "checking":
+			pingIndicator = "[#FFB86C]● ... [-]"
+		}
+	}
+
+	// Calculate padding for right alignment
+	if pingIndicator != "" && width > 0 {
+		// Strip color codes to calculate real length
+		mainTextLen := len(stripSimpleColors(mainText))
+		indicatorLen := 6 // "● XXXX" is always 6 display chars
+
+		// Calculate padding needed
+		switch {
+		case width > 80:
+			// Wide screen: show full indicator
+			paddingLen := width - mainTextLen - indicatorLen // No margin, stick to right edge
+			if paddingLen < 1 {
+				paddingLen = 1
+			}
+			padding := strings.Repeat(" ", paddingLen)
+			primary = fmt.Sprintf("%s%s%s", mainText, padding, pingIndicator)
+		case width > 60:
+			// Medium screen: show only dot
+			simplePingIndicator := ""
+			switch s.PingStatus {
+			case "up":
+				simplePingIndicator = "[#4AF626]●[-]"
+			case "down":
+				simplePingIndicator = "[#FF6B6B]●[-]"
+			case "checking":
+				simplePingIndicator = "[#FFB86C]●[-]"
+			}
+			paddingLen := width - mainTextLen - 1 // 1 for dot, no margin
+			if paddingLen < 1 {
+				paddingLen = 1
+			}
+			padding := strings.Repeat(" ", paddingLen)
+			primary = fmt.Sprintf("%s%s%s", mainText, padding, simplePingIndicator)
+		default:
+			// Narrow screen: no ping indicator
+			primary = mainText
+		}
+	} else {
+		primary = mainText
+	}
+
 	secondary = ""
-	return
+	return primary, secondary
+}
+
+// stripSimpleColors removes basic tview color codes for length calculation
+func stripSimpleColors(s string) string {
+	result := s
+	// Remove color tags like [#FFFFFF] or [-]
+	for {
+		start := strings.Index(result, "[")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(result[start:], "]")
+		if end == -1 {
+			break
+		}
+		result = result[:start] + result[start+end+1:]
+	}
+	return result
 }
 
 func humanizeDuration(t time.Time) string {

@@ -25,6 +25,7 @@ type ServerList struct {
 	servers           []domain.Server
 	onSelection       func(domain.Server)
 	onSelectionChange func(domain.Server)
+	currentWidth      int
 }
 
 func NewServerList() *ServerList {
@@ -57,8 +58,12 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 	sl.servers = servers
 	sl.List.Clear()
 
+	// Get current width
+	_, _, width, _ := sl.List.GetInnerRect() //nolint:dogsled
+	sl.currentWidth = width
+
 	for i := range servers {
-		primary, secondary := formatServerLine(servers[i])
+		primary, secondary := formatServerLine(servers[i], width)
 		idx := i
 		sl.List.AddItem(primary, secondary, 0, func() {
 			if sl.onSelection != nil {
@@ -71,6 +76,22 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		sl.List.SetCurrentItem(0)
 		if sl.onSelectionChange != nil {
 			sl.onSelectionChange(sl.servers[0])
+		}
+	}
+}
+
+// RefreshDisplay re-renders the list with current width
+func (sl *ServerList) RefreshDisplay() {
+	_, _, width, _ := sl.List.GetInnerRect() //nolint:dogsled
+	if width != sl.currentWidth {
+		sl.currentWidth = width
+		// Save current selection
+		currentIdx := sl.List.GetCurrentItem()
+		// Re-render
+		sl.UpdateServers(sl.servers)
+		// Restore selection
+		if currentIdx >= 0 && currentIdx < sl.List.GetItemCount() {
+			sl.List.SetCurrentItem(currentIdx)
 		}
 	}
 }
