@@ -678,7 +678,7 @@ func (sf *ServerForm) createBasicForm() {
 	form.AddFormItem(tagsField)
 
 	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Save", sf.handleSaveWrapper)
 	form.AddButton("Cancel", sf.handleCancel)
 
 	// Set up form-level input capture for shortcuts
@@ -748,7 +748,7 @@ func (sf *ServerForm) createConnectionForm() {
 	form.AddInputField("ControlPersist:", defaultValues.ControlPersist, 20, nil, nil)
 
 	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Save", sf.handleSaveWrapper)
 	form.AddButton("Cancel", sf.handleCancel)
 
 	// Set up form-level input capture for shortcuts
@@ -803,7 +803,7 @@ func (sf *ServerForm) createForwardingForm() {
 	form.AddDropDown("ForwardX11Trusted:", forwardX11TrustedOptions, forwardX11TrustedIndex, nil)
 
 	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Save", sf.handleSaveWrapper)
 	form.AddButton("Cancel", sf.handleCancel)
 
 	// Set up form-level input capture for shortcuts
@@ -904,7 +904,7 @@ func (sf *ServerForm) createAuthenticationForm() {
 	form.AddInputField("IdentityAgent:", defaultValues.IdentityAgent, 40, nil, nil)
 
 	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Save", sf.handleSaveWrapper)
 	form.AddButton("Cancel", sf.handleCancel)
 
 	// Set up form-level input capture for shortcuts
@@ -1014,7 +1014,7 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddDropDown("BatchMode:", batchModeOptions, batchModeIndex, nil)
 
 	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSave)
+	form.AddButton("Save", sf.handleSaveWrapper)
 	form.AddButton("Cancel", sf.handleCancel)
 
 	// Set up form-level input capture for shortcuts
@@ -1187,14 +1187,14 @@ func (sf *ServerForm) getFormData() ServerFormData {
 	}
 }
 
-func (sf *ServerForm) handleSave() {
+func (sf *ServerForm) handleSave() bool {
 	data := sf.getFormData()
 
 	if errMsg := validateServerForm(data); errMsg != "" {
 		// Show error in title bar
 		sf.Flex.SetTitle(fmt.Sprintf("%s — [red::b]%s[-]", sf.titleForMode(), errMsg))
 		sf.Flex.SetBorderColor(tcell.ColorRed)
-		return
+		return false // Validation failed
 	}
 
 	// Reset title and border on success
@@ -1205,6 +1205,12 @@ func (sf *ServerForm) handleSave() {
 	if sf.onSave != nil {
 		sf.onSave(server, sf.original)
 	}
+	return true // Save successful
+}
+
+// handleSaveWrapper is used for button callbacks that don't need return value
+func (sf *ServerForm) handleSaveWrapper() {
+	sf.handleSave()
 }
 
 func (sf *ServerForm) handleCancel() {
@@ -1218,7 +1224,13 @@ func (sf *ServerForm) handleCancel() {
 				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 					switch buttonLabel {
 					case "(S)ave":
-						sf.handleSave()
+						// Try to save, if successful it will exit
+						if sf.handleSave() {
+							// Save successful, modal will be replaced by onSave callback
+						} else {
+							// Validation failed, return to form
+							sf.app.SetRoot(sf.Flex, true)
+						}
 					case "(D)iscard":
 						if sf.onCancel != nil {
 							sf.onCancel()
@@ -1233,7 +1245,12 @@ func (sf *ServerForm) handleCancel() {
 			modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 				switch event.Rune() {
 				case 's', 'S':
-					sf.handleSave()
+					if sf.handleSave() {
+						// Save successful
+					} else {
+						// Validation failed, return to form
+						sf.app.SetRoot(sf.Flex, true)
+					}
 					return nil
 				case 'd', 'D':
 					if sf.onCancel != nil {
