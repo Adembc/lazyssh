@@ -504,7 +504,6 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			RemoteForward:            strings.Join(sf.original.RemoteForward, ", "),
 			DynamicForward:           strings.Join(sf.original.DynamicForward, ", "),
 			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
-			PubkeyAcceptedAlgorithms: sf.original.PubkeyAcceptedAlgorithms,
 			PasswordAuthentication:   sf.original.PasswordAuthentication,
 			PreferredAuthentications: sf.original.PreferredAuthentications,
 			IdentitiesOnly:           sf.original.IdentitiesOnly,
@@ -523,6 +522,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			StrictHostKeyChecking:    sf.original.StrictHostKeyChecking,
 			UserKnownHostsFile:       sf.original.UserKnownHostsFile,
 			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
+			PubkeyAcceptedAlgorithms: sf.original.PubkeyAcceptedAlgorithms,
 			MACs:                     sf.original.MACs,
 			Ciphers:                  sf.original.Ciphers,
 			KexAlgorithms:            sf.original.KexAlgorithms,
@@ -730,16 +730,6 @@ func (sf *ServerForm) createAuthenticationForm() {
 	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
 	form.AddDropDown("PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
 
-	// PubkeyAcceptedAlgorithms with autocomplete support
-	form.AddTextView("[dim]Tab: autocomplete | Examples: ssh-ed25519,ecdsa-sha2-nistp256 | +ssh-rsa | -ssh-dss[-]", "", 0, 1, true, false)
-	form.AddInputField("PubkeyAcceptedAlgorithms:", defaultValues.PubkeyAcceptedAlgorithms, 40, nil, nil)
-	// Get the last added form item and set autocomplete
-	if itemCount := form.GetFormItemCount(); itemCount > 0 {
-		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
-			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(pubkeyAlgorithms))
-		}
-	}
-
 	// PasswordAuthentication dropdown
 	passwordIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PasswordAuthentication)
 	form.AddDropDown("PasswordAuthentication:", yesNoOptions, passwordIndex, nil)
@@ -818,6 +808,14 @@ func (sf *ServerForm) createAdvancedForm() {
 		}
 	}
 
+	// PubkeyAcceptedAlgorithms with autocomplete support
+	form.AddInputField("PubkeyAcceptedAlgorithms:", defaultValues.PubkeyAcceptedAlgorithms, 40, nil, nil)
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(pubkeyAlgorithms))
+		}
+	}
+
 	form.AddTextView("[yellow]Command Execution[-]", "", 0, 1, true, false)
 	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
 
@@ -878,7 +876,6 @@ type ServerFormData struct {
 	PubkeyAuthentication     string
 	PasswordAuthentication   string
 	PreferredAuthentications string
-	PubkeyAcceptedAlgorithms string
 	IdentitiesOnly           string
 	AddKeysToAgent           string
 	IdentityAgent            string
@@ -900,12 +897,13 @@ type ServerFormData struct {
 	TCPKeepAlive        string
 
 	// Security settings
-	StrictHostKeyChecking string
-	UserKnownHostsFile    string
-	HostKeyAlgorithms     string
-	MACs                  string
-	Ciphers               string
-	KexAlgorithms         string
+	StrictHostKeyChecking    string
+	UserKnownHostsFile       string
+	HostKeyAlgorithms        string
+	PubkeyAcceptedAlgorithms string
+	MACs                     string
+	Ciphers                  string
+	KexAlgorithms            string
 
 	// Command execution
 	LocalCommand       string
@@ -976,7 +974,6 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		PubkeyAuthentication:     getDropdownValue("PubkeyAuthentication:"),
 		PasswordAuthentication:   getDropdownValue("PasswordAuthentication:"),
 		PreferredAuthentications: getFieldText("PreferredAuthentications:"),
-		PubkeyAcceptedAlgorithms: getFieldText("PubkeyAcceptedAlgorithms:"),
 		IdentitiesOnly:           getDropdownValue("IdentitiesOnly:"),
 		AddKeysToAgent:           getDropdownValue("AddKeysToAgent:"),
 		IdentityAgent:            getFieldText("IdentityAgent:"),
@@ -994,12 +991,13 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Compression:         getDropdownValue("Compression:"),
 		TCPKeepAlive:        getDropdownValue("TCPKeepAlive:"),
 		// Security settings
-		StrictHostKeyChecking: getDropdownValue("StrictHostKeyChecking:"),
-		UserKnownHostsFile:    getFieldText("UserKnownHostsFile:"),
-		HostKeyAlgorithms:     getFieldText("HostKeyAlgorithms:"),
-		MACs:                  getFieldText("MACs:"),
-		Ciphers:               getFieldText("Ciphers:"),
-		KexAlgorithms:         getFieldText("KexAlgorithms:"),
+		StrictHostKeyChecking:    getDropdownValue("StrictHostKeyChecking:"),
+		UserKnownHostsFile:       getFieldText("UserKnownHostsFile:"),
+		HostKeyAlgorithms:        getFieldText("HostKeyAlgorithms:"),
+		PubkeyAcceptedAlgorithms: getFieldText("PubkeyAcceptedAlgorithms:"),
+		MACs:                     getFieldText("MACs:"),
+		Ciphers:                  getFieldText("Ciphers:"),
+		KexAlgorithms:            getFieldText("KexAlgorithms:"),
 		// Command execution
 		LocalCommand:       getFieldText("LocalCommand:"),
 		PermitLocalCommand: getDropdownValue("PermitLocalCommand:"),
@@ -1100,7 +1098,6 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		PubkeyAuthentication:     data.PubkeyAuthentication,
 		PasswordAuthentication:   data.PasswordAuthentication,
 		PreferredAuthentications: data.PreferredAuthentications,
-		PubkeyAcceptedAlgorithms: data.PubkeyAcceptedAlgorithms,
 		IdentitiesOnly:           data.IdentitiesOnly,
 		AddKeysToAgent:           data.AddKeysToAgent,
 		IdentityAgent:            data.IdentityAgent,
@@ -1117,6 +1114,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		StrictHostKeyChecking:    data.StrictHostKeyChecking,
 		UserKnownHostsFile:       data.UserKnownHostsFile,
 		HostKeyAlgorithms:        data.HostKeyAlgorithms,
+		PubkeyAcceptedAlgorithms: data.PubkeyAcceptedAlgorithms,
 		MACs:                     data.MACs,
 		Ciphers:                  data.Ciphers,
 		KexAlgorithms:            data.KexAlgorithms,
