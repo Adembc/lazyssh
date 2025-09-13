@@ -66,6 +66,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'g':
 		t.handlePingSelected()
 		return nil
+	case 'G':
+		t.handlePingAll()
+		return nil
 	case 'r':
 		t.handleRefreshBackground()
 		return nil
@@ -230,22 +233,38 @@ func (t *tui) handleFormCancel() {
 	t.returnToMain()
 }
 
+const (
+	statusUp       = "up"
+	statusDown     = "down"
+	statusChecking = "checking"
+)
+
 func (t *tui) handlePingSelected() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		alias := server.Alias
+
+		// Set checking status
+		server.PingStatus = statusChecking
+		t.pingStatuses[alias] = server
+		t.updateServerListWithPingStatus()
 
 		t.showStatusTemp(fmt.Sprintf("Pinging %s…", alias))
 		go func() {
 			up, dur, err := t.serverService.Ping(server)
 			t.app.QueueUpdateDraw(func() {
-				if err != nil {
-					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN (%v)", alias, err), "#FF6B6B")
-					return
-				}
-				if up {
-					t.showStatusTempColor(fmt.Sprintf("Ping %s: UP (%s)", alias, dur), "#A0FFA0")
-				} else {
-					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN", alias), "#FF6B6B")
+				// Update ping status
+				if ps, ok := t.pingStatuses[alias]; ok {
+					if err != nil || !up {
+						ps.PingStatus = statusDown
+						ps.PingLatency = 0
+						t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN", alias), "#FF6B6B")
+					} else {
+						ps.PingStatus = statusUp
+						ps.PingLatency = dur
+						t.showStatusTempColor(fmt.Sprintf("Ping %s: UP (%s)", alias, dur), "#A0FFA0")
+					}
+					t.pingStatuses[alias] = ps
+					t.updateServerListWithPingStatus()
 				}
 			})
 		}()
@@ -382,6 +401,93 @@ func (t *tui) refreshServerList() {
 
 func (t *tui) returnToMain() {
 	t.app.SetRoot(t.root, true)
+}
+
+func (t *tui) updateServerListWithPingStatus() {
+	// Get current server list
+	query := ""
+	if t.searchVisible {
+		query = t.searchBar.InputField.GetText()
+	}
+	servers, _ := t.serverService.ListServers(query)
+	sortServersForUI(servers, t.sortMode)
+
+	// Update ping status for each server
+	for i := range servers {
+		if ps, ok := t.pingStatuses[servers[i].Alias]; ok {
+			servers[i].PingStatus = ps.PingStatus
+			servers[i].PingLatency = ps.PingLatency
+		}
+	}
+
+	t.serverList.UpdateServers(servers)
+}
+
+func (t *tui) handlePingAll() {
+	query := ""
+	if t.searchVisible {
+		query = t.searchBar.InputField.GetText()
+	}
+	servers, err := t.serverService.ListServers(query)
+	if err != nil {
+		t.showStatusTempColor(fmt.Sprintf("Failed to get servers: %v", err), "#FF6B6B")
+		return
+	}
+
+	if len(servers) == 0 {
+		t.showStatusTemp("No servers to ping")
+		return
+	}
+
+	t.showStatusTemp(fmt.Sprintf("Pinging all %d servers…", len(servers)))
+
+	// Clear existing statuses
+	t.pingStatuses = make(map[string]domain.Server)
+
+	// Set all servers to checking status
+	for _, server := range servers {
+		s := server
+		s.PingStatus = statusChecking
+		t.pingStatuses[s.Alias] = s
+	}
+	t.updateServerListWithPingStatus()
+
+	// Ping all servers concurrently
+	for _, server := range servers {
+		go func(srv domain.Server) {
+			up, dur, err := t.serverService.Ping(srv)
+			t.app.QueueUpdateDraw(func() {
+				if ps, ok := t.pingStatuses[srv.Alias]; ok {
+					if err != nil || !up {
+						ps.PingStatus = statusDown
+						ps.PingLatency = 0
+					} else {
+						ps.PingStatus = statusUp
+						ps.PingLatency = dur
+					}
+					t.pingStatuses[srv.Alias] = ps
+					t.updateServerListWithPingStatus()
+				}
+			})
+		}(server)
+	}
+
+	// Show completion status after 3 seconds
+	go func() {
+		time.Sleep(3 * time.Second)
+		t.app.QueueUpdateDraw(func() {
+			upCount := 0
+			downCount := 0
+			for _, ps := range t.pingStatuses {
+				if ps.PingStatus == statusUp {
+					upCount++
+				} else if ps.PingStatus == statusDown {
+					downCount++
+				}
+			}
+			t.showStatusTempColor(fmt.Sprintf("Ping completed: %d UP, %d DOWN", upCount, downCount), "#A0FFA0")
+		})
+	}()
 }
 
 // showStatusTemp displays a temporary message in the status bar (default green) and then restores the default text.

@@ -153,6 +153,7 @@ make run
 | Enter | SSH into selected server      |
 | c     | Copy SSH command to clipboard |
 | g     | Ping selected server          |
+| G     | Ping all servers              |
 | r     | Refresh background data       |
 | a     | Add server                    |
 | e     | Edit server                   |
