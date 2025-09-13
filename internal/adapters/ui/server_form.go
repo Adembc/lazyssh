@@ -447,21 +447,28 @@ func (sf *ServerForm) findOptionIndex(options []string, value string) int {
 func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(string) []string {
 	return func(currentText string) []string {
 		if currentText == "" {
-			return suggestions
+			// Return nil when empty to disable autocomplete, allowing Tab to navigate
+			return nil
 		}
 
 		// Find the current word being typed
 		words := strings.Split(currentText, ",")
 		lastWord := strings.TrimSpace(words[len(words)-1])
 
+		// If the last word is empty (after a comma), return nil to allow Tab navigation
+		if lastWord == "" {
+			return nil
+		}
+
 		// Handle prefix characters
 		prefix := ""
 		searchTerm := lastWord
-		if lastWord != "" && (lastWord[0] == '+' || lastWord[0] == '-' || lastWord[0] == '^') {
+		if lastWord[0] == '+' || lastWord[0] == '-' || lastWord[0] == '^' {
 			prefix = string(lastWord[0])
 			if len(lastWord) > 1 {
 				searchTerm = lastWord[1:]
 			} else {
+				// Just a prefix character, show all suggestions
 				searchTerm = ""
 			}
 		}
@@ -476,6 +483,11 @@ func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(str
 				newWords = append(newWords, prefix+s)
 				filtered = append(filtered, strings.Join(newWords, ","))
 			}
+		}
+
+		// If no matches found, return nil to allow Tab navigation
+		if len(filtered) == 0 {
+			return nil
 		}
 
 		return filtered
@@ -773,8 +785,7 @@ func (sf *ServerForm) createAdvancedForm() {
 
 	form.AddInputField("UserKnownHostsFile:", defaultValues.UserKnownHostsFile, 40, nil, nil)
 
-	form.AddTextView("[yellow]Cryptography[-]", "", 0, 1, true, false)
-	form.AddTextView("[dim]Tab: autocomplete | Syntax: comma-separated, prefix: +append -remove ^prepend[-]", "", 0, 1, true, false)
+	form.AddTextView("[yellow]Cryptography[-] [dim](+/-/^)[-]", "", 0, 1, true, false)
 
 	// Ciphers with autocomplete support
 	form.AddInputField("Ciphers:", defaultValues.Ciphers, 40, nil, nil)
