@@ -133,6 +133,7 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 
 	// Authentication and key management
 	r.addKVNodeIfNotEmpty(host, "PubkeyAuthentication", server.PubkeyAuthentication)
+	r.addKVNodeIfNotEmpty(host, "PubkeyAcceptedAlgorithms", server.PubkeyAcceptedAlgorithms)
 	r.addKVNodeIfNotEmpty(host, "PasswordAuthentication", server.PasswordAuthentication)
 	r.addKVNodeIfNotEmpty(host, "PreferredAuthentications", server.PreferredAuthentications)
 	r.addKVNodeIfNotEmpty(host, "IdentitiesOnly", server.IdentitiesOnly)
@@ -210,6 +211,8 @@ func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Ser
 		"pubkeyauthentication":     newServer.PubkeyAuthentication,
 		"passwordauthentication":   newServer.PasswordAuthentication,
 		"preferredauthentications": newServer.PreferredAuthentications,
+		"pubkeyacceptedalgorithms": newServer.PubkeyAcceptedAlgorithms,
+		"pubkeyacceptedkeytypes":   newServer.PubkeyAcceptedAlgorithms, // Deprecated alias
 		"identitiesonly":           newServer.IdentitiesOnly,
 		"addkeystoagent":           newServer.AddKeysToAgent,
 		"identityagent":            newServer.IdentityAgent,
@@ -330,6 +333,8 @@ func (r *Repository) getProperKeyCase(key string) string {
 		"pubkeyauthentication":     "PubkeyAuthentication",
 		"passwordauthentication":   "PasswordAuthentication",
 		"preferredauthentications": "PreferredAuthentications",
+		"pubkeyacceptedalgorithms": "PubkeyAcceptedAlgorithms",
+		"pubkeyacceptedkeytypes":   "PubkeyAcceptedAlgorithms", // Deprecated alias
 		"identitiesonly":           "IdentitiesOnly",
 		"addkeystoagent":           "AddKeysToAgent",
 		"identityagent":            "IdentityAgent",

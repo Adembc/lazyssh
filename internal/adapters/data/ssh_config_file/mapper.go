@@ -175,6 +175,8 @@ func (r *Repository) mapAuthenticationConfig(server *domain.Server, key, value s
 	switch key {
 	case "pubkeyauthentication":
 		server.PubkeyAuthentication = value
+	case "pubkeyacceptedalgorithms", "pubkeyacceptedkeytypes":
+		server.PubkeyAcceptedAlgorithms = value
 	case "passwordauthentication":
 		server.PasswordAuthentication = value
 	case "preferredauthentications":

@@ -465,6 +465,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			RemoteForward:            strings.Join(sf.original.RemoteForward, ", "),
 			DynamicForward:           strings.Join(sf.original.DynamicForward, ", "),
 			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
+			PubkeyAcceptedAlgorithms: sf.original.PubkeyAcceptedAlgorithms,
 			PasswordAuthentication:   sf.original.PasswordAuthentication,
 			PreferredAuthentications: sf.original.PreferredAuthentications,
 			IdentitiesOnly:           sf.original.IdentitiesOnly,
@@ -628,6 +629,33 @@ func (sf *ServerForm) createAuthenticationForm() {
 	// PubkeyAuthentication dropdown
 	pubkeyIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PubkeyAuthentication)
 	form.AddDropDown("PubkeyAuthentication:", yesNoOptions, pubkeyIndex, nil)
+
+	// PubkeyAcceptedAlgorithms dropdown with common algorithms
+	pubkeyAlgorithmsOptions := []string{
+		"",
+		"ssh-ed25519",
+		"ssh-ed25519-cert-v01@openssh.com",
+		"sk-ssh-ed25519@openssh.com",
+		"sk-ssh-ed25519-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp256",
+		"ecdsa-sha2-nistp384",
+		"ecdsa-sha2-nistp521",
+		"ecdsa-sha2-nistp256-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp384-cert-v01@openssh.com",
+		"ecdsa-sha2-nistp521-cert-v01@openssh.com",
+		"sk-ecdsa-sha2-nistp256@openssh.com",
+		"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com",
+		"rsa-sha2-512",
+		"rsa-sha2-256",
+		"rsa-sha2-512-cert-v01@openssh.com",
+		"rsa-sha2-256-cert-v01@openssh.com",
+		"ssh-rsa",
+		"ssh-rsa-cert-v01@openssh.com",
+		"ssh-dss",
+		"ssh-dss-cert-v01@openssh.com",
+	}
+	pubkeyAlgorithmsIndex := sf.findOptionIndex(pubkeyAlgorithmsOptions, defaultValues.PubkeyAcceptedAlgorithms)
+	form.AddDropDown("PubkeyAcceptedAlgorithms:", pubkeyAlgorithmsOptions, pubkeyAlgorithmsIndex, nil)
 
 	// PasswordAuthentication dropdown
 	passwordIndex := sf.findOptionIndex(yesNoOptions, defaultValues.PasswordAuthentication)
@@ -793,6 +821,7 @@ type ServerFormData struct {
 	PubkeyAuthentication     string
 	PasswordAuthentication   string
 	PreferredAuthentications string
+	PubkeyAcceptedAlgorithms string
 	IdentitiesOnly           string
 	AddKeysToAgent           string
 	IdentityAgent            string
@@ -890,6 +919,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		PubkeyAuthentication:     getDropdownValue("PubkeyAuthentication:"),
 		PasswordAuthentication:   getDropdownValue("PasswordAuthentication:"),
 		PreferredAuthentications: getFieldText("PreferredAuthentications:"),
+		PubkeyAcceptedAlgorithms: getDropdownValue("PubkeyAcceptedAlgorithms:"),
 		IdentitiesOnly:           getDropdownValue("IdentitiesOnly:"),
 		AddKeysToAgent:           getDropdownValue("AddKeysToAgent:"),
 		IdentityAgent:            getFieldText("IdentityAgent:"),
@@ -1013,6 +1043,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		PubkeyAuthentication:     data.PubkeyAuthentication,
 		PasswordAuthentication:   data.PasswordAuthentication,
 		PreferredAuthentications: data.PreferredAuthentications,
+		PubkeyAcceptedAlgorithms: data.PubkeyAcceptedAlgorithms,
 		IdentitiesOnly:           data.IdentitiesOnly,
 		AddKeysToAgent:           data.AddKeysToAgent,
 		IdentityAgent:            data.IdentityAgent,

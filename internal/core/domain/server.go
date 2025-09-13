@@ -46,6 +46,7 @@ type Server struct {
 
 	// Authentication and key management
 	PubkeyAuthentication     string
+	PubkeyAcceptedAlgorithms string
 	PasswordAuthentication   string
 	PreferredAuthentications string
 	IdentitiesOnly           string
