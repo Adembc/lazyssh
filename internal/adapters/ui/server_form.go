@@ -17,6 +17,7 @@ package ui
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -87,6 +88,7 @@ type ServerForm struct {
 	original   *domain.Server
 	onSave     func(domain.Server, *domain.Server)
 	onCancel   func()
+	app        *tview.Application // Reference to app for showing modals
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -1003,7 +1005,7 @@ func (sf *ServerForm) createAdvancedForm() {
 
 	// LogLevel dropdown
 	logLevelOptions := createOptionsWithDefault("LogLevel", []string{"", "QUIET", "FATAL", "ERROR", "INFO", "VERBOSE", "DEBUG", "DEBUG1", "DEBUG2", "DEBUG3"})
-	logLevelIndex := sf.findOptionIndex(logLevelOptions, strings.ToUpper(defaultValues.LogLevel))
+	logLevelIndex := sf.findOptionIndex(logLevelOptions, defaultValues.LogLevel)
 	form.AddDropDown("LogLevel:", logLevelOptions, logLevelIndex, nil)
 
 	// BatchMode dropdown
@@ -1180,7 +1182,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		SendEnv: getFieldText("SendEnv:"),
 		SetEnv:  getFieldText("SetEnv:"),
 		// Debugging settings
-		LogLevel:  strings.ToLower(getDropdownValue("LogLevel:")),
+		LogLevel:  getDropdownValue("LogLevel:"),
 		BatchMode: getDropdownValue("BatchMode:"),
 	}
 }
@@ -1206,9 +1208,190 @@ func (sf *ServerForm) handleSave() {
 }
 
 func (sf *ServerForm) handleCancel() {
-	if sf.onCancel != nil {
-		sf.onCancel()
+	// Check if there are unsaved changes
+	if sf.hasUnsavedChanges() {
+		// If app reference is available, show confirmation dialog
+		if sf.app != nil {
+			modal := tview.NewModal().
+				SetText("You have unsaved changes. Are you sure you want to exit?").
+				AddButtons([]string{"(S)ave", "(D)iscard", "(C)ancel"}).
+				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+					switch buttonLabel {
+					case "(S)ave":
+						sf.handleSave()
+					case "(D)iscard":
+						if sf.onCancel != nil {
+							sf.onCancel()
+						}
+					case "(C)ancel":
+						// Restore the form view
+						sf.app.SetRoot(sf.Flex, true)
+					}
+				})
+
+			// Set up keyboard shortcuts for the modal
+			modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+				switch event.Rune() {
+				case 's', 'S':
+					sf.handleSave()
+					return nil
+				case 'd', 'D':
+					if sf.onCancel != nil {
+						sf.onCancel()
+					}
+					return nil
+				case 'c', 'C':
+					sf.app.SetRoot(sf.Flex, true)
+					return nil
+				}
+				return event
+			})
+
+			// Show modal
+			sf.app.SetRoot(modal, true)
+		} else if sf.onCancel != nil {
+			// No app reference, fallback to direct cancel (shouldn't happen in normal use)
+			sf.onCancel()
+		}
+	} else {
+		// No unsaved changes, just exit
+		if sf.onCancel != nil {
+			sf.onCancel()
+		}
 	}
+}
+
+// hasUnsavedChanges checks if current form data differs from original
+func (sf *ServerForm) hasUnsavedChanges() bool {
+	// If creating new server, any non-empty required fields mean changes
+	if sf.mode == ServerFormAdd {
+		data := sf.getFormData()
+		return data.Alias != "" || data.Host != "" || data.User != ""
+	}
+
+	// If editing, compare with original
+	if sf.original == nil {
+		return false
+	}
+
+	currentData := sf.getFormData()
+	currentServer := sf.dataToServer(currentData)
+
+	// Use DeepEqual for simple comparison first
+	if reflect.DeepEqual(currentServer, *sf.original) {
+		return false
+	}
+
+	// If DeepEqual says they're different, use our custom comparison
+	// that handles nil vs empty slice and other normalization
+	return sf.serversDiffer(currentServer, *sf.original)
+}
+
+// serversDiffer compares two servers for differences using reflection
+func (sf *ServerForm) serversDiffer(a, b domain.Server) bool {
+	// Use reflection to compare all fields
+	valA := reflect.ValueOf(a)
+	valB := reflect.ValueOf(b)
+	typeA := valA.Type()
+
+	// Fields to skip during comparison (lazyssh metadata fields)
+	skipFields := map[string]bool{
+		"Aliases":  true, // Computed field
+		"LastSeen": true, // Metadata field
+		"PinnedAt": true, // Metadata field
+		"SSHCount": true, // Metadata field
+	}
+
+	// Iterate through all fields
+	for i := 0; i < valA.NumField(); i++ {
+		fieldA := valA.Field(i)
+		fieldB := valB.Field(i)
+		fieldName := typeA.Field(i).Name
+
+		// Skip unexported fields and metadata fields
+		if !fieldA.CanInterface() || skipFields[fieldName] {
+			continue
+		}
+
+		// Compare based on field type
+		differs := false
+		switch fieldA.Kind() {
+		case reflect.String:
+			if fieldA.String() != fieldB.String() {
+				differs = true
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if fieldA.Int() != fieldB.Int() {
+				differs = true
+			}
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+			if fieldA.Uint() != fieldB.Uint() {
+				differs = true
+			}
+		case reflect.Slice:
+			if !sf.slicesEqual(fieldA, fieldB) {
+				differs = true
+			}
+		case reflect.Bool:
+			if fieldA.Bool() != fieldB.Bool() {
+				differs = true
+			}
+		case reflect.Float32, reflect.Float64:
+			if fieldA.Float() != fieldB.Float() {
+				differs = true
+			}
+		case reflect.Complex64, reflect.Complex128:
+			if fieldA.Complex() != fieldB.Complex() {
+				differs = true
+			}
+		case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface,
+			reflect.Map, reflect.Ptr, reflect.Struct, reflect.UnsafePointer, reflect.Invalid:
+			// For these types, use reflect.DeepEqual
+			if !reflect.DeepEqual(fieldA.Interface(), fieldB.Interface()) {
+				differs = true
+			}
+		}
+
+		if differs {
+			return true
+		}
+	}
+
+	return false
+}
+
+// slicesEqual compares two reflect.Value slices for equality
+func (sf *ServerForm) slicesEqual(a, b reflect.Value) bool {
+	// Handle nil slices - treat nil and empty slice as equal
+	if a.IsNil() && b.IsNil() {
+		return true
+	}
+	if a.IsNil() && b.Len() == 0 {
+		return true
+	}
+	if b.IsNil() && a.Len() == 0 {
+		return true
+	}
+
+	if a.Len() != b.Len() {
+		return false
+	}
+
+	for i := 0; i < a.Len(); i++ {
+		// For string slices
+		if a.Index(i).Kind() == reflect.String {
+			if a.Index(i).String() != b.Index(i).String() {
+				return false
+			}
+		} else {
+			// For other types, use DeepEqual
+			if !reflect.DeepEqual(a.Index(i).Interface(), b.Index(i).Interface()) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
@@ -1219,6 +1402,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 
+	// Use nil for empty slices to match original state
 	var tags []string
 	if data.Tags != "" {
 		for _, t := range strings.Split(data.Tags, ",") {
@@ -1228,7 +1412,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		}
 	}
 
-	keys := make([]string, 0)
+	var keys []string
 	if data.Key != "" {
 		parts := strings.Split(data.Key, ",")
 		for _, p := range parts {
@@ -1252,7 +1436,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		return result
 	}
 
-	return domain.Server{
+	server := domain.Server{
 		Alias:                       data.Alias,
 		Host:                        data.Host,
 		User:                        data.User,
@@ -1301,6 +1485,17 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		LogLevel:                    data.LogLevel,
 		BatchMode:                   data.BatchMode,
 	}
+
+	// Preserve metadata fields from original if in edit mode
+	if sf.mode == ServerFormEdit && sf.original != nil {
+		server.PinnedAt = sf.original.PinnedAt
+		server.LastSeen = sf.original.LastSeen
+		server.SSHCount = sf.original.SSHCount
+		// Also preserve Aliases (computed field)
+		server.Aliases = sf.original.Aliases
+	}
+
+	return server
 }
 
 // validateServerForm returns an error message string if validation fails; empty string means valid.
@@ -1355,5 +1550,10 @@ func (sf *ServerForm) OnSave(fn func(domain.Server, *domain.Server)) *ServerForm
 
 func (sf *ServerForm) OnCancel(fn func()) *ServerForm {
 	sf.onCancel = fn
+	return sf
+}
+
+func (sf *ServerForm) SetApp(app *tview.Application) *ServerForm {
+	sf.app = app
 	return sf
 }
