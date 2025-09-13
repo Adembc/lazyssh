@@ -71,51 +71,108 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 
 	// Basic information
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\nHost: [white]%s[-]\nUser: [white]%s[-]\nPort: [white]%d[-]\nKey:  [white]%s[-]\nTags: %s\nPinned: [white]%s[-]\nLast SSH: %s\nSSH Count: [white]%d[-]\n",
+		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%d[-]\n  Key:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
 		strings.Join(server.Aliases, ", "), server.Host, server.User, server.Port,
 		serverKey, tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
 
 	// Advanced settings section (only show non-empty fields)
-	// Organized by usage frequency and logical grouping
-	advancedFields := []struct {
+	// Organized by logical grouping for better readability
+	type fieldEntry struct {
 		name  string
 		value string
-	}{
-		// Connection and proxy settings (most commonly used)
-		{"ProxyJump", server.ProxyJump},
-		{"ProxyCommand", server.ProxyCommand},
-		{"RemoteCommand", server.RemoteCommand},
-		{"RequestTTY", server.RequestTTY},
-		{"BindAddress", server.BindAddress},
-		{"BindInterface", server.BindInterface},
-		// Authentication settings
-		{"PubkeyAuthentication", server.PubkeyAuthentication},
-		{"PasswordAuthentication", server.PasswordAuthentication},
-		{"PreferredAuthentications", server.PreferredAuthentications},
-		// Agent and forwarding settings
-		{"ForwardAgent", server.ForwardAgent},
-		// Connection reliability settings
-		{"ServerAliveInterval", server.ServerAliveInterval},
-		{"ServerAliveCountMax", server.ServerAliveCountMax},
-		{"Compression", server.Compression},
-		// Security settings
-		{"StrictHostKeyChecking", server.StrictHostKeyChecking},
-		{"UserKnownHostsFile", server.UserKnownHostsFile},
-		{"HostKeyAlgorithms", server.HostKeyAlgorithms},
-		{"MACs", server.MACs},
-		{"Ciphers", server.Ciphers},
-		{"KexAlgorithms", server.KexAlgorithms},
-		// Debugging settings
-		{"LogLevel", server.LogLevel},
 	}
 
+	type fieldGroup struct {
+		name   string
+		fields []fieldEntry
+	}
+
+	// Create field groups for better organization and future extensibility
+	groups := []fieldGroup{
+		{
+			name: "Connection & Proxy",
+			fields: []fieldEntry{
+				{"ProxyJump", server.ProxyJump},
+				{"ProxyCommand", server.ProxyCommand},
+				{"RemoteCommand", server.RemoteCommand},
+				{"RequestTTY", server.RequestTTY},
+				{"ConnectTimeout", server.ConnectTimeout},
+				{"ConnectionAttempts", server.ConnectionAttempts},
+				{"BindAddress", server.BindAddress},
+				{"BindInterface", server.BindInterface},
+				{"ServerAliveInterval", server.ServerAliveInterval},
+				{"ServerAliveCountMax", server.ServerAliveCountMax},
+				{"Compression", server.Compression},
+				{"TCPKeepAlive", server.TCPKeepAlive},
+				{"ControlMaster", server.ControlMaster},
+				{"ControlPath", server.ControlPath},
+				{"ControlPersist", server.ControlPersist},
+			},
+		},
+		{
+			name: "Authentication",
+			fields: []fieldEntry{
+				{"PubkeyAuthentication", server.PubkeyAuthentication},
+				{"PubkeyAcceptedAlgorithms", server.PubkeyAcceptedAlgorithms},
+				{"HostbasedAcceptedAlgorithms", server.HostbasedAcceptedAlgorithms},
+				{"PasswordAuthentication", server.PasswordAuthentication},
+				{"PreferredAuthentications", server.PreferredAuthentications},
+				{"IdentitiesOnly", server.IdentitiesOnly},
+				{"AddKeysToAgent", server.AddKeysToAgent},
+				{"IdentityAgent", server.IdentityAgent},
+			},
+		},
+		{
+			name: "Forwarding",
+			fields: []fieldEntry{
+				{"ForwardAgent", server.ForwardAgent},
+				{"ForwardX11", server.ForwardX11},
+				{"ForwardX11Trusted", server.ForwardX11Trusted},
+				{"LocalForward", strings.Join(server.LocalForward, ", ")},
+				{"RemoteForward", strings.Join(server.RemoteForward, ", ")},
+				{"DynamicForward", strings.Join(server.DynamicForward, ", ")},
+			},
+		},
+		{
+			name: "Security & Cryptography",
+			fields: []fieldEntry{
+				{"StrictHostKeyChecking", server.StrictHostKeyChecking},
+				{"UserKnownHostsFile", server.UserKnownHostsFile},
+				{"HostKeyAlgorithms", server.HostKeyAlgorithms},
+				{"Ciphers", server.Ciphers},
+				{"MACs", server.MACs},
+				{"KexAlgorithms", server.KexAlgorithms},
+			},
+		},
+		{
+			name: "Environment & Execution",
+			fields: []fieldEntry{
+				{"LocalCommand", server.LocalCommand},
+				{"PermitLocalCommand", server.PermitLocalCommand},
+				{"SendEnv", strings.Join(server.SendEnv, ", ")},
+				{"SetEnv", strings.Join(server.SetEnv, ", ")},
+			},
+		},
+		{
+			name: "Debugging",
+			fields: []fieldEntry{
+				{"LogLevel", server.LogLevel},
+				{"BatchMode", server.BatchMode},
+			},
+		},
+	}
+
+	// Build advanced settings text without group labels for cleaner display
 	hasAdvanced := false
 	advancedText := "\n[::b]Advanced Settings:[-]\n"
-	for _, field := range advancedFields {
-		if field.value != "" {
-			hasAdvanced = true
-			advancedText += fmt.Sprintf("%s: [white]%s[-]\n", field.name, field.value)
+
+	for _, group := range groups {
+		for _, field := range group.fields {
+			if field.value != "" {
+				hasAdvanced = true
+				advancedText += fmt.Sprintf("  %s: [white]%s[-]\n", field.name, field.value)
+			}
 		}
 	}
 
