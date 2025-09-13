@@ -132,6 +132,12 @@ func (sf *ServerForm) build() {
 	// Setup tab bar
 	sf.updateTabBar()
 
+	// Create hint bar with shortcuts
+	hintBar := tview.NewTextView().
+		SetTextAlign(tview.AlignCenter).
+		SetDynamicColors(true).
+		SetText("^H/^L Navigate • ^S Save • Esc Cancel")
+
 	// Setup layout
 	sf.Flex.SetBorder(true).
 		SetTitle(title).
@@ -140,7 +146,8 @@ func (sf *ServerForm) build() {
 		SetTitleColor(tcell.Color250)
 
 	sf.Flex.AddItem(sf.tabBar, 1, 0, false).
-		AddItem(sf.pages, 0, 1, true)
+		AddItem(sf.pages, 0, 1, true).
+		AddItem(hintBar, 1, 0, false)
 
 	// Setup keyboard shortcuts
 	sf.setupKeyboardShortcuts()
@@ -157,9 +164,9 @@ func (sf *ServerForm) build() {
 
 func (sf *ServerForm) titleForMode() string {
 	if sf.mode == ServerFormEdit {
-		return "Edit Server - [yellow]Ctrl+L[white]: Next | [yellow]Ctrl+H[white]: Prev | [yellow]Ctrl+S[white]: Save | [yellow]Esc[white]: Cancel"
+		return "Edit Server"
 	}
-	return "Add Server - [yellow]Ctrl+L[white]: Next | [yellow]Ctrl+H[white]: Prev | [yellow]Ctrl+S[white]: Save | [yellow]Esc[white]: Cancel"
+	return "Add Server"
 }
 
 func (sf *ServerForm) getCurrentTabIndex() int {
