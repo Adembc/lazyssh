@@ -498,52 +498,53 @@ func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(str
 func (sf *ServerForm) getDefaultValues() ServerFormData {
 	if sf.mode == ServerFormEdit && sf.original != nil {
 		return ServerFormData{
-			Alias:                    sf.original.Alias,
-			Host:                     sf.original.Host,
-			User:                     sf.original.User,
-			Port:                     fmt.Sprint(sf.original.Port),
-			Key:                      strings.Join(sf.original.IdentityFiles, ", "),
-			Tags:                     strings.Join(sf.original.Tags, ", "),
-			ProxyJump:                sf.original.ProxyJump,
-			ProxyCommand:             sf.original.ProxyCommand,
-			RemoteCommand:            sf.original.RemoteCommand,
-			RequestTTY:               sf.original.RequestTTY,
-			ConnectTimeout:           sf.original.ConnectTimeout,
-			ConnectionAttempts:       sf.original.ConnectionAttempts,
-			BindAddress:              sf.original.BindAddress,
-			BindInterface:            sf.original.BindInterface,
-			LocalForward:             strings.Join(sf.original.LocalForward, ", "),
-			RemoteForward:            strings.Join(sf.original.RemoteForward, ", "),
-			DynamicForward:           strings.Join(sf.original.DynamicForward, ", "),
-			PubkeyAuthentication:     sf.original.PubkeyAuthentication,
-			PasswordAuthentication:   sf.original.PasswordAuthentication,
-			PreferredAuthentications: sf.original.PreferredAuthentications,
-			IdentitiesOnly:           sf.original.IdentitiesOnly,
-			AddKeysToAgent:           sf.original.AddKeysToAgent,
-			IdentityAgent:            sf.original.IdentityAgent,
-			ForwardAgent:             sf.original.ForwardAgent,
-			ForwardX11:               sf.original.ForwardX11,
-			ForwardX11Trusted:        sf.original.ForwardX11Trusted,
-			ControlMaster:            sf.original.ControlMaster,
-			ControlPath:              sf.original.ControlPath,
-			ControlPersist:           sf.original.ControlPersist,
-			ServerAliveInterval:      sf.original.ServerAliveInterval,
-			ServerAliveCountMax:      sf.original.ServerAliveCountMax,
-			Compression:              sf.original.Compression,
-			TCPKeepAlive:             sf.original.TCPKeepAlive,
-			StrictHostKeyChecking:    sf.original.StrictHostKeyChecking,
-			UserKnownHostsFile:       sf.original.UserKnownHostsFile,
-			HostKeyAlgorithms:        sf.original.HostKeyAlgorithms,
-			PubkeyAcceptedAlgorithms: sf.original.PubkeyAcceptedAlgorithms,
-			MACs:                     sf.original.MACs,
-			Ciphers:                  sf.original.Ciphers,
-			KexAlgorithms:            sf.original.KexAlgorithms,
-			LocalCommand:             sf.original.LocalCommand,
-			PermitLocalCommand:       sf.original.PermitLocalCommand,
-			SendEnv:                  strings.Join(sf.original.SendEnv, ", "),
-			SetEnv:                   strings.Join(sf.original.SetEnv, ", "),
-			LogLevel:                 sf.original.LogLevel,
-			BatchMode:                sf.original.BatchMode,
+			Alias:                       sf.original.Alias,
+			Host:                        sf.original.Host,
+			User:                        sf.original.User,
+			Port:                        fmt.Sprint(sf.original.Port),
+			Key:                         strings.Join(sf.original.IdentityFiles, ", "),
+			Tags:                        strings.Join(sf.original.Tags, ", "),
+			ProxyJump:                   sf.original.ProxyJump,
+			ProxyCommand:                sf.original.ProxyCommand,
+			RemoteCommand:               sf.original.RemoteCommand,
+			RequestTTY:                  sf.original.RequestTTY,
+			ConnectTimeout:              sf.original.ConnectTimeout,
+			ConnectionAttempts:          sf.original.ConnectionAttempts,
+			BindAddress:                 sf.original.BindAddress,
+			BindInterface:               sf.original.BindInterface,
+			LocalForward:                strings.Join(sf.original.LocalForward, ", "),
+			RemoteForward:               strings.Join(sf.original.RemoteForward, ", "),
+			DynamicForward:              strings.Join(sf.original.DynamicForward, ", "),
+			PubkeyAuthentication:        sf.original.PubkeyAuthentication,
+			PasswordAuthentication:      sf.original.PasswordAuthentication,
+			PreferredAuthentications:    sf.original.PreferredAuthentications,
+			IdentitiesOnly:              sf.original.IdentitiesOnly,
+			AddKeysToAgent:              sf.original.AddKeysToAgent,
+			IdentityAgent:               sf.original.IdentityAgent,
+			ForwardAgent:                sf.original.ForwardAgent,
+			ForwardX11:                  sf.original.ForwardX11,
+			ForwardX11Trusted:           sf.original.ForwardX11Trusted,
+			ControlMaster:               sf.original.ControlMaster,
+			ControlPath:                 sf.original.ControlPath,
+			ControlPersist:              sf.original.ControlPersist,
+			ServerAliveInterval:         sf.original.ServerAliveInterval,
+			ServerAliveCountMax:         sf.original.ServerAliveCountMax,
+			Compression:                 sf.original.Compression,
+			TCPKeepAlive:                sf.original.TCPKeepAlive,
+			StrictHostKeyChecking:       sf.original.StrictHostKeyChecking,
+			UserKnownHostsFile:          sf.original.UserKnownHostsFile,
+			HostKeyAlgorithms:           sf.original.HostKeyAlgorithms,
+			PubkeyAcceptedAlgorithms:    sf.original.PubkeyAcceptedAlgorithms,
+			HostbasedAcceptedAlgorithms: sf.original.HostbasedAcceptedAlgorithms,
+			MACs:                        sf.original.MACs,
+			Ciphers:                     sf.original.Ciphers,
+			KexAlgorithms:               sf.original.KexAlgorithms,
+			LocalCommand:                sf.original.LocalCommand,
+			PermitLocalCommand:          sf.original.PermitLocalCommand,
+			SendEnv:                     strings.Join(sf.original.SendEnv, ", "),
+			SetEnv:                      strings.Join(sf.original.SetEnv, ", "),
+			LogLevel:                    sf.original.LogLevel,
+			BatchMode:                   sf.original.BatchMode,
 		}
 	}
 	return ServerFormData{
@@ -827,6 +828,14 @@ func (sf *ServerForm) createAdvancedForm() {
 		}
 	}
 
+	// HostbasedAcceptedAlgorithms with autocomplete support
+	form.AddInputField("HostbasedAcceptedAlgorithms:", defaultValues.HostbasedAcceptedAlgorithms, 40, nil, nil)
+	if itemCount := form.GetFormItemCount(); itemCount > 0 {
+		if field, ok := form.GetFormItem(itemCount - 1).(*tview.InputField); ok {
+			field.SetAutocompleteFunc(sf.createAlgorithmAutocomplete(pubkeyAlgorithms))
+		}
+	}
+
 	form.AddTextView("[yellow]Command Execution[-]", "", 0, 1, true, false)
 	form.AddInputField("LocalCommand:", defaultValues.LocalCommand, 40, nil, nil)
 
@@ -908,13 +917,14 @@ type ServerFormData struct {
 	TCPKeepAlive        string
 
 	// Security settings
-	StrictHostKeyChecking    string
-	UserKnownHostsFile       string
-	HostKeyAlgorithms        string
-	PubkeyAcceptedAlgorithms string
-	MACs                     string
-	Ciphers                  string
-	KexAlgorithms            string
+	StrictHostKeyChecking       string
+	UserKnownHostsFile          string
+	HostKeyAlgorithms           string
+	PubkeyAcceptedAlgorithms    string
+	HostbasedAcceptedAlgorithms string
+	MACs                        string
+	Ciphers                     string
+	KexAlgorithms               string
 
 	// Command execution
 	LocalCommand       string
@@ -1089,52 +1099,53 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 	}
 
 	return domain.Server{
-		Alias:                    data.Alias,
-		Host:                     data.Host,
-		User:                     data.User,
-		Port:                     port,
-		IdentityFiles:            keys,
-		Tags:                     tags,
-		ProxyJump:                data.ProxyJump,
-		ProxyCommand:             data.ProxyCommand,
-		RemoteCommand:            data.RemoteCommand,
-		RequestTTY:               data.RequestTTY,
-		ConnectTimeout:           data.ConnectTimeout,
-		ConnectionAttempts:       data.ConnectionAttempts,
-		BindAddress:              data.BindAddress,
-		BindInterface:            data.BindInterface,
-		LocalForward:             splitComma(data.LocalForward),
-		RemoteForward:            splitComma(data.RemoteForward),
-		DynamicForward:           splitComma(data.DynamicForward),
-		PubkeyAuthentication:     data.PubkeyAuthentication,
-		PasswordAuthentication:   data.PasswordAuthentication,
-		PreferredAuthentications: data.PreferredAuthentications,
-		IdentitiesOnly:           data.IdentitiesOnly,
-		AddKeysToAgent:           data.AddKeysToAgent,
-		IdentityAgent:            data.IdentityAgent,
-		ForwardAgent:             data.ForwardAgent,
-		ForwardX11:               data.ForwardX11,
-		ForwardX11Trusted:        data.ForwardX11Trusted,
-		ControlMaster:            data.ControlMaster,
-		ControlPath:              data.ControlPath,
-		ControlPersist:           data.ControlPersist,
-		ServerAliveInterval:      data.ServerAliveInterval,
-		ServerAliveCountMax:      data.ServerAliveCountMax,
-		Compression:              data.Compression,
-		TCPKeepAlive:             data.TCPKeepAlive,
-		StrictHostKeyChecking:    data.StrictHostKeyChecking,
-		UserKnownHostsFile:       data.UserKnownHostsFile,
-		HostKeyAlgorithms:        data.HostKeyAlgorithms,
-		PubkeyAcceptedAlgorithms: data.PubkeyAcceptedAlgorithms,
-		MACs:                     data.MACs,
-		Ciphers:                  data.Ciphers,
-		KexAlgorithms:            data.KexAlgorithms,
-		LocalCommand:             data.LocalCommand,
-		PermitLocalCommand:       data.PermitLocalCommand,
-		SendEnv:                  splitComma(data.SendEnv),
-		SetEnv:                   splitComma(data.SetEnv),
-		LogLevel:                 data.LogLevel,
-		BatchMode:                data.BatchMode,
+		Alias:                       data.Alias,
+		Host:                        data.Host,
+		User:                        data.User,
+		Port:                        port,
+		IdentityFiles:               keys,
+		Tags:                        tags,
+		ProxyJump:                   data.ProxyJump,
+		ProxyCommand:                data.ProxyCommand,
+		RemoteCommand:               data.RemoteCommand,
+		RequestTTY:                  data.RequestTTY,
+		ConnectTimeout:              data.ConnectTimeout,
+		ConnectionAttempts:          data.ConnectionAttempts,
+		BindAddress:                 data.BindAddress,
+		BindInterface:               data.BindInterface,
+		LocalForward:                splitComma(data.LocalForward),
+		RemoteForward:               splitComma(data.RemoteForward),
+		DynamicForward:              splitComma(data.DynamicForward),
+		PubkeyAuthentication:        data.PubkeyAuthentication,
+		PasswordAuthentication:      data.PasswordAuthentication,
+		PreferredAuthentications:    data.PreferredAuthentications,
+		IdentitiesOnly:              data.IdentitiesOnly,
+		AddKeysToAgent:              data.AddKeysToAgent,
+		IdentityAgent:               data.IdentityAgent,
+		ForwardAgent:                data.ForwardAgent,
+		ForwardX11:                  data.ForwardX11,
+		ForwardX11Trusted:           data.ForwardX11Trusted,
+		ControlMaster:               data.ControlMaster,
+		ControlPath:                 data.ControlPath,
+		ControlPersist:              data.ControlPersist,
+		ServerAliveInterval:         data.ServerAliveInterval,
+		ServerAliveCountMax:         data.ServerAliveCountMax,
+		Compression:                 data.Compression,
+		TCPKeepAlive:                data.TCPKeepAlive,
+		StrictHostKeyChecking:       data.StrictHostKeyChecking,
+		UserKnownHostsFile:          data.UserKnownHostsFile,
+		HostKeyAlgorithms:           data.HostKeyAlgorithms,
+		PubkeyAcceptedAlgorithms:    data.PubkeyAcceptedAlgorithms,
+		HostbasedAcceptedAlgorithms: data.HostbasedAcceptedAlgorithms,
+		MACs:                        data.MACs,
+		Ciphers:                     data.Ciphers,
+		KexAlgorithms:               data.KexAlgorithms,
+		LocalCommand:                data.LocalCommand,
+		PermitLocalCommand:          data.PermitLocalCommand,
+		SendEnv:                     splitComma(data.SendEnv),
+		SetEnv:                      splitComma(data.SetEnv),
+		LogLevel:                    data.LogLevel,
+		BatchMode:                   data.BatchMode,
 	}
 }
 
