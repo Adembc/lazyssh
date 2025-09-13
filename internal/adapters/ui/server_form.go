@@ -661,8 +661,19 @@ func (sf *ServerForm) createBasicForm() {
 	form.AddInputField("Host/IP:", defaultValues.Host, 20, nil, nil)
 	form.AddInputField("User:", defaultValues.User, 20, nil, nil)
 	form.AddInputField("Port:", defaultValues.Port, 20, nil, nil)
-	form.AddInputField("Key (comma):", defaultValues.Key, 40, nil, nil)
-	form.AddInputField("Tags (comma):", defaultValues.Tags, 30, nil, nil)
+	keysField := tview.NewInputField().
+		SetLabel("Keys:").
+		SetText(defaultValues.Key).
+		SetFieldWidth(40).
+		SetPlaceholder("e.g., ~/.ssh/id_rsa, ~/.ssh/id_ed25519")
+	form.AddFormItem(keysField)
+
+	tagsField := tview.NewInputField().
+		SetLabel("Tags:").
+		SetText(defaultValues.Tags).
+		SetFieldWidth(30).
+		SetPlaceholder("comma-separated tags")
+	form.AddFormItem(tagsField)
 
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSave)
@@ -691,7 +702,12 @@ func (sf *ServerForm) createConnectionForm() {
 	form.AddDropDown("RequestTTY:", requestTTYOptions, requestTTYIndex, nil)
 
 	form.AddTextView("[yellow]Connection Settings[-]", "", 0, 1, true, false)
-	form.AddInputField("ConnectTimeout (seconds):", defaultValues.ConnectTimeout, 10, nil, nil)
+	connectTimeoutField := tview.NewInputField().
+		SetLabel("ConnectTimeout:").
+		SetText(defaultValues.ConnectTimeout).
+		SetFieldWidth(10).
+		SetPlaceholder("seconds")
+	form.AddFormItem(connectTimeoutField)
 	form.AddInputField("ConnectionAttempts:", defaultValues.ConnectionAttempts, 10, nil, nil)
 
 	form.AddTextView("[yellow]Bind Options[-]", "", 0, 1, true, false)
@@ -703,7 +719,12 @@ func (sf *ServerForm) createConnectionForm() {
 	form.AddDropDown("BindInterface:", interfaceOptions, bindInterfaceIndex, nil)
 
 	form.AddTextView("[yellow]Keep-Alive[-]", "", 0, 1, true, false)
-	form.AddInputField("ServerAliveInterval (seconds):", defaultValues.ServerAliveInterval, 10, nil, nil)
+	serverAliveIntervalField := tview.NewInputField().
+		SetLabel("ServerAliveInterval:").
+		SetText(defaultValues.ServerAliveInterval).
+		SetFieldWidth(10).
+		SetPlaceholder("seconds")
+	form.AddFormItem(serverAliveIntervalField)
 	form.AddInputField("ServerAliveCountMax:", defaultValues.ServerAliveCountMax, 20, nil, nil)
 
 	// Compression dropdown
@@ -741,9 +762,26 @@ func (sf *ServerForm) createForwardingForm() {
 	defaultValues := sf.getDefaultValues()
 
 	form.AddTextView("[yellow]Port Forwarding[-]", "", 0, 1, true, false)
-	form.AddInputField("LocalForward (comma):", defaultValues.LocalForward, 40, nil, nil)
-	form.AddInputField("RemoteForward (comma):", defaultValues.RemoteForward, 40, nil, nil)
-	form.AddInputField("DynamicForward (comma):", defaultValues.DynamicForward, 40, nil, nil)
+	localForwardField := tview.NewInputField().
+		SetLabel("LocalForward:").
+		SetText(defaultValues.LocalForward).
+		SetFieldWidth(40).
+		SetPlaceholder("e.g., 8080:localhost:80, 3000:localhost:3000")
+	form.AddFormItem(localForwardField)
+
+	remoteForwardField := tview.NewInputField().
+		SetLabel("RemoteForward:").
+		SetText(defaultValues.RemoteForward).
+		SetFieldWidth(40).
+		SetPlaceholder("e.g., 80:localhost:8080")
+	form.AddFormItem(remoteForwardField)
+
+	dynamicForwardField := tview.NewInputField().
+		SetLabel("DynamicForward:").
+		SetText(defaultValues.DynamicForward).
+		SetFieldWidth(40).
+		SetPlaceholder("e.g., 1080, 1081")
+	form.AddFormItem(dynamicForwardField)
 
 	form.AddTextView("[yellow]Agent & X11 Forwarding[-]", "", 0, 1, true, false)
 
@@ -947,8 +985,19 @@ func (sf *ServerForm) createAdvancedForm() {
 	form.AddDropDown("PermitLocalCommand:", permitLocalCommandOptions, permitLocalCommandIndex, nil)
 
 	form.AddTextView("[yellow]Environment[-]", "", 0, 1, true, false)
-	form.AddInputField("SendEnv (comma):", defaultValues.SendEnv, 40, nil, nil)
-	form.AddInputField("SetEnv (comma):", defaultValues.SetEnv, 40, nil, nil)
+	sendEnvField := tview.NewInputField().
+		SetLabel("SendEnv:").
+		SetText(defaultValues.SendEnv).
+		SetFieldWidth(40).
+		SetPlaceholder("e.g., LANG, LC_*, TERM")
+	form.AddFormItem(sendEnvField)
+
+	setEnvField := tview.NewInputField().
+		SetLabel("SetEnv:").
+		SetText(defaultValues.SetEnv).
+		SetFieldWidth(40).
+		SetPlaceholder("e.g., FOO=bar, DEBUG=1")
+	form.AddFormItem(setEnvField)
 
 	form.AddTextView("[yellow]Debugging[-]", "", 0, 1, true, false)
 
@@ -1081,21 +1130,21 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Host:  getFieldText("Host/IP:"),
 		User:  getFieldText("User:"),
 		Port:  getFieldText("Port:"),
-		Key:   getFieldText("Key"),
-		Tags:  getFieldText("Tags"),
+		Key:   getFieldText("Keys:"),
+		Tags:  getFieldText("Tags:"),
 		// Connection and proxy settings
 		ProxyJump:          getFieldText("ProxyJump:"),
 		ProxyCommand:       getFieldText("ProxyCommand:"),
 		RemoteCommand:      getFieldText("RemoteCommand:"),
 		RequestTTY:         getDropdownValue("RequestTTY:"),
-		ConnectTimeout:     getFieldText("ConnectTimeout (seconds):"),
+		ConnectTimeout:     getFieldText("ConnectTimeout:"),
 		ConnectionAttempts: getFieldText("ConnectionAttempts:"),
 		BindAddress:        getFieldText("BindAddress:"),
 		BindInterface:      getDropdownValue("BindInterface:"),
 		// Port forwarding
-		LocalForward:   getFieldText("LocalForward"),
-		RemoteForward:  getFieldText("RemoteForward"),
-		DynamicForward: getFieldText("DynamicForward"),
+		LocalForward:   getFieldText("LocalForward:"),
+		RemoteForward:  getFieldText("RemoteForward:"),
+		DynamicForward: getFieldText("DynamicForward:"),
 		// Authentication and key management
 		PubkeyAuthentication:     getDropdownValue("PubkeyAuthentication:"),
 		PasswordAuthentication:   getDropdownValue("PasswordAuthentication:"),
@@ -1112,7 +1161,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		ControlPath:    getFieldText("ControlPath:"),
 		ControlPersist: getFieldText("ControlPersist:"),
 		// Connection reliability settings
-		ServerAliveInterval: getFieldText("ServerAliveInterval (seconds):"),
+		ServerAliveInterval: getFieldText("ServerAliveInterval:"),
 		ServerAliveCountMax: getFieldText("ServerAliveCountMax:"),
 		Compression:         getDropdownValue("Compression:"),
 		TCPKeepAlive:        getDropdownValue("TCPKeepAlive:"),
@@ -1128,8 +1177,8 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		LocalCommand:       getFieldText("LocalCommand:"),
 		PermitLocalCommand: getDropdownValue("PermitLocalCommand:"),
 		// Environment settings
-		SendEnv: getFieldText("SendEnv"),
-		SetEnv:  getFieldText("SetEnv"),
+		SendEnv: getFieldText("SendEnv:"),
+		SetEnv:  getFieldText("SetEnv:"),
 		// Debugging settings
 		LogLevel:  strings.ToLower(getDropdownValue("LogLevel:")),
 		BatchMode: getDropdownValue("BatchMode:"),
