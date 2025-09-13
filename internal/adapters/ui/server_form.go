@@ -1210,15 +1210,15 @@ func (sf *ServerForm) handleSave() bool {
 	data := sf.getFormData()
 
 	if errMsg := validateServerForm(data); errMsg != "" {
-		// Show error in title bar
-		sf.Flex.SetTitle(fmt.Sprintf("%s — [red::b]%s[-]", sf.titleForMode(), errMsg))
-		sf.Flex.SetBorderColor(tcell.ColorRed)
+		// Show error in form panel title bar
+		sf.formPanel.SetTitle(fmt.Sprintf("%s — [red::b]%s[-]", sf.titleForMode(), errMsg))
+		sf.formPanel.SetBorderColor(tcell.ColorRed)
 		return false // Validation failed
 	}
 
 	// Reset title and border on success
-	sf.Flex.SetTitle(sf.titleForMode())
-	sf.Flex.SetBorderColor(tcell.Color238)
+	sf.formPanel.SetTitle(sf.titleForMode())
+	sf.formPanel.SetBorderColor(tcell.Color238)
 
 	server := sf.dataToServer(data)
 	if sf.onSave != nil {
