@@ -184,6 +184,7 @@ func (t *tui) handleServerSelectionChange(server domain.Server) {
 func (t *tui) handleServerAdd() {
 	form := NewServerForm(ServerFormAdd, nil).
 		SetApp(t.app).
+		SetVersionInfo(t.version, t.commit).
 		OnSave(t.handleServerSave).
 		OnCancel(t.handleFormCancel)
 	t.app.SetRoot(form, true)
@@ -193,6 +194,7 @@ func (t *tui) handleServerEdit() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		form := NewServerForm(ServerFormEdit, &server).
 			SetApp(t.app).
+			SetVersionInfo(t.version, t.commit).
 			OnSave(t.handleServerSave).
 			OnCancel(t.handleFormCancel)
 		t.app.SetRoot(form, true)

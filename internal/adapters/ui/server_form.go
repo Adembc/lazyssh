@@ -77,7 +77,8 @@ const (
 )
 
 type ServerForm struct {
-	*tview.Flex             // The root container (includes form panel and hint bar)
+	*tview.Flex             // The root container (includes header, form panel and hint bar)
+	header      *AppHeader  // The app header
 	formPanel   *tview.Flex // The actual form panel
 	pages       *tview.Pages
 	tabBar      *tview.TextView
@@ -90,6 +91,8 @@ type ServerForm struct {
 	onSave      func(domain.Server, *domain.Server)
 	onCancel    func()
 	app         *tview.Application // Reference to app for showing modals
+	version     string             // Version for header
+	commit      string             // Commit for header
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -117,12 +120,15 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 		},
 	}
 	form.currentTab = "Basic"
-	form.build()
+	// Don't build here, wait for version info to be set
 	return form
 }
 
 func (sf *ServerForm) build() {
 	title := sf.titleForMode()
+
+	// Create header
+	sf.header = NewAppHeader(sf.version, sf.commit, RepoURL)
 
 	// Create forms for each tab
 	sf.createBasicForm()
@@ -150,8 +156,9 @@ func (sf *ServerForm) build() {
 	hintBar.SetTextAlign(tview.AlignCenter)
 	hintBar.SetText("[white]^H/^L[-] Navigate  • [white]^S[-] Save  • [white]Esc[-] Cancel")
 
-	// Setup main container - hint bar at bottom like status bar
-	sf.Flex.AddItem(sf.formPanel, 0, 1, true).
+	// Setup main container - header at top, hint bar at bottom
+	sf.Flex.AddItem(sf.header, 2, 0, false).
+		AddItem(sf.formPanel, 0, 1, true).
 		AddItem(hintBar, 1, 0, false)
 
 	// Setup keyboard shortcuts
@@ -1584,5 +1591,18 @@ func (sf *ServerForm) OnCancel(fn func()) *ServerForm {
 
 func (sf *ServerForm) SetApp(app *tview.Application) *ServerForm {
 	sf.app = app
+	return sf
+}
+
+func (sf *ServerForm) SetVersionInfo(version, commit string) *ServerForm {
+	sf.version = version
+	sf.commit = commit
+	// Build the form now that we have version info
+	if sf.header == nil {
+		sf.build()
+	} else {
+		// Rebuild header if already exists
+		sf.header = NewAppHeader(sf.version, sf.commit, RepoURL)
+	}
 	return sf
 }
