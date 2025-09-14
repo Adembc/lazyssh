@@ -104,7 +104,9 @@ SSH into the selected server
 
 ## 📦 Installation
 
-### Option 1: Homebrew (macOS)
+### Option 1: Homebrew (macOS/Linux)
+
+You must have [Homebrew](https://github.com/Homebrew/install) installed
 
 ```bash
 brew install Adembc/homebrew-tap/lazyssh
