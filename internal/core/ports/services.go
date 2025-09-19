@@ -27,5 +27,6 @@ type ServerService interface {
 	DeleteServer(server domain.Server) error
 	SetPinned(alias string, pinned bool) error
 	SSH(alias string) error
+	CopySSHKey(alias string) error
 	Ping(server domain.Server) (bool, time.Duration, error)
 }

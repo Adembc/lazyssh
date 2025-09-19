@@ -168,6 +168,29 @@ func (s *serverService) SSH(alias string) error {
 	return nil
 }
 
+func (s *serverService) CopySSHKey(alias string) error {
+	s.logger.Infow("ssh-copy-id start", "alias", alias)
+
+	// Ensure ssh-copy-id exists on PATH
+	if _, err := exec.LookPath("ssh-copy-id"); err != nil {
+		s.logger.Errorw("ssh-copy-id missing", "error", err)
+		return fmt.Errorf("ssh-copy-id not found; install OpenSSH (e.g., brew install openssh)")
+	}
+
+	cmd := exec.Command("ssh-copy-id", alias)
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		s.logger.Errorw("ssh-copy-id failed", "alias", alias, "error", err)
+		return err
+	}
+
+	s.logger.Infow("ssh-copy-id end", "alias", alias)
+	return nil
+}
+
 // Ping checks if the server is reachable on its SSH port.
 func (s *serverService) Ping(server domain.Server) (bool, time.Duration, error) {
 	start := time.Now()

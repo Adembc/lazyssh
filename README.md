@@ -169,6 +169,7 @@ make run
 | Enter | SSH into selected server      |
 | c     | Copy SSH command to clipboard |
 | g     | Ping selected server          |
+| K     | Install SSH Key (authorized_keys) |
 | r     | Refresh background data       |
 | a     | Add server                    |
 | e     | Edit server                   |
@@ -246,4 +247,3 @@ If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ an
 
 - Built with [tview](https://github.com/rivo/tview) and [tcell](https://github.com/gdamore/tcell).
 - Inspired by [k9s](https://github.com/derailed/k9s) and [lazydocker](https://github.com/jesseduffield/lazydocker).
-
