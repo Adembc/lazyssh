@@ -15,6 +15,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -134,6 +136,29 @@ func TestValidateBindAddress(t *testing.T) {
 }
 
 func TestValidateKeyPaths(t *testing.T) {
+	// Prepare an isolated HOME with a mock .ssh folder and key files
+	oldHome := os.Getenv("HOME")
+	t.Cleanup(func() {
+		_ = os.Setenv("HOME", oldHome)
+	})
+
+	tempHome := t.TempDir()
+	sshDir := filepath.Join(tempHome, ".ssh")
+	if err := os.MkdirAll(sshDir, 0o755); err != nil {
+		t.Fatalf("failed to create temp .ssh dir: %v", err)
+	}
+
+	shouldExistFiles := []string{"id_rsa", "id_ed25519"}
+	for _, name := range shouldExistFiles {
+		p := filepath.Join(sshDir, name)
+		if err := os.WriteFile(p, []byte("test"), 0o644); err != nil {
+			t.Fatalf("failed to create mock key file %s: %v", p, err)
+		}
+	}
+	if err := os.Setenv("HOME", tempHome); err != nil {
+		t.Fatalf("failed to set HOME: %v", err)
+	}
+
 	tests := []struct {
 		name    string
 		keys    string
