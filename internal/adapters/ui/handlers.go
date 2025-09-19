@@ -63,6 +63,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'c':
 		t.handleCopyCommand()
 		return nil
+	case 'v':
+		t.handlePasteCommand()
+		return nil
 	case 'g':
 		t.handlePingSelected()
 		return nil
@@ -123,6 +126,37 @@ func (t *tui) handleCopyCommand() {
 			t.showStatusTemp("Failed to copy to clipboard")
 		}
 	}
+}
+
+func (t *tui) handlePasteCommand() {
+	// Read from clipboard
+	clipContent, err := clipboard.ReadAll()
+	if err != nil {
+		t.showStatusTemp("Failed to read from clipboard")
+		return
+	}
+
+	// Try to parse as SSH command
+	server, err := ParseSSHCommand(clipContent)
+	if err != nil {
+		t.showStatusTemp("Invalid SSH command in clipboard: " + err.Error())
+		return
+	}
+
+	// Check for duplicate alias and auto-adjust if necessary
+	existingAliases := t.getExistingAliases()
+	server.Alias = GenerateUniqueAlias(server.Alias, existingAliases)
+
+	// Show the server form with parsed data
+	// Note: For Add mode, original should be nil. We'll set initial data separately.
+	form := NewServerForm(ServerFormAdd, nil).
+		SetInitialData(server).
+		SetApp(t.app).
+		SetVersionInfo(t.version, t.commit).
+		OnSave(t.handleServerSave).
+		OnCancel(t.handleFormCancel).
+		SetExistingAliases(t.getExistingAliases())
+	t.app.SetRoot(form, true)
 }
 
 func (t *tui) handleTagsEdit() {
@@ -186,7 +220,8 @@ func (t *tui) handleServerAdd() {
 		SetApp(t.app).
 		SetVersionInfo(t.version, t.commit).
 		OnSave(t.handleServerSave).
-		OnCancel(t.handleFormCancel)
+		OnCancel(t.handleFormCancel).
+		SetExistingAliases(t.getExistingAliases())
 	t.app.SetRoot(form, true)
 }
 
@@ -196,7 +231,8 @@ func (t *tui) handleServerEdit() {
 			SetApp(t.app).
 			SetVersionInfo(t.version, t.commit).
 			OnSave(t.handleServerSave).
-			OnCancel(t.handleFormCancel)
+			OnCancel(t.handleFormCancel).
+			SetExistingAliases(t.getExistingAliases())
 		t.app.SetRoot(form, true)
 	}
 }
@@ -232,6 +268,20 @@ func (t *tui) handleServerDelete() {
 
 func (t *tui) handleFormCancel() {
 	t.returnToMain()
+}
+
+// getExistingAliases returns all existing server aliases
+func (t *tui) getExistingAliases() []string {
+	servers, err := t.serverService.ListServers("")
+	if err != nil {
+		return []string{}
+	}
+
+	aliases := make([]string, len(servers))
+	for i, s := range servers {
+		aliases[i] = s.Alias
+	}
+	return aliases
 }
 
 func (t *tui) handlePingSelected() {
