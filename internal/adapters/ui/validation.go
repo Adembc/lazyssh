@@ -131,12 +131,20 @@ const invalidAddressChars = "@#$%^&()=+{}|\\;:'\"<>,?/"
 
 // GetFieldValidators returns validation rules for SSH configuration fields
 func GetFieldValidators() map[string]fieldValidator {
+	return GetFieldValidatorsWithContext("", nil)
+}
+
+// GetFieldValidatorsWithContext returns validation rules with context-aware validators
+// originalAlias is used to exclude the current alias when editing
+// existingAliases is used to check for duplicates
+func GetFieldValidatorsWithContext(originalAlias string, existingAliases []string) map[string]fieldValidator {
 	validators := make(map[string]fieldValidator)
 
 	// Basic fields
 	validators["Alias"] = fieldValidator{
 		Required: true,
 		Pattern:  regexp.MustCompile(`^[a-zA-Z0-9._-]+$`),
+		Validate: createAliasValidator(originalAlias, existingAliases),
 		Message:  "Alias is required and can only contain letters, numbers, dots, hyphens, and underscores",
 	}
 	validators["Host"] = fieldValidator{
@@ -447,6 +455,35 @@ func validateKnownHostsFiles(files string) error {
 	return validateFilePaths(files, " ")
 }
 
+// createAliasValidator creates a validator for alias uniqueness
+func createAliasValidator(originalAlias string, existingAliases []string) func(string) error {
+	return func(alias string) error {
+		// Skip duplicate check if no existing aliases provided
+		if len(existingAliases) == 0 {
+			return nil
+		}
+
+		// Skip check if alias hasn't changed (edit mode)
+		if originalAlias != "" && alias == originalAlias {
+			return nil
+		}
+
+		// Check for duplicates
+		for _, existing := range existingAliases {
+			if existing == alias {
+				return fmt.Errorf("alias '%s' already exists", alias)
+			}
+		}
+
+		return nil
+	}
+}
+
+// IsIPAddress checks if the given string is a valid IP address (IPv4 or IPv6)
+func IsIPAddress(host string) bool {
+	return net.ParseIP(host) != nil
+}
+
 // validateHost validates a hostname or IP address
 func validateHost(host string) error {
 	if host == "" {
@@ -459,7 +496,7 @@ func validateHost(host string) error {
 	}
 
 	// Try to parse as IP address first
-	if net.ParseIP(host) != nil {
+	if IsIPAddress(host) {
 		return nil
 	}
 
