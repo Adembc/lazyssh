@@ -14,7 +14,14 @@ issues:
         - dupl
         - lll
 
-
+    # exclude some linters for the test directory and test files
+    - path: test/.*|.*_test\.go
+      linters:
+        - dupl
+        - errcheck
+        - goconst
+        - gocyclo
+        - gosec
 
 linters:
   disable-all: true
