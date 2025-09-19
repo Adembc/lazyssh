@@ -200,6 +200,35 @@ Contributions are welcome!
 
 We love seeing the community make Lazyssh better 🚀
 
+### Semantic Pull Requests
+
+This repository enforces semantic PR titles via an automated GitHub Action. Please format your PR title as:
+
+- type(scope): short descriptive subject
+Notes:
+- Scope is optional and should be one of: ui, cli, config, parser.
+
+Allowed types in this repo:
+- feat: a new feature
+- fix: a bug fix
+- improve: quality or UX improvements that are not a refactor or perf
+- refactor: code change that neither fixes a bug nor adds a feature
+- docs: documentation only changes
+- test: adding or refactoring tests
+- ci: CI/CD or automation changes
+- chore: maintenance tasks, dependency bumps, non-code infra
+- revert: reverts a previous commit
+
+Examples:
+- feat(ui): add server pinning and sorting options
+- fix(parser): handle comments at end of Host blocks
+- improve(cli): show friendly error when ssh binary missing
+- refactor(config): simplify backup rotation logic
+- docs: add installation instructions for Homebrew
+- ci: cache Go toolchain and dependencies
+
+Tip: If your PR touches multiple areas, pick the most relevant scope or omit the scope.
+
 ---
 
 ## ⭐ Support
