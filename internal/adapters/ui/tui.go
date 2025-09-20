@@ -18,6 +18,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.uber.org/zap"
 
+	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/rivo/tview"
 )
@@ -48,6 +49,7 @@ type tui struct {
 
 	sortMode      SortMode
 	searchVisible bool
+	showHidden    bool
 }
 
 func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) App {
@@ -102,6 +104,7 @@ func (t *tui) buildComponents() *tui {
 
 	// default sort mode
 	t.sortMode = SortByAliasAsc
+	t.showHidden = false
 
 	return t
 }
@@ -131,8 +134,11 @@ func (t *tui) bindEvents() *tui {
 }
 
 func (t *tui) loadInitialData() *tui {
-	servers, _ := t.serverService.ListServers("")
-	sortServersForUI(servers, t.sortMode)
+	servers, _, err := t.fetchServers("", t.showHidden, t.sortMode)
+	if err != nil {
+		t.logger.Errorw("failed to load servers", "error", err)
+		servers = nil
+	}
 	t.updateListTitle()
 	t.serverList.UpdateServers(servers)
 
@@ -141,6 +147,20 @@ func (t *tui) loadInitialData() *tui {
 
 func (t *tui) updateListTitle() {
 	if t.serverList != nil {
-		t.serverList.SetTitle(" Servers — Sort: " + t.sortMode.String() + " ")
+		hiddenText := "hidden off"
+		if t.showHidden {
+			hiddenText = "hidden on"
+		}
+		t.serverList.SetTitle(" Servers — Sort: " + t.sortMode.String() + " — " + hiddenText + " ")
 	}
+}
+
+func (t *tui) fetchServers(query string, includeHidden bool, sortMode SortMode) ([]domain.Server, int, error) {
+	servers, err := t.serverService.ListServers(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	filtered, hiddenCount := filterServersByHidden(servers, includeHidden)
+	sortServersForUI(filtered, sortMode)
+	return filtered, hiddenCount, nil
 }

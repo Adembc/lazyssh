@@ -148,6 +148,15 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 	return err
 }
 
+// SetHidden sets or clears the hidden state for the given server alias.
+func (s *serverService) SetHidden(alias string, hidden bool) error {
+	err := s.serverRepository.SetHidden(alias, hidden)
+	if err != nil {
+		s.logger.Errorw("failed to set hidden state", "error", err, "alias", alias, "hidden", hidden)
+	}
+	return err
+}
+
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)

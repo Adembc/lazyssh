@@ -295,10 +295,12 @@ func (r *Repository) mapDebugConfig(server *domain.Server, key, value string) bo
 func (r *Repository) mergeMetadata(servers []domain.Server, metadata map[string]ServerMetadata) []domain.Server {
 	for i, server := range servers {
 		servers[i].LastSeen = time.Time{}
+		servers[i].Hidden = false
 
 		if meta, exists := metadata[server.Alias]; exists {
 			servers[i].Tags = meta.Tags
 			servers[i].SSHCount = meta.SSHCount
+			servers[i].Hidden = meta.Hidden
 
 			if meta.LastSeen != "" {
 				if lastSeen, err := time.Parse(time.RFC3339, meta.LastSeen); err == nil {
