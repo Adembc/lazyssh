@@ -83,10 +83,10 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
+		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n  Source: [white]%s[-]\n  Read-only: [white]%t[-]\n",
 		aliasText, hostText, userText, portText,
 		serverKey, tagsText, pinnedStr,
-		lastSeen, server.SSHCount)
+		lastSeen, server.SSHCount, server.SourceFile, server.Readonly)
 
 	// Advanced settings section (only show non-empty fields)
 	// Organized by logical grouping for better readability
