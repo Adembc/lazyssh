@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
@@ -44,28 +45,206 @@ func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) port
 	}
 }
 
-// ListServers returns a list of servers sorted with pinned on top.
+// ListServers returns servers. With empty query, keep pinned-first default ordering.
+// With non-empty query, perform fuzzy subsequence matching and rank by relevance.
 func (s *serverService) ListServers(query string) ([]domain.Server, error) {
-	servers, err := s.serverRepository.ListServers(query)
+	q := strings.TrimSpace(query)
+	if q == "" {
+		servers, err := s.serverRepository.ListServers("")
+		if err != nil {
+			s.logger.Errorw("failed to list servers", "error", err)
+			return nil, err
+		}
+		// Sort: pinned first (PinnedAt non-zero), then by PinnedAt desc, then by Alias asc.
+		sort.SliceStable(servers, func(i, j int) bool {
+			pi := !servers[i].PinnedAt.IsZero()
+			pj := !servers[j].PinnedAt.IsZero()
+			if pi != pj {
+				return pi
+			}
+			if pi && pj {
+				return servers[i].PinnedAt.After(servers[j].PinnedAt)
+			}
+			ai := strings.ToLower(servers[i].Alias)
+			aj := strings.ToLower(servers[j].Alias)
+			if ai != aj {
+				return ai < aj
+			}
+			return servers[i].Alias < servers[j].Alias
+		})
+		return servers, nil
+	}
+
+	// Non-empty query: fetch all and rank via fuzzy scoring.
+	all, err := s.serverRepository.ListServers("")
 	if err != nil {
 		s.logger.Errorw("failed to list servers", "error", err)
 		return nil, err
 	}
 
-	// Sort: pinned first (PinnedAt non-zero), then by PinnedAt desc, then by Alias asc.
-	sort.SliceStable(servers, func(i, j int) bool {
-		pi := !servers[i].PinnedAt.IsZero()
-		pj := !servers[j].PinnedAt.IsZero()
+	type scored struct {
+		srv   domain.Server
+		score int
+	}
+	results := make([]scored, 0, len(all))
+	for _, srv := range all {
+		score := computeServerScore(srv, q)
+		if score > 0 {
+			results = append(results, scored{srv: srv, score: score})
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].score != results[j].score {
+			return results[i].score > results[j].score
+		}
+		pi := !results[i].srv.PinnedAt.IsZero()
+		pj := !results[j].srv.PinnedAt.IsZero()
 		if pi != pj {
 			return pi
 		}
 		if pi && pj {
-			return servers[i].PinnedAt.After(servers[j].PinnedAt)
+			if !results[i].srv.PinnedAt.Equal(results[j].srv.PinnedAt) {
+				return results[i].srv.PinnedAt.After(results[j].srv.PinnedAt)
+			}
 		}
-		return servers[i].Alias < servers[j].Alias
+		ai := strings.ToLower(results[i].srv.Alias)
+		aj := strings.ToLower(results[j].srv.Alias)
+		if ai != aj {
+			return ai < aj
+		}
+		return results[i].srv.Alias < results[j].srv.Alias
 	})
 
-	return servers, nil
+	out := make([]domain.Server, 0, len(results))
+	for _, r := range results {
+		out = append(out, r.srv)
+	}
+	return out, nil
+}
+
+func computeServerScore(srv domain.Server, q string) int {
+	best := 0
+	fields := []string{
+		srv.Alias,
+		srv.Host,
+		srv.User,
+	}
+	if len(srv.Aliases) > 0 {
+		fields = append(fields, strings.Join(srv.Aliases, " "))
+	}
+	if len(srv.Tags) > 0 {
+		fields = append(fields, strings.Join(srv.Tags, " "))
+	}
+	for _, f := range fields {
+		if f == "" {
+			continue
+		}
+		if sc := fuzzyScore(q, f); sc > best {
+			best = sc
+		}
+	}
+	return best
+}
+
+// fuzzyScore computes a VS Code–like fuzzy subsequence score for q against s.
+// Returns 0 if q is not a subsequence of s (case-insensitive).
+func fuzzyScore(q, s string) int {
+	if q == "" || s == "" {
+		return 0
+	}
+
+	// Preprocess to run subsequence on lowercased forms, but keep original for case bonuses.
+	ql := []rune(strings.ToLower(q))
+	sl := []rune(strings.ToLower(s))
+	sr := []rune(s)
+
+	positions := make([]int, 0, len(ql))
+	si := 0
+	for qi := 0; qi < len(ql); qi++ {
+		found := -1
+		for ; si < len(sl); si++ {
+			if sl[si] == ql[qi] {
+				found = si
+				positions = append(positions, si)
+				si++
+				break
+			}
+		}
+		if found == -1 {
+			return 0 // not a subsequence
+		}
+	}
+
+	if len(positions) == 0 {
+		return 0
+	}
+
+	score := 0
+
+	// Base: +1 per matched char
+	score += len(positions)
+
+	// Early start bonus
+	startIdx := positions[0]
+	if startIdx < 20 {
+		score += (20 - startIdx)
+	}
+
+	// Adjacency bonus and gap penalty
+	totalGapPenalty := 0
+	for i := 1; i < len(positions); i++ {
+		if positions[i] == positions[i-1]+1 {
+			score += 5
+		} else {
+			gap := positions[i] - positions[i-1] - 1
+			if gap > 0 {
+				totalGapPenalty += gap
+			}
+		}
+	}
+	if totalGapPenalty > 15 {
+		totalGapPenalty = 15
+	}
+	score -= totalGapPenalty
+
+	// Word boundary bonus and case-sensitive bonus
+	for idx, pos := range positions {
+		var prev rune
+		if pos > 0 {
+			prev = sr[pos-1]
+		}
+		curr := sr[pos]
+		if isWordBoundary(prev, curr, pos) {
+			if pos == 0 {
+				score += 8
+			} else {
+				score += 6
+			}
+		}
+		// Case bonus if rune matches exactly (same case) at this position.
+		if idx < len([]rune(q)) {
+			if []rune(q)[idx] == curr {
+				score += 1
+			}
+		}
+	}
+
+	return score
+}
+
+func isWordBoundary(prev, curr rune, idx int) bool {
+	if idx == 0 {
+		return true
+	}
+	if prev == '-' || prev == '_' || prev == '.' || prev == '/' || unicode.IsSpace(prev) {
+		return true
+	}
+	// camelCase boundary: previous is lower and current is upper
+	if unicode.IsLower(prev) && unicode.IsUpper(curr) {
+		return true
+	}
+	return false
 }
 
 // validateServer performs core validation of server fields.
