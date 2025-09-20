@@ -16,7 +16,10 @@ package services
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -34,6 +37,7 @@ import (
 type serverService struct {
 	serverRepository ports.ServerRepository
 	logger           *zap.SugaredLogger
+	newSSHCommand    func(alias string) *exec.Cmd
 }
 
 // NewServerService creates a new instance of serverService.
@@ -41,6 +45,9 @@ func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) port
 	return &serverService{
 		logger:           logger,
 		serverRepository: sr,
+		newSSHCommand: func(alias string) *exec.Cmd {
+			return exec.Command("ssh", alias)
+		},
 	}
 }
 
@@ -151,13 +158,23 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
-	cmd := exec.Command("ssh", alias)
+	cmd := s.newSSHCommand(alias)
+	if cmd == nil {
+		err := fmt.Errorf("ssh command factory returned nil")
+		s.logger.Errorw("ssh command creation failed", "alias", alias, "error", err)
+		return err
+	}
+	stderrBuf := newLimitedBuffer(2048)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = io.MultiWriter(os.Stderr, stderrBuf)
 	if err := cmd.Run(); err != nil {
-		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
-		return err
+		if isRemoteDisconnectError(err, stderrBuf.String()) {
+			s.logger.Infow("ssh session ended by remote", "alias", alias)
+		} else {
+			s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
+			return err
+		}
 	}
 
 	if err := s.serverRepository.RecordSSH(alias); err != nil {
@@ -166,6 +183,63 @@ func (s *serverService) SSH(alias string) error {
 
 	s.logger.Infow("ssh end", "alias", alias)
 	return nil
+}
+
+func isRemoteDisconnectError(err error, stderr string) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+
+	lower := strings.ToLower(stderr)
+	disconnectSignals := []string{
+		"connection closed by remote host",
+		"connection closed by foreign host",
+		"closed by remote host",
+		"closed by foreign host",
+		"connection reset by peer",
+	}
+
+	for _, signal := range disconnectSignals {
+		if strings.Contains(lower, signal) {
+			return true
+		}
+	}
+
+	return false
+}
+
+type limitedBuffer struct {
+	buf   bytes.Buffer
+	limit int
+}
+
+func newLimitedBuffer(limit int) *limitedBuffer {
+	return &limitedBuffer{limit: limit}
+}
+
+func (b *limitedBuffer) Write(p []byte) (int, error) {
+	if b == nil || b.limit <= 0 {
+		return len(p), nil
+	}
+
+	remaining := b.limit - b.buf.Len()
+	if remaining <= 0 {
+		return len(p), nil
+	}
+
+	if len(p) > remaining {
+		p = p[:remaining]
+	}
+
+	return b.buf.Write(p)
+}
+
+func (b *limitedBuffer) String() string {
+	if b == nil {
+		return ""
+	}
+	return b.buf.String()
 }
 
 // Ping checks if the server is reachable on its SSH port.
