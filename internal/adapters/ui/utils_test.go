@@ -171,3 +171,33 @@ func TestBuildSSHCommand_CompleteCommand(t *testing.T) {
 		t.Errorf("Command should contain 'admin@example.com', got: %q", result)
 	}
 }
+
+func TestFilterServersByHidden(t *testing.T) {
+	servers := []domain.Server{
+		{Alias: "a", Hidden: false},
+		{Alias: "b", Hidden: true},
+		{Alias: "c", Hidden: true},
+		{Alias: "d", Hidden: false},
+	}
+
+	filtered, hiddenCount := filterServersByHidden(servers, false)
+	if hiddenCount != 2 {
+		t.Fatalf("expected hiddenCount=2, got %d", hiddenCount)
+	}
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 visible servers, got %d", len(filtered))
+	}
+	for _, srv := range filtered {
+		if srv.Hidden {
+			t.Fatalf("expected filtered servers to exclude hidden ones, got %+v", srv)
+		}
+	}
+
+	filtered, hiddenCount = filterServersByHidden(servers, true)
+	if hiddenCount != 2 {
+		t.Fatalf("expected hiddenCount to remain 2 when including hidden, got %d", hiddenCount)
+	}
+	if len(filtered) != len(servers) {
+		t.Fatalf("expected all servers when including hidden, got %d", len(filtered))
+	}
+}

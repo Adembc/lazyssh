@@ -18,6 +18,7 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 - ✏ Edit existing server entries directly from the UI with a tabbed interface.
 - 🗑 Delete server entries safely.
 - 📌 Pin / unpin servers to keep favorites at the top.
+- 👻 Hide servers you rarely use and toggle their visibility on demand.
 - 🏓 Ping server to check status.
 
 ### Quick Server Navigation

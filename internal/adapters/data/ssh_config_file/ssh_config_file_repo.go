@@ -160,6 +160,11 @@ func (r *Repository) SetPinned(alias string, pinned bool) error {
 	return r.metadataManager.setPinned(alias, pinned)
 }
 
+// SetHidden sets or unsets the hidden status of a server.
+func (r *Repository) SetHidden(alias string, hidden bool) error {
+	return r.metadataManager.setHidden(alias, hidden)
+}
+
 // RecordSSH increments the SSH access count and updates the last seen timestamp for a server.
 func (r *Repository) RecordSSH(alias string) error {
 	return r.metadataManager.recordSSH(alias)
