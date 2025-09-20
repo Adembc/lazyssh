@@ -23,6 +23,7 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 ### Quick Server Navigation
 - 🔍 Fuzzy search by alias, IP, or tags.
 - 🖥 One‑keypress SSH into the selected server (Enter).
+- 📋 Copy SSH command to clipboard & paste SSH commands from clipboard to quickly add servers.
 - 🏷 Tag servers (e.g., prod, dev, test) for quick filtering.
 - ↕️ Sort by alias or last SSH (toggle + reverse).
 
@@ -168,6 +169,7 @@ make run
 | ↑↓/jk | Navigate servers              |
 | Enter | SSH into selected server      |
 | c     | Copy SSH command to clipboard |
+| v     | Paste SSH command from clipboard |
 | g     | Ping selected server          |
 | r     | Refresh background data       |
 | a     | Add server                    |

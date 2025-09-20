@@ -123,7 +123,12 @@ func humanizeDuration(t time.Time) string {
 // BuildSSHCommand constructs a ready-to-run ssh command for the given server.
 // Format: ssh [options] [user@]host [command]
 func BuildSSHCommand(s domain.Server) string {
-	parts := []string{"ssh"}
+	// Start with alias and tags comment for easy parsing when pasting
+	comment := "# lazyssh-alias:" + s.Alias
+	if len(s.Tags) > 0 {
+		comment += " tags:" + strings.Join(s.Tags, ",")
+	}
+	parts := []string{comment, "\nssh"}
 
 	// Add proxy and connection options
 	addProxyOptions(&parts, s)
