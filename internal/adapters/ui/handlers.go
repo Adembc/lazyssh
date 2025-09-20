@@ -54,6 +54,12 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'p':
 		t.handleServerPin()
 		return nil
+	case 'h':
+		t.handleServerHideToggle()
+		return nil
+	case 'H':
+		t.handleToggleHiddenVisibility()
+		return nil
 	case 's':
 		t.handleSortToggle()
 		return nil
@@ -98,6 +104,33 @@ func (t *tui) handleServerPin() {
 		_ = t.serverService.SetPinned(server.Alias, pinned)
 		t.refreshServerList()
 	}
+}
+
+func (t *tui) handleServerHideToggle() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+		hidden := !server.Hidden
+		if err := t.serverService.SetHidden(server.Alias, hidden); err != nil {
+			t.showStatusTempColor(fmt.Sprintf("Failed to update hidden state: %v", err), "#FF6B6B")
+			return
+		}
+		if hidden {
+			t.showStatusTemp("Hidden " + server.Alias)
+		} else {
+			t.showStatusTemp("Unhid " + server.Alias)
+		}
+		t.refreshServerList()
+	}
+}
+
+func (t *tui) handleToggleHiddenVisibility() {
+	t.showHidden = !t.showHidden
+	state := "off"
+	if t.showHidden {
+		state = "on"
+	}
+	t.updateListTitle()
+	t.refreshServerList()
+	t.showStatusTemp("Hidden hosts: " + state)
 }
 
 func (t *tui) handleSortToggle() {
@@ -155,8 +188,11 @@ func (t *tui) handleNavigateUp() {
 }
 
 func (t *tui) handleSearchInput(query string) {
-	filtered, _ := t.serverService.ListServers(query)
-	sortServersForUI(filtered, t.sortMode)
+	filtered, _, err := t.fetchServers(query, t.showHidden, t.sortMode)
+	if err != nil {
+		t.showStatusTempColor(fmt.Sprintf("Search failed: %v", err), "#FF6B6B")
+		return
+	}
 	t.serverList.UpdateServers(filtered)
 	if len(filtered) == 0 {
 		t.details.ShowEmpty()
@@ -271,15 +307,14 @@ func (t *tui) handleRefreshBackground() {
 
 	t.showStatusTemp("Refreshing…")
 
-	go func(prevIdx int, q string) {
-		servers, err := t.serverService.ListServers(q)
+	go func(prevIdx int, q string, includeHidden bool, sortMode SortMode) {
+		servers, hiddenCount, err := t.fetchServers(q, includeHidden, sortMode)
 		if err != nil {
 			t.app.QueueUpdateDraw(func() {
 				t.showStatusTempColor(fmt.Sprintf("Refresh failed: %v", err), "#FF6B6B")
 			})
 			return
 		}
-		sortServersForUI(servers, t.sortMode)
 		t.app.QueueUpdateDraw(func() {
 			t.serverList.UpdateServers(servers)
 			// Try to restore selection if still valid
@@ -289,9 +324,13 @@ func (t *tui) handleRefreshBackground() {
 					t.details.UpdateServer(srv)
 				}
 			}
-			t.showStatusTemp(fmt.Sprintf("Refreshed %d servers", len(servers)))
+			message := fmt.Sprintf("Refreshed %d servers", len(servers))
+			if !t.showHidden && hiddenCount > 0 {
+				message = fmt.Sprintf("Refreshed %d servers (%d hidden)", len(servers), hiddenCount)
+			}
+			t.showStatusTemp(message)
 		})
-	}(currentIdx, query)
+	}(currentIdx, query, t.showHidden, t.sortMode)
 }
 
 // =============================================================================
@@ -397,9 +436,15 @@ func (t *tui) refreshServerList() {
 	if t.searchVisible {
 		query = t.searchBar.InputField.GetText()
 	}
-	filtered, _ := t.serverService.ListServers(query)
-	sortServersForUI(filtered, t.sortMode)
+	filtered, _, err := t.fetchServers(query, t.showHidden, t.sortMode)
+	if err != nil {
+		t.showStatusTempColor(fmt.Sprintf("Refresh failed: %v", err), "#FF6B6B")
+		return
+	}
 	t.serverList.UpdateServers(filtered)
+	if len(filtered) == 0 {
+		t.details.ShowEmpty()
+	}
 }
 
 func (t *tui) returnToMain() {

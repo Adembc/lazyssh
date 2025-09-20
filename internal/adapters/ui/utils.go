@@ -80,8 +80,23 @@ func pinnedIcon(pinnedAt time.Time) string {
 
 func formatServerLine(s domain.Server) (primary, secondary string) {
 	icon := cellPad(pinnedIcon(s.PinnedAt), 2)
-	// Use a consistent color for alias; the icon reflects pinning
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+
+	aliasStyle := "[white::b]"
+	hostStyle := "[#AAAAAA]"
+	statusParts := make([]string, 0, 1)
+	if s.Hidden {
+		aliasStyle = "[#909090::b]"
+		hostStyle = "[#777777]"
+		statusParts = append(statusParts, "🙈 [#FFB347]hidden[-]")
+	}
+
+	status := ""
+	if len(statusParts) > 0 {
+		status = " " + strings.Join(statusParts, "  ")
+	}
+
+	primary = fmt.Sprintf("%s %s%-12s[-] %s%-18s[-] [#888888]Last SSH: %s[-]%s  %s",
+		icon, aliasStyle, s.Alias, hostStyle, s.Host, humanizeDuration(s.LastSeen), status, renderTagBadgesForList(s.Tags))
 	secondary = ""
 	return
 }
@@ -118,6 +133,21 @@ func humanizeDuration(t time.Time) string {
 		years = 1
 	}
 	return fmt.Sprintf("%dy ago", years)
+}
+
+func filterServersByHidden(servers []domain.Server, includeHidden bool) ([]domain.Server, int) {
+	filtered := make([]domain.Server, 0, len(servers))
+	hiddenCount := 0
+	for _, srv := range servers {
+		if srv.Hidden {
+			hiddenCount++
+			if !includeHidden {
+				continue
+			}
+		}
+		filtered = append(filtered, srv)
+	}
+	return filtered, hiddenCount
 }
 
 // BuildSSHCommand constructs a ready-to-run ssh command for the given server.

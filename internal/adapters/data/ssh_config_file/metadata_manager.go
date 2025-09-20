@@ -30,6 +30,7 @@ type ServerMetadata struct {
 	LastSeen string   `json:"last_seen,omitempty"`
 	PinnedAt string   `json:"pinned_at,omitempty"`
 	SSHCount int      `json:"ssh_count,omitempty"`
+	Hidden   bool     `json:"hidden,omitempty"`
 }
 
 type metadataManager struct {
@@ -146,6 +147,20 @@ func (m *metadataManager) setPinned(alias string, pinned bool) error {
 	}
 
 	metadata[alias] = meta
+	return m.saveAll(metadata)
+}
+
+func (m *metadataManager) setHidden(alias string, hidden bool) error {
+	metadata, err := m.loadAll()
+	if err != nil {
+		m.logger.Errorw("failed to load metadata in setHidden", "path", m.filePath, "alias", alias, "hidden", hidden, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
+	}
+
+	meta := metadata[alias]
+	meta.Hidden = hidden
+	metadata[alias] = meta
+
 	return m.saveAll(metadata)
 }
 
