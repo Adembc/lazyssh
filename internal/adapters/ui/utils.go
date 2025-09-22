@@ -73,51 +73,51 @@ func cellPad(s string, width int) string {
 func pinnedIcon(pinnedAt time.Time) string {
 	// Use emojis for a nicer UI; combined with cellPad to keep widths consistent in tview.
 	if pinnedAt.IsZero() {
-		return "📡" // not pinned
+		return "" // not pinned
 	}
-	return "📌" // pinned
+	return "⏺" // pinned
 }
 
 func formatServerLine(s domain.Server) (primary, secondary string) {
 	icon := cellPad(pinnedIcon(s.PinnedAt), 2)
 	// Use a consistent color for alias; the icon reflects pinning
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+	primary = fmt.Sprintf("[red] %s[-][white]%s[-] [green]%s[-] [yellow]%s[-] %s", icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
 	secondary = ""
 	return
 }
 
 func humanizeDuration(t time.Time) string {
 	if t.IsZero() {
-		return "never"
+		return ""
 	}
 	d := time.Since(t)
 	if d < time.Minute {
-		return "just now"
+		return "(just now)"
 	}
 	if d < time.Hour {
 		m := int(d.Minutes())
-		return fmt.Sprintf("%dm ago", m)
+		return fmt.Sprintf("(%dm ago)", m)
 	}
 	if d < 48*time.Hour {
 		h := int(d.Hours())
-		return fmt.Sprintf("%dh ago", h)
+		return fmt.Sprintf("(%dh ago)", h)
 	}
 	if d < 60*24*time.Hour {
 		days := int(d.Hours()) / 24
-		return fmt.Sprintf("%dd ago", days)
+		return fmt.Sprintf("(%dd ago)", days)
 	}
 	if d < 365*24*time.Hour {
 		months := int(d.Hours()) / (24 * 30)
 		if months < 1 {
 			months = 1
 		}
-		return fmt.Sprintf("%dmo ago", months)
+		return fmt.Sprintf("(%dmo ago)", months)
 	}
 	years := int(d.Hours()) / (24 * 365)
 	if years < 1 {
 		years = 1
 	}
-	return fmt.Sprintf("%dy ago", years)
+	return fmt.Sprintf("(%dy ago)", years)
 }
 
 // BuildSSHCommand constructs a ready-to-run ssh command for the given server.

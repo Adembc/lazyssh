@@ -34,7 +34,7 @@ func NewSearchBar() *SearchBar {
 }
 
 func (s *SearchBar) build() {
-	s.InputField.SetLabel(" 🔍 Search: ").
+	s.InputField.SetLabel(" Search: ").
 		SetFieldBackgroundColor(tcell.Color233).
 		SetFieldTextColor(tcell.Color252).
 		SetFieldWidth(30).
