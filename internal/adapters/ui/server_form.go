@@ -2039,22 +2039,30 @@ func (sf *ServerForm) serversDiffer(a, b domain.Server) bool {
 	valB := reflect.ValueOf(b)
 	typeA := valA.Type()
 
-	// Fields to skip during comparison (lazyssh metadata fields)
+	// Special fields to skip that don't have tags
 	skipFields := map[string]bool{
-		"Aliases":  true, // Computed field
-		"LastSeen": true, // Metadata field
-		"PinnedAt": true, // Metadata field
-		"SSHCount": true, // Metadata field
+		"Aliases": true, // Computed field (derived from Host)
 	}
 
 	// Iterate through all fields
 	for i := 0; i < valA.NumField(); i++ {
 		fieldA := valA.Field(i)
 		fieldB := valB.Field(i)
-		fieldName := typeA.Field(i).Name
+		field := typeA.Field(i)
+		fieldName := field.Name
 
-		// Skip unexported fields and metadata fields
-		if !fieldA.CanInterface() || skipFields[fieldName] {
+		// Skip unexported fields
+		if !fieldA.CanInterface() {
+			continue
+		}
+
+		// Skip special fields
+		if skipFields[fieldName] {
+			continue
+		}
+
+		// Check for lazyssh struct tags to skip metadata and transient fields
+		if tag := field.Tag.Get("lazyssh"); tag == "metadata" || tag == "transient" {
 			continue
 		}
 

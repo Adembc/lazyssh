@@ -18,6 +18,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"go.uber.org/zap"
 
+	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/rivo/tview"
 )
@@ -48,6 +49,8 @@ type tui struct {
 
 	sortMode      SortMode
 	searchVisible bool
+
+	pingStatuses map[string]domain.Server // stores ping status for each server
 }
 
 func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) App {
@@ -57,6 +60,7 @@ func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit s
 		serverService: ss,
 		version:       version,
 		commit:        commit,
+		pingStatuses:  make(map[string]domain.Server),
 	}
 }
 
@@ -127,6 +131,14 @@ func (t *tui) buildLayout() *tui {
 
 func (t *tui) bindEvents() *tui {
 	t.root.SetInputCapture(t.handleGlobalKeys)
+
+	// Handle window resize
+	t.app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		// Refresh server list display on resize
+		t.serverList.RefreshDisplay()
+		return false
+	})
+
 	return t
 }
 
