@@ -78,10 +78,19 @@ func pinnedIcon(pinnedAt time.Time) string {
 	return "📌" // pinned
 }
 
+func originIcon(s domain.Server) string {
+	if s.Readonly {
+		return "🔗"
+	}
+	return "🏠"
+}
+
 func formatServerLine(s domain.Server) (primary, secondary string) {
 	icon := cellPad(pinnedIcon(s.PinnedAt), 2)
 	// Use a consistent color for alias; the icon reflects pinning
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+	// Append an origin icon on the right: 🏠 for main file, 🔗 for included (read-only)
+	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] [#888888]Last SSH: %s[-]  %s  %s",
+		icon, s.Alias, s.Host, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags), originIcon(s))
 	secondary = ""
 	return
 }

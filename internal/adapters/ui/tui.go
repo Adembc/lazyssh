@@ -93,7 +93,8 @@ func (t *tui) buildComponents() *tui {
 	t.header = NewAppHeader(t.version, t.commit, RepoURL)
 	t.searchBar = NewSearchBar().
 		OnSearch(t.handleSearchInput).
-		OnEscape(t.hideSearchBar)
+		OnEscape(t.hideSearchBar).
+		OnEnter(t.handleSearchEnter)
 	t.hintBar = NewHintBar()
 	t.serverList = NewServerList().
 		OnSelectionChange(t.handleServerSelectionChange)

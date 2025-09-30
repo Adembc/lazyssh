@@ -15,19 +15,25 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type SearchBar struct {
 	*tview.InputField
-	onSearch func(string)
-	onEscape func()
+	onSearch   func(string)
+	onEscape   func()
+	onEnter    func(string)
+	searchTimer *time.Timer
+	searchDelay time.Duration
 }
 
 func NewSearchBar() *SearchBar {
 	search := &SearchBar{
-		InputField: tview.NewInputField(),
+		InputField:  tview.NewInputField(),
+		searchDelay: 300 * time.Millisecond, // 300ms default delay
 	}
 	search.build()
 	return search
@@ -45,13 +51,30 @@ func (s *SearchBar) build() {
 		SetTitleColor(tcell.Color250)
 
 	s.InputField.SetChangedFunc(func(text string) {
-		if s.onSearch != nil {
-			s.onSearch(text)
+		// Cancel any existing timer
+		if s.searchTimer != nil {
+			s.searchTimer.Stop()
 		}
+		// Start new timer with debounced search
+		s.searchTimer = time.AfterFunc(s.searchDelay, func() {
+			if s.onSearch != nil {
+				s.onSearch(text)
+			}
+		})
 	})
 
 	s.InputField.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEsc || key == tcell.KeyEnter {
+		// Cancel any pending search when done (user pressed Enter/Esc)
+		if s.searchTimer != nil {
+			s.searchTimer.Stop()
+			s.searchTimer = nil
+		}
+		if key == tcell.KeyEnter {
+			if s.onEnter != nil {
+				text := s.InputField.GetText()
+				s.onEnter(text)
+			}
+		} else if key == tcell.KeyEsc {
 			if s.onEscape != nil {
 				s.onEscape()
 			}
@@ -67,4 +90,24 @@ func (s *SearchBar) OnSearch(fn func(string)) *SearchBar {
 func (s *SearchBar) OnEscape(fn func()) *SearchBar {
 	s.onEscape = fn
 	return s
+}
+
+func (s *SearchBar) OnEnter(fn func(string)) *SearchBar {
+	s.onEnter = fn
+	return s
+}
+
+// SetSearchDelay sets the debouncing delay for search operations.
+// delay specifies how long to wait after user stops typing before executing the search.
+func (s *SearchBar) SetSearchDelay(delay time.Duration) *SearchBar {
+	s.searchDelay = delay
+	return s
+}
+
+// Stop stops any pending search timer. Should be called when the search bar is no longer needed.
+func (s *SearchBar) Stop() {
+	if s.searchTimer != nil {
+		s.searchTimer.Stop()
+		s.searchTimer = nil
+	}
 }

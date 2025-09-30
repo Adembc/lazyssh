@@ -127,6 +127,10 @@ func (t *tui) handleCopyCommand() {
 
 func (t *tui) handleTagsEdit() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
+		if server.Readonly {
+			t.showStatusTempColor(fmt.Sprintf("Read-only: %s is defined in %s", server.Alias, server.SourceFile), "#FFCC66")
+			return
+		}
 		t.showEditTagsForm(server)
 	}
 }
@@ -167,6 +171,19 @@ func (t *tui) handleSearchToggle() {
 	t.showSearchBar()
 }
 
+func (t *tui) handleSearchEnter(query string) {
+	// Perform immediate search (same as handleSearchInput)
+	filtered, _ := t.serverService.ListServers(query)
+	sortServersForUI(filtered, t.sortMode)
+	t.serverList.UpdateServers(filtered)
+	if len(filtered) == 0 {
+		t.details.ShowEmpty()
+	}
+
+	// Hide search bar and return focus to server list
+	t.hideSearchBar()
+}
+
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 
@@ -192,6 +209,10 @@ func (t *tui) handleServerAdd() {
 
 func (t *tui) handleServerEdit() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
+		if server.Readonly {
+			t.showStatusTempColor(fmt.Sprintf("Read-only: %s is defined in %s (cannot edit here)", server.Alias, server.SourceFile), "#FFCC66")
+			return
+		}
 		form := NewServerForm(ServerFormEdit, &server).
 			SetApp(t.app).
 			SetVersionInfo(t.version, t.commit).
@@ -226,6 +247,10 @@ func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 
 func (t *tui) handleServerDelete() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
+		if server.Readonly {
+			t.showStatusTempColor(fmt.Sprintf("Read-only: %s is defined in %s (cannot delete here)", server.Alias, server.SourceFile), "#FF6B6B")
+			return
+		}
 		t.showDeleteConfirmModal(server)
 	}
 }

@@ -27,6 +27,9 @@ type Server struct {
 	LastSeen      time.Time
 	PinnedAt      time.Time
 	SSHCount      int
+	// Origin metadata
+	SourceFile string
+	Readonly   bool
 
 	// Additional SSH config fields
 	// Connection and proxy settings

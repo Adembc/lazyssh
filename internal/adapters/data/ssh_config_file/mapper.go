@@ -23,45 +23,6 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
-// toDomainServer converts ssh_config.Config to a slice of domain.Server.
-func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
-	servers := make([]domain.Server, 0, len(cfg.Hosts))
-	for _, host := range cfg.Hosts {
-
-		aliases := make([]string, 0, len(host.Patterns))
-
-		for _, pattern := range host.Patterns {
-			alias := pattern.String()
-			// Skip if alias contains wildcards (not a concrete Host)
-			if strings.ContainsAny(alias, "!*?[]") {
-				continue
-			}
-			aliases = append(aliases, alias)
-		}
-		if len(aliases) == 0 {
-			continue
-		}
-		server := domain.Server{
-			Alias:         aliases[0],
-			Aliases:       aliases,
-			Port:          22,
-			IdentityFiles: []string{},
-		}
-
-		for _, node := range host.Nodes {
-			kvNode, ok := node.(*ssh_config.KV)
-			if !ok {
-				continue
-			}
-
-			r.mapKVToServer(&server, kvNode)
-		}
-
-		servers = append(servers, server)
-	}
-
-	return servers
-}
 
 // mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
 func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV) {
