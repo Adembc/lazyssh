@@ -44,27 +44,29 @@ const (
 )
 
 type ServerForm struct {
-	*tview.Flex               // The root container (includes header, form panel and hint bar)
-	header        *AppHeader  // The app header
-	formPanel     *tview.Flex // The actual form panel
-	pages         *tview.Pages
-	tabBar        *tview.TextView
-	forms         map[string]*tview.Form
-	currentTab    string
-	tabs          []string
-	tabAbbrev     map[string]string // Abbreviated tab names for narrow views
-	mode          ServerFormMode
-	original      *domain.Server
-	onSave        func(domain.Server, *domain.Server)
-	onCancel      func()
-	app           *tview.Application // Reference to app for showing modals
-	version       string             // Version for header
-	commit        string             // Commit for header
-	validation    *ValidationState   // Validation state for all fields
-	helpPanel     *tview.TextView    // Help panel for field descriptions
-	helpMode      HelpDisplayMode    // Current help display mode
-	currentField  string             // Currently focused field
-	mainContainer *tview.Flex        // Container for form and help panel
+	*tview.Flex                 // The root container (includes header, form panel and hint bar)
+	header          *AppHeader  // The app header
+	formPanel       *tview.Flex // The actual form panel
+	pages           *tview.Pages
+	tabBar          *tview.TextView
+	forms           map[string]*tview.Form
+	currentTab      string
+	tabs            []string
+	tabAbbrev       map[string]string // Abbreviated tab names for narrow views
+	mode            ServerFormMode
+	original        *domain.Server
+	initialData     *domain.Server // Initial data for pre-filling form (used in Add mode)
+	existingAliases []string       // List of existing aliases for validation
+	onSave          func(domain.Server, *domain.Server)
+	onCancel        func()
+	app             *tview.Application // Reference to app for showing modals
+	version         string             // Version for header
+	commit          string             // Commit for header
+	validation      *ValidationState   // Validation state for all fields
+	helpPanel       *tview.TextView    // Help panel for field descriptions
+	helpMode        HelpDisplayMode    // Current help display mode
+	currentField    string             // Currently focused field
+	mainContainer   *tview.Flex        // Container for form and help panel
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -906,7 +908,13 @@ func (sf *ServerForm) createAlgorithmAutocomplete(suggestions []string) func(str
 
 // validateField validates a single field and updates the validation state
 func (sf *ServerForm) validateField(fieldName, value string) string {
-	fieldValidators := GetFieldValidators()
+	// Get validators with context for alias checking
+	originalAlias := ""
+	if sf.original != nil {
+		originalAlias = sf.original.Alias
+	}
+	fieldValidators := GetFieldValidatorsWithContext(originalAlias, sf.existingAliases)
+
 	validator, exists := fieldValidators[fieldName]
 	if !exists {
 		// No validator for this field, it's valid
@@ -1064,78 +1072,92 @@ func (sf *ServerForm) validateAllFields() bool {
 
 // getDefaultValues returns default form values based on mode
 func (sf *ServerForm) getDefaultValues() ServerFormData {
+	// Determine which server data to use for defaults
+	var server *domain.Server
 	if sf.mode == ServerFormEdit && sf.original != nil {
+		server = sf.original
+	} else if sf.mode == ServerFormAdd && sf.initialData != nil {
+		server = sf.initialData
+	}
+
+	// Use server values if available
+	if server != nil {
 		return ServerFormData{
-			Alias:                sf.original.Alias,
-			Host:                 sf.original.Host,
-			User:                 sf.original.User,
-			Port:                 fmt.Sprint(sf.original.Port),
-			Key:                  strings.Join(sf.original.IdentityFiles, ", "),
-			Tags:                 strings.Join(sf.original.Tags, ", "),
-			ProxyJump:            sf.original.ProxyJump,
-			ProxyCommand:         sf.original.ProxyCommand,
-			RemoteCommand:        sf.original.RemoteCommand,
-			RequestTTY:           sf.original.RequestTTY,
-			SessionType:          sf.original.SessionType,
-			ConnectTimeout:       sf.original.ConnectTimeout,
-			ConnectionAttempts:   sf.original.ConnectionAttempts,
-			BindAddress:          sf.original.BindAddress,
-			BindInterface:        sf.original.BindInterface,
-			AddressFamily:        sf.original.AddressFamily,
-			ExitOnForwardFailure: sf.original.ExitOnForwardFailure,
-			IPQoS:                sf.original.IPQoS,
+			Alias: server.Alias,
+			Host:  server.Host,
+			User:  server.User,
+			Port: func() string {
+				if server.Port == 0 {
+					return "22" // Default SSH port
+				}
+				return fmt.Sprint(server.Port)
+			}(),
+			Key:                  strings.Join(server.IdentityFiles, ", "),
+			Tags:                 strings.Join(server.Tags, ", "),
+			ProxyJump:            server.ProxyJump,
+			ProxyCommand:         server.ProxyCommand,
+			RemoteCommand:        server.RemoteCommand,
+			RequestTTY:           server.RequestTTY,
+			SessionType:          server.SessionType,
+			ConnectTimeout:       server.ConnectTimeout,
+			ConnectionAttempts:   server.ConnectionAttempts,
+			BindAddress:          server.BindAddress,
+			BindInterface:        server.BindInterface,
+			AddressFamily:        server.AddressFamily,
+			ExitOnForwardFailure: server.ExitOnForwardFailure,
+			IPQoS:                server.IPQoS,
 			// Hostname canonicalization
-			CanonicalizeHostname:        sf.original.CanonicalizeHostname,
-			CanonicalDomains:            sf.original.CanonicalDomains,
-			CanonicalizeFallbackLocal:   sf.original.CanonicalizeFallbackLocal,
-			CanonicalizeMaxDots:         sf.original.CanonicalizeMaxDots,
-			CanonicalizePermittedCNAMEs: sf.original.CanonicalizePermittedCNAMEs,
-			GatewayPorts:                sf.original.GatewayPorts,
-			LocalForward:                strings.Join(sf.original.LocalForward, ", "),
-			RemoteForward:               strings.Join(sf.original.RemoteForward, ", "),
-			DynamicForward:              strings.Join(sf.original.DynamicForward, ", "),
-			ClearAllForwardings:         sf.original.ClearAllForwardings,
+			CanonicalizeHostname:        server.CanonicalizeHostname,
+			CanonicalDomains:            server.CanonicalDomains,
+			CanonicalizeFallbackLocal:   server.CanonicalizeFallbackLocal,
+			CanonicalizeMaxDots:         server.CanonicalizeMaxDots,
+			CanonicalizePermittedCNAMEs: server.CanonicalizePermittedCNAMEs,
+			GatewayPorts:                server.GatewayPorts,
+			LocalForward:                strings.Join(server.LocalForward, ", "),
+			RemoteForward:               strings.Join(server.RemoteForward, ", "),
+			DynamicForward:              strings.Join(server.DynamicForward, ", "),
+			ClearAllForwardings:         server.ClearAllForwardings,
 			// Public key
-			PubkeyAuthentication: sf.original.PubkeyAuthentication,
-			IdentitiesOnly:       sf.original.IdentitiesOnly,
+			PubkeyAuthentication: server.PubkeyAuthentication,
+			IdentitiesOnly:       server.IdentitiesOnly,
 			// SSH Agent
-			AddKeysToAgent: sf.original.AddKeysToAgent,
-			IdentityAgent:  sf.original.IdentityAgent,
+			AddKeysToAgent: server.AddKeysToAgent,
+			IdentityAgent:  server.IdentityAgent,
 			// Password & Interactive
-			PasswordAuthentication:       sf.original.PasswordAuthentication,
-			KbdInteractiveAuthentication: sf.original.KbdInteractiveAuthentication,
-			NumberOfPasswordPrompts:      sf.original.NumberOfPasswordPrompts,
+			PasswordAuthentication:       server.PasswordAuthentication,
+			KbdInteractiveAuthentication: server.KbdInteractiveAuthentication,
+			NumberOfPasswordPrompts:      server.NumberOfPasswordPrompts,
 			// Advanced
-			PreferredAuthentications:    sf.original.PreferredAuthentications,
-			ForwardAgent:                sf.original.ForwardAgent,
-			ForwardX11:                  sf.original.ForwardX11,
-			ForwardX11Trusted:           sf.original.ForwardX11Trusted,
-			ControlMaster:               sf.original.ControlMaster,
-			ControlPath:                 sf.original.ControlPath,
-			ControlPersist:              sf.original.ControlPersist,
-			ServerAliveInterval:         sf.original.ServerAliveInterval,
-			ServerAliveCountMax:         sf.original.ServerAliveCountMax,
-			Compression:                 sf.original.Compression,
-			TCPKeepAlive:                sf.original.TCPKeepAlive,
-			BatchMode:                   sf.original.BatchMode,
-			StrictHostKeyChecking:       sf.original.StrictHostKeyChecking,
-			UserKnownHostsFile:          sf.original.UserKnownHostsFile,
-			HostKeyAlgorithms:           sf.original.HostKeyAlgorithms,
-			PubkeyAcceptedAlgorithms:    sf.original.PubkeyAcceptedAlgorithms,
-			HostbasedAcceptedAlgorithms: sf.original.HostbasedAcceptedAlgorithms,
-			MACs:                        sf.original.MACs,
-			Ciphers:                     sf.original.Ciphers,
-			KexAlgorithms:               sf.original.KexAlgorithms,
-			VerifyHostKeyDNS:            sf.original.VerifyHostKeyDNS,
-			UpdateHostKeys:              sf.original.UpdateHostKeys,
-			HashKnownHosts:              sf.original.HashKnownHosts,
-			VisualHostKey:               sf.original.VisualHostKey,
-			LocalCommand:                sf.original.LocalCommand,
-			PermitLocalCommand:          sf.original.PermitLocalCommand,
-			EscapeChar:                  sf.original.EscapeChar,
-			SendEnv:                     strings.Join(sf.original.SendEnv, ", "),
-			SetEnv:                      strings.Join(sf.original.SetEnv, ", "),
-			LogLevel:                    sf.original.LogLevel,
+			PreferredAuthentications:    server.PreferredAuthentications,
+			ForwardAgent:                server.ForwardAgent,
+			ForwardX11:                  server.ForwardX11,
+			ForwardX11Trusted:           server.ForwardX11Trusted,
+			ControlMaster:               server.ControlMaster,
+			ControlPath:                 server.ControlPath,
+			ControlPersist:              server.ControlPersist,
+			ServerAliveInterval:         server.ServerAliveInterval,
+			ServerAliveCountMax:         server.ServerAliveCountMax,
+			Compression:                 server.Compression,
+			TCPKeepAlive:                server.TCPKeepAlive,
+			BatchMode:                   server.BatchMode,
+			StrictHostKeyChecking:       server.StrictHostKeyChecking,
+			UserKnownHostsFile:          server.UserKnownHostsFile,
+			HostKeyAlgorithms:           server.HostKeyAlgorithms,
+			PubkeyAcceptedAlgorithms:    server.PubkeyAcceptedAlgorithms,
+			HostbasedAcceptedAlgorithms: server.HostbasedAcceptedAlgorithms,
+			MACs:                        server.MACs,
+			Ciphers:                     server.Ciphers,
+			KexAlgorithms:               server.KexAlgorithms,
+			VerifyHostKeyDNS:            server.VerifyHostKeyDNS,
+			UpdateHostKeys:              server.UpdateHostKeys,
+			HashKnownHosts:              server.HashKnownHosts,
+			VisualHostKey:               server.VisualHostKey,
+			LocalCommand:                server.LocalCommand,
+			PermitLocalCommand:          server.PermitLocalCommand,
+			EscapeChar:                  server.EscapeChar,
+			SendEnv:                     strings.Join(server.SendEnv, ", "),
+			SetEnv:                      strings.Join(server.SetEnv, ", "),
+			LogLevel:                    server.LogLevel,
 		}
 	}
 	// For new servers, use empty values instead of SSH defaults
@@ -2008,28 +2030,28 @@ func (sf *ServerForm) handleCancel() {
 
 // hasUnsavedChanges checks if current form data differs from original
 func (sf *ServerForm) hasUnsavedChanges() bool {
-	// If creating new server, any non-empty required fields mean changes
+	// If we have original data to compare against (Edit mode or Add with paste)
+	if sf.original != nil {
+		currentData := sf.getFormData()
+		currentServer := sf.dataToServer(currentData)
+
+		// Use DeepEqual for simple comparison first
+		if reflect.DeepEqual(currentServer, *sf.original) {
+			return false
+		}
+
+		// If DeepEqual says they're different, use our custom comparison
+		// that handles nil vs empty slice and other normalization
+		return sf.serversDiffer(currentServer, *sf.original)
+	}
+
+	// For new servers without original (regular Add), check if any data has been entered
 	if sf.mode == ServerFormAdd {
 		data := sf.getFormData()
 		return data.Alias != "" || data.Host != "" || data.User != ""
 	}
 
-	// If editing, compare with original
-	if sf.original == nil {
-		return false
-	}
-
-	currentData := sf.getFormData()
-	currentServer := sf.dataToServer(currentData)
-
-	// Use DeepEqual for simple comparison first
-	if reflect.DeepEqual(currentServer, *sf.original) {
-		return false
-	}
-
-	// If DeepEqual says they're different, use our custom comparison
-	// that handles nil vs empty slice and other normalization
-	return sf.serversDiffer(currentServer, *sf.original)
+	return false
 }
 
 // serversDiffer compares two servers for differences using reflection
@@ -2270,6 +2292,17 @@ func (sf *ServerForm) OnCancel(fn func()) *ServerForm {
 
 func (sf *ServerForm) SetApp(app *tview.Application) *ServerForm {
 	sf.app = app
+	return sf
+}
+
+func (sf *ServerForm) SetExistingAliases(aliases []string) *ServerForm {
+	sf.existingAliases = aliases
+	return sf
+}
+
+// SetInitialData sets initial data for pre-filling the form in Add mode
+func (sf *ServerForm) SetInitialData(server *domain.Server) *ServerForm {
+	sf.initialData = server
 	return sf
 }
 

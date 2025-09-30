@@ -115,9 +115,10 @@ func TestBuildSSHCommand_PortForwarding(t *testing.T) {
 				}
 			}
 
-			// Additional check: ensure the command starts with "ssh"
-			if !strings.HasPrefix(result, "ssh ") {
-				t.Errorf("BuildSSHCommand() should start with 'ssh ', got: %q", result)
+			// Additional check: ensure the command contains "ssh" command
+			// Now it includes alias comment, so check for "\nssh " or just "ssh " at the beginning
+			if !strings.Contains(result, "\nssh ") && !strings.HasPrefix(result, "ssh ") {
+				t.Errorf("BuildSSHCommand() should contain 'ssh ' command, got: %q", result)
 			}
 		})
 	}
@@ -129,6 +130,7 @@ func TestBuildSSHCommand_CompleteCommand(t *testing.T) {
 		Host:           "example.com",
 		User:           "admin",
 		Port:           2222,
+		Tags:           []string{"production", "web"},
 		LocalForward:   []string{"8080:localhost:80", "3306:db.internal:3306"},
 		RemoteForward:  []string{"9090:localhost:9090"},
 		DynamicForward: []string{"1080"},
@@ -138,8 +140,14 @@ func TestBuildSSHCommand_CompleteCommand(t *testing.T) {
 	result := BuildSSHCommand(server)
 
 	// Check command structure
-	if !strings.HasPrefix(result, "ssh ") {
-		t.Errorf("Command should start with 'ssh ', got: %q", result)
+	// Check for alias and tags comment
+	if !strings.HasPrefix(result, "# lazyssh-alias:myserver tags:production,web") {
+		t.Errorf("Command should start with alias and tags comment, got: %q", result)
+	}
+
+	// Check command contains ssh (now with alias comment)
+	if !strings.Contains(result, "\nssh ") {
+		t.Errorf("Command should contain 'ssh ' after alias comment, got: %q", result)
 	}
 
 	// Check port

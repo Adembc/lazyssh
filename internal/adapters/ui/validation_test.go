@@ -17,6 +17,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -325,5 +326,84 @@ func TestValidationState_Clear(t *testing.T) {
 
 	if state.GetErrorCount() != 0 {
 		t.Errorf("Expected error count to be 0, got %d", state.GetErrorCount())
+	}
+}
+
+func TestAliasValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		alias           string
+		originalAlias   string
+		existingAliases []string
+		wantErr         bool
+		errContains     string
+	}{
+		{
+			name:            "valid new alias",
+			alias:           "newserver",
+			originalAlias:   "",
+			existingAliases: []string{"server1", "server2"},
+			wantErr:         false,
+		},
+		{
+			name:            "duplicate alias",
+			alias:           "server1",
+			originalAlias:   "",
+			existingAliases: []string{"server1", "server2"},
+			wantErr:         true,
+			errContains:     "already exists",
+		},
+		{
+			name:            "edit mode - same alias allowed",
+			alias:           "server1",
+			originalAlias:   "server1",
+			existingAliases: []string{"server1", "server2"},
+			wantErr:         false,
+		},
+		{
+			name:            "edit mode - changed to duplicate",
+			alias:           "server2",
+			originalAlias:   "server1",
+			existingAliases: []string{"server1", "server2"},
+			wantErr:         true,
+			errContains:     "already exists",
+		},
+		{
+			name:            "no existing aliases",
+			alias:           "anyserver",
+			originalAlias:   "",
+			existingAliases: nil,
+			wantErr:         false,
+		},
+		{
+			name:            "empty existing aliases",
+			alias:           "anyserver",
+			originalAlias:   "",
+			existingAliases: []string{},
+			wantErr:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validators := GetFieldValidatorsWithContext(tt.originalAlias, tt.existingAliases)
+			aliasValidator := validators["Alias"]
+
+			var err error
+			if aliasValidator.Validate != nil {
+				err = aliasValidator.Validate(tt.alias)
+			}
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("alias validation error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err != nil && tt.errContains != "" {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error message = %v, want to contain %v", err.Error(), tt.errContains)
+				}
+			}
+		})
 	}
 }
