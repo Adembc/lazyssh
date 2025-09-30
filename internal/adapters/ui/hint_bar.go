@@ -22,6 +22,6 @@ import (
 func NewHintBar() *tview.TextView {
 	hint := tview.NewTextView().SetDynamicColors(true)
 	hint.SetBackgroundColor(tcell.Color233)
-	hint.SetText("[#BBBBBB]Press [::b]/[-:-:b] to search…  •  ↑↓ Navigate  •  Enter SSH  •  c Copy SSH  •  g Ping  •  r Refresh  •  a Add  •  e Edit  •  t Tags  •  d Delete  •  p Pin/Unpin  •  s Sort[-]")
+	hint.SetText(" [red]/[-] Search [red]↑↓[-] Navigate [red]Enter[-] SSH [red]c[-] Copy [red]g[-] Ping [red]r[-] Refresh [red]a[-] Add [red]e[-] Edit [red]t[-] Tags [red]d[-] Delete [red]p[-] Pin/Unpin [red]s[-] Sort")
 	return hint
 }

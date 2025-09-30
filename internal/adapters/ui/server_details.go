@@ -60,7 +60,7 @@ func renderTagChips(tags []string) string {
 func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	lastSeen := server.LastSeen.Format("2006-01-02 15:04:05")
 	if server.LastSeen.IsZero() {
-		lastSeen = "Never"
+		lastSeen = "never"
 	}
 	serverKey := strings.Join(server.IdentityFiles, ", ")
 
@@ -83,7 +83,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
+		"[yellow::b]%s[-::-]\n\n[::b]Basic Settings[-::-]\n\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
 		aliasText, hostText, userText, portText,
 		serverKey, tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
@@ -197,7 +197,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 
 	// Build advanced settings text without group labels for cleaner display
 	hasAdvanced := false
-	advancedText := "\n[::b]Advanced Settings:[-]\n"
+	advancedText := "\n[::b]Advanced Settings[-::-]\n\n"
 
 	for _, group := range groups {
 		for _, field := range group.fields {
@@ -213,7 +213,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	// Commands list
-	text += "\n[::b]Commands:[-]\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin"
+	text += "\n[::b]Commands[-::-]\n\n  Enter: SSH connect\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin"
 
 	sd.TextView.SetText(text)
 }

@@ -16,7 +16,6 @@ package ui
 
 import (
 	"strings"
-	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -98,8 +97,7 @@ func (h *AppHeader) buildRightSection(bg tcell.Color) *tview.TextView {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignRight)
 	right.SetBackgroundColor(bg)
-	currentTime := time.Now().Format("Mon, 02 Jan 2006 15:04")
-	right.SetText("[#55AAFF::u]🔗 " + h.repoURL + "[-]  [#AAAAAA]• " + currentTime + "[-]")
+	right.SetText("[#55AAFF::u]" + h.repoURL + "[-]")
 	return right
 }
 
