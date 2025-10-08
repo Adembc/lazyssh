@@ -198,7 +198,7 @@ func (t *tui) handleSearchNavigate(direction int) {
 			if currentIdx < itemCount-1 {
 				t.serverList.SetCurrentItem(currentIdx + 1)
 			} else {
-				t.serverList.SetCurrentItem(0) 
+				t.serverList.SetCurrentItem(0)
 			}
 		} else {
 			if currentIdx > 0 {

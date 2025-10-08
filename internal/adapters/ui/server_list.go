@@ -57,7 +57,7 @@ func (sl *ServerList) build() {
 	sl.List.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		//nolint:exhaustive // We only handle specific keys and pass through others
 		switch event.Key() {
-		case tcell.KeyLeft, tcell.KeyRight:
+		case tcell.KeyLeft, tcell.KeyRight, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyESC:
 			if sl.onReturnToSearch != nil {
 				sl.onReturnToSearch()
 			}
