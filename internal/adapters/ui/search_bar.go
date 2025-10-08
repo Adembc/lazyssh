@@ -21,8 +21,9 @@ import (
 
 type SearchBar struct {
 	*tview.InputField
-	onSearch func(string)
-	onEscape func()
+	onSearch   func(string)
+	onEscape   func()
+	onNavigate func(direction int) // -1 for up, 1 for down
 }
 
 func NewSearchBar() *SearchBar {
@@ -57,6 +58,24 @@ func (s *SearchBar) build() {
 			}
 		}
 	})
+
+	s.InputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		//nolint:exhaustive // We only handle arrow keys and pass through others
+		switch event.Key() {
+		case tcell.KeyDown:
+			if s.onNavigate != nil {
+				s.onNavigate(1)
+			}
+			return nil
+		case tcell.KeyUp:
+			if s.onNavigate != nil {
+				s.onNavigate(-1)
+			}
+			return nil
+		default:
+			return event
+		}
+	})
 }
 
 func (s *SearchBar) OnSearch(fn func(string)) *SearchBar {
@@ -66,5 +85,10 @@ func (s *SearchBar) OnSearch(fn func(string)) *SearchBar {
 
 func (s *SearchBar) OnEscape(fn func()) *SearchBar {
 	s.onEscape = fn
+	return s
+}
+
+func (s *SearchBar) OnNavigate(fn func(direction int)) *SearchBar {
+	s.onNavigate = fn
 	return s
 }

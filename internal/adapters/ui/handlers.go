@@ -183,6 +183,43 @@ func (t *tui) handleSearchFocus() {
 	}
 }
 
+func (t *tui) handleSearchNavigate(direction int) {
+	if t.serverList != nil {
+		t.app.SetFocus(t.serverList)
+
+		currentIdx := t.serverList.GetCurrentItem()
+		itemCount := t.serverList.GetItemCount()
+
+		if itemCount == 0 {
+			return
+		}
+
+		if direction > 0 {
+			if currentIdx < itemCount-1 {
+				t.serverList.SetCurrentItem(currentIdx + 1)
+			} else {
+				t.serverList.SetCurrentItem(0) 
+			}
+		} else {
+			if currentIdx > 0 {
+				t.serverList.SetCurrentItem(currentIdx - 1)
+			} else {
+				t.serverList.SetCurrentItem(itemCount - 1)
+			}
+		}
+
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			t.details.UpdateServer(server)
+		}
+	}
+}
+
+func (t *tui) handleReturnToSearch() {
+	if t.searchBar != nil {
+		t.app.SetFocus(t.searchBar)
+	}
+}
+
 func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 

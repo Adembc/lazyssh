@@ -91,11 +91,13 @@ func (t *tui) buildComponents() *tui {
 	t.header = NewAppHeader(t.version, t.commit, RepoURL)
 	t.searchBar = NewSearchBar().
 		OnSearch(t.handleSearchInput).
-		OnEscape(t.blurSearchBar)
+		OnEscape(t.blurSearchBar).
+		OnNavigate(t.handleSearchNavigate)
 	IsForwarding = t.serverService.IsForwarding
 
 	t.serverList = NewServerList().
-		OnSelectionChange(t.handleServerSelectionChange)
+		OnSelectionChange(t.handleServerSelectionChange).
+		OnReturnToSearch(t.handleReturnToSearch)
 	t.details = NewServerDetails()
 	t.statusBar = NewStatusBar()
 

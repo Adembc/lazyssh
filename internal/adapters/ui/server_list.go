@@ -25,6 +25,7 @@ type ServerList struct {
 	servers           []domain.Server
 	onSelection       func(domain.Server)
 	onSelectionChange func(domain.Server)
+	onReturnToSearch  func()
 }
 
 func NewServerList() *ServerList {
@@ -51,6 +52,25 @@ func (sl *ServerList) build() {
 		if index >= 0 && index < len(sl.servers) && sl.onSelectionChange != nil {
 			sl.onSelectionChange(sl.servers[index])
 		}
+	})
+
+	sl.List.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		//nolint:exhaustive // We only handle specific keys and pass through others
+		switch event.Key() {
+		case tcell.KeyLeft, tcell.KeyRight:
+			if sl.onReturnToSearch != nil {
+				sl.onReturnToSearch()
+			}
+			return nil
+		}
+		// Handle '/' key
+		if event.Rune() == '/' {
+			if sl.onReturnToSearch != nil {
+				sl.onReturnToSearch()
+			}
+			return nil
+		}
+		return event
 	})
 }
 
@@ -91,5 +111,10 @@ func (sl *ServerList) OnSelection(fn func(server domain.Server)) *ServerList {
 
 func (sl *ServerList) OnSelectionChange(fn func(server domain.Server)) *ServerList {
 	sl.onSelectionChange = fn
+	return sl
+}
+
+func (sl *ServerList) OnReturnToSearch(fn func()) *ServerList {
+	sl.onReturnToSearch = fn
 	return sl
 }
