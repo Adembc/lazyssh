@@ -63,13 +63,6 @@ func (sl *ServerList) build() {
 			}
 			return nil
 		}
-		// Handle '/' key
-		if event.Rune() == '/' {
-			if sl.onReturnToSearch != nil {
-				sl.onReturnToSearch()
-			}
-			return nil
-		}
 		return event
 	})
 }
