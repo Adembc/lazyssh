@@ -170,7 +170,9 @@ func (t *tui) handleNavigateUp() {
 
 func (t *tui) handleSearchInput(query string) {
 	filtered, _ := t.serverService.ListServers(query)
-	sortServersForUI(filtered, t.sortMode)
+	if strings.TrimSpace(query) == "" {
+		sortServersForUI(filtered, t.sortMode)
+	}
 	t.serverList.UpdateServers(filtered)
 	if len(filtered) == 0 {
 		t.details.ShowEmpty()
@@ -332,7 +334,9 @@ func (t *tui) handleRefreshBackground() {
 			})
 			return
 		}
-		sortServersForUI(servers, t.sortMode)
+		if strings.TrimSpace(q) == "" {
+			sortServersForUI(servers, t.sortMode)
+		}
 		t.app.QueueUpdateDraw(func() {
 			t.serverList.UpdateServers(servers)
 			// Try to restore selection if still valid
@@ -579,7 +583,9 @@ func (t *tui) refreshServerList() {
 		query = t.searchBar.InputField.GetText()
 	}
 	filtered, _ := t.serverService.ListServers(query)
-	sortServersForUI(filtered, t.sortMode)
+	if strings.TrimSpace(query) == "" {
+		sortServersForUI(filtered, t.sortMode)
+	}
 	t.serverList.UpdateServers(filtered)
 }
 
