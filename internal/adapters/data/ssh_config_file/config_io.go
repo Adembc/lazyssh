@@ -44,6 +44,11 @@ func (r *Repository) loadConfig() (*ssh_config.Config, error) {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
 
+	// Preserve the implicit host (global directives like Include)
+	if len(cfg.Hosts) > 0 && cfg.Hosts[0].Implicit {
+		r.implicitHost = cfg.Hosts[0]
+	}
+
 	return cfg, nil
 }
 
@@ -61,6 +66,12 @@ func (r *Repository) saveConfig(cfg *ssh_config.Config) error {
 			r.logger.Warnf("failed to remove temporary file %s: %v", tempFile, removeErr)
 		}
 	}()
+
+	// Restore the implicit host with global directives (Include, etc.) before saving
+	if r.implicitHost != nil {
+		// Prepend the implicit host to preserve global directives
+		cfg.Hosts = append([]*ssh_config.Host{r.implicitHost}, cfg.Hosts...)
+	}
 
 	if err := r.writeConfigToFile(tempFile, cfg); err != nil {
 		return fmt.Errorf("failed to write config to temporary file: %w", err)

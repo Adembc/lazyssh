@@ -15,9 +15,11 @@
 package ssh_config_file
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/kevinburke/ssh_config"
@@ -26,8 +28,25 @@ import (
 // toDomainServer converts ssh_config.Config to a slice of domain.Server.
 func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 	servers := make([]domain.Server, 0, len(cfg.Hosts))
-	for _, host := range cfg.Hosts {
 
+	// Process all hosts including those from Include directives
+	servers = r.extractHostsRecursively(cfg, servers)
+
+	return servers
+}
+
+// extractHostsRecursively extracts hosts from a config and recursively from any Include directives
+func (r *Repository) extractHostsRecursively(cfg *ssh_config.Config, servers []domain.Server) []domain.Server {
+	for _, host := range cfg.Hosts {
+		// First, check for Include directives in this host's nodes
+		for _, node := range host.Nodes {
+			if inc, ok := node.(*ssh_config.Include); ok {
+				// Use reflection to access the private 'files' field
+				servers = r.extractHostsFromInclude(inc, servers)
+			}
+		}
+
+		// Then process the host itself (skip wildcards as before)
 		aliases := make([]string, 0, len(host.Patterns))
 
 		for _, pattern := range host.Patterns {
@@ -41,6 +60,7 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 		if len(aliases) == 0 {
 			continue
 		}
+
 		server := domain.Server{
 			Alias:         aliases[0],
 			Aliases:       aliases,
@@ -63,7 +83,41 @@ func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
 	return servers
 }
 
-// mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
+// extractHostsFromInclude uses reflection to extract hosts from Include nodes
+func (r *Repository) extractHostsFromInclude(inc *ssh_config.Include, servers []domain.Server) []domain.Server {
+	// Use reflection to access the private 'files' and 'matches' fields
+	incValue := reflect.ValueOf(inc).Elem()
+	filesField := incValue.FieldByName("files")
+	matchesField := incValue.FieldByName("matches")
+
+	if !filesField.IsValid() || filesField.IsNil() || !matchesField.IsValid() {
+		return servers
+	}
+
+	// matches is a []string slice - iterate through it
+	matchesLen := matchesField.Len()
+	for i := 0; i < matchesLen; i++ {
+		matchKey := matchesField.Index(i).String()
+
+		// Get the corresponding Config from the files map
+		cfgValue := filesField.MapIndex(reflect.ValueOf(matchKey))
+		if !cfgValue.IsValid() || cfgValue.IsNil() {
+			continue
+		}
+
+		// cfgValue is a reflect.Value pointing to *Config
+		// We need to use Elem() to dereference the pointer, then get the pointer again
+		cfgPtr := cfgValue.Elem()
+
+		// Construct a *Config from the pointer address
+		// This is a workaround for not being able to call Interface() on unexported fields
+		//nolint:gosec // G103: Using unsafe to access unexported field from ssh_config library
+		includedCfg := (*ssh_config.Config)(unsafe.Pointer(cfgPtr.UnsafeAddr())) // Recursively process the included config
+		servers = r.extractHostsRecursively(includedCfg, servers)
+	}
+
+	return servers
+} // mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
 func (r *Repository) mapKVToServer(server *domain.Server, kvNode *ssh_config.KV) {
 	key := strings.ToLower(kvNode.Key)
 	value := kvNode.Value
