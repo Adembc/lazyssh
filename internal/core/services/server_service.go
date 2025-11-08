@@ -156,7 +156,7 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
-	cmd := exec.Command("ssh", alias)
+	cmd := exec.Command("ssh", "-F", s.serverRepository.GetConfigFile(), alias)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -177,6 +177,7 @@ func (s *serverService) SSH(alias string) error {
 func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	s.logger.Infow("ssh start (with args)", "alias", alias, "args", extraArgs)
 	args := append([]string{}, extraArgs...)
+	args = append(args, "-F", s.serverRepository.GetConfigFile())
 	args = append(args, alias)
 	// #nosec G204
 	cmd := exec.Command("ssh", args...)
