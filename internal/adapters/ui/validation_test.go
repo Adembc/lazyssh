@@ -206,8 +206,14 @@ func TestFieldValidatorPatterns(t *testing.T) {
 
 		// User field
 		{"User", "root", false},
+		{"User", "Username", false},
+		{"User", "userName", false},
+		{"User", "username1", false},
 		{"User", "user_name", false},
 		{"User", "user-name", false},
+		{"User", "user.name", false},
+		{"User", "user@name", false},
+		{"User", "user:name", false},
 		{"User", "1user", true}, // Can't start with number
 
 		// ConnectTimeout field

@@ -150,8 +150,8 @@ func GetFieldValidators() map[string]fieldValidator {
 		Message:  "Port must be between 1 and 65535",
 	}
 	validators["User"] = fieldValidator{
-		Pattern: regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`),
-		Message: "User must start with a letter and contain only letters, numbers, dots, hyphens, and underscores",
+		Pattern: regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9.@:_-]*$`),
+		Message: "User must start with a letter and contain only letters, numbers, dots, hyphens, at, colon, and underscores",
 	}
 	validators["Keys"] = fieldValidator{
 		Validate: validateKeyPaths,
