@@ -168,6 +168,7 @@ make run
 | ↑↓/jk | Navigate servers              |
 | Enter | SSH into selected server      |
 | c     | Copy SSH command to clipboard |
+| h     | Copy Host to clipboard |
 | g     | Ping selected server          |
 | r     | Refresh background data       |
 | a     | Add server                    |
