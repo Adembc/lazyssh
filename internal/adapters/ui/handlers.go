@@ -71,6 +71,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'c':
 		t.handleCopyCommand()
 		return nil
+	case 'h':
+		t.handleCopyHost()
+		return nil
 	case 'g':
 		t.handlePingSelected()
 		return nil
@@ -133,6 +136,17 @@ func (t *tui) handleCopyCommand() {
 		cmd := BuildSSHCommand(server)
 		if err := clipboard.WriteAll(cmd); err == nil {
 			t.showStatusTemp("Copied: " + cmd)
+		} else {
+			t.showStatusTemp("Failed to copy to clipboard")
+		}
+	}
+}
+
+func (t *tui) handleCopyHost() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+		host := server.Host
+		if err := clipboard.WriteAll(host); err == nil {
+			t.showStatusTemp("Copied: " + host)
 		} else {
 			t.showStatusTemp("Failed to copy to clipboard")
 		}
