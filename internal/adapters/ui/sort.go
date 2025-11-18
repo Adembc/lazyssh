@@ -78,6 +78,18 @@ func (m SortMode) Reverse() SortMode {
 	}
 }
 
+func (m SortMode) valid() bool {
+	switch m {
+	case SortByAliasAsc,
+		SortByAliasDesc,
+		SortByLastSeenAsc,
+		SortByLastSeenDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // sortServersForUI sorts servers according to the rules required by the UI.
 // Pinned servers are always at the top, ordered by pinned date (newest first).
 // Unpinned servers are sorted by the selected mode. "Never" (zero time) goes to

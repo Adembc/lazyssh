@@ -34,6 +34,7 @@ type tui struct {
 
 	app           *tview.Application
 	serverService ports.ServerService
+	settings      *settingsManager
 
 	header     *AppHeader
 	searchBar  *SearchBar
@@ -55,6 +56,7 @@ func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit s
 		serverService: ss,
 		version:       version,
 		commit:        commit,
+		settings:      newSettingsManager(logger),
 	}
 }
 
@@ -65,7 +67,7 @@ func (t *tui) Run() error {
 		}
 	}()
 	t.app.EnableMouse(true)
-	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData()
+	t.initializeTheme().buildComponents().loadPreferences().buildLayout().bindEvents().loadInitialData()
 	t.app.SetRoot(t.root, true)
 	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit)
 	if err := t.app.Run(); err != nil {
@@ -107,6 +109,20 @@ func (t *tui) buildComponents() *tui {
 	return t
 }
 
+func (t *tui) loadPreferences() *tui {
+	if t.settings == nil {
+		return t
+	}
+
+	if mode, err := t.settings.LoadSortMode(); err == nil {
+		t.sortMode = mode
+	} else {
+		t.logger.Warnw("failed to load sort mode preference", "error", err)
+	}
+
+	return t
+}
+
 func (t *tui) buildLayout() *tui {
 	t.left = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(t.searchBar, 3, 0, false).
@@ -143,5 +159,15 @@ func (t *tui) loadInitialData() *tui {
 func (t *tui) updateListTitle() {
 	if t.serverList != nil {
 		t.serverList.SetTitle(" Servers — Sort: " + t.sortMode.String() + " ")
+	}
+}
+
+func (t *tui) persistSortMode() {
+	if t.settings == nil {
+		return
+	}
+
+	if err := t.settings.SaveSortMode(t.sortMode); err != nil {
+		t.logger.Warnw("failed to save sort mode preference", "error", err)
 	}
 }

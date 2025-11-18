@@ -118,6 +118,7 @@ func (t *tui) handleSortToggle() {
 	t.sortMode = t.sortMode.ToggleField()
 	t.showStatusTemp("Sort: " + t.sortMode.String())
 	t.updateListTitle()
+	t.persistSortMode()
 	t.refreshServerList()
 }
 
@@ -125,6 +126,7 @@ func (t *tui) handleSortReverse() {
 	t.sortMode = t.sortMode.Reverse()
 	t.showStatusTemp("Sort: " + t.sortMode.String())
 	t.updateListTitle()
+	t.persistSortMode()
 	t.refreshServerList()
 }
 
