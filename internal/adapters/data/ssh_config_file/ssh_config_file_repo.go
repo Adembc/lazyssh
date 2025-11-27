@@ -29,6 +29,9 @@ type Repository struct {
 	fileSystem      FileSystem
 	metadataManager *metadataManager
 	logger          *zap.SugaredLogger
+	// implicitHost preserves global-level directives (Include, etc.)
+	// that appear before any explicit Host blocks
+	implicitHost *ssh_config.Host
 }
 
 // NewRepository creates a new SSH config repository.
