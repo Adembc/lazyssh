@@ -247,3 +247,7 @@ If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ an
 - Built with [tview](https://github.com/rivo/tview) and [tcell](https://github.com/gdamore/tcell).
 - Inspired by [k9s](https://github.com/derailed/k9s) and [lazydocker](https://github.com/jesseduffield/lazydocker).
 
+
+## 个人新增功能
+
+- T ：MAC OS用于本地wireshark，实时显示远程 tcpdump数据

@@ -92,6 +92,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'k':
 		t.handleNavigateUp()
 		return nil
+	case 'T':
+		t.handleMACOSTcpDump()
+		return nil
 	}
 
 	if event.Key() == tcell.KeyEnter {
@@ -225,6 +228,16 @@ func (t *tui) handleServerConnect() {
 
 		t.app.Suspend(func() {
 			_ = t.serverService.SSH(server.Alias)
+		})
+		t.refreshServerList()
+	}
+}
+
+func (t *tui)handleMACOSTcpDump() {
+	if server, ok := t.serverList.GetSelectedServer(); ok {
+
+		t.app.Suspend(func() {
+			_ = t.serverService.MACOSTcpDump(server.Alias)
 		})
 		t.refreshServerList()
 	}
