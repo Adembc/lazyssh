@@ -81,7 +81,7 @@ func pinnedIcon(pinnedAt time.Time) string {
 	return "📌" // pinned
 }
 
-func formatServerLine(s domain.Server) (primary, secondary string) {
+func formatServerLine(s domain.Server, maxAliasWidth int) (primary, secondary string) {
 	icon := cellPad(pinnedIcon(s.PinnedAt), 2)
 	// forwarding column after Host/IP
 	fGlyph := ""
@@ -93,8 +93,15 @@ func formatServerLine(s domain.Server) (primary, secondary string) {
 	if isFwd {
 		fCol = "[#A0FFA0]" + fCol + "[-]"
 	}
+	// Calculate the actual display width of the alias
+	aliasWidth := runewidth.StringWidth(s.Alias)
+	// Pad the alias to match maxAliasWidth
+	paddedAlias := s.Alias
+	if aliasWidth < maxAliasWidth {
+		paddedAlias = s.Alias + strings.Repeat(" ", maxAliasWidth-aliasWidth)
+	}
 	// Use a consistent color for alias; host/IP fixed width; then forwarding column
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] %s [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, fCol, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+	primary = fmt.Sprintf("%s [white::b]%s[-] [#AAAAAA]%-18s[-] %s [#888888]Last SSH: %-8s[-]  %s", icon, paddedAlias, s.Host, fCol, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
 	secondary = ""
 	return
 }

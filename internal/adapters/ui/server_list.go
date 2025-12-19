@@ -17,6 +17,7 @@ package ui
 import (
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/rivo/tview"
 )
 
@@ -71,8 +72,17 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 	sl.servers = servers
 	sl.List.Clear()
 
+	// Calculate the maximum alias width for alignment
+	maxAliasWidth := 0
+	for _, s := range servers {
+		width := runewidth.StringWidth(s.Alias)
+		if width > maxAliasWidth {
+			maxAliasWidth = width
+		}
+	}
+
 	for i := range servers {
-		primary, secondary := formatServerLine(servers[i])
+		primary, secondary := formatServerLine(servers[i], maxAliasWidth)
 		idx := i
 		sl.List.AddItem(primary, secondary, 0, func() {
 			if sl.onSelection != nil {
