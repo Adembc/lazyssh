@@ -16,6 +16,8 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,6 +39,7 @@ const (
 	ForwardModeForwardSSH  = "Forward + SSH"
 )
 
+//nolint:gocyclo // High complexity due to many key bindings - acceptable for this handler
 func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	// Don't handle global keys when search has focus
 	if t.app.GetFocus() == t.searchBar {
@@ -92,10 +95,59 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'k':
 		t.handleNavigateUp()
 		return nil
+	case 'l':
+		if t.currentPanel == 1 {
+			t.handleLoadKey()
+			return nil
+		}
+		// Also handle 'l' key for loading server's SSH key
+		if t.currentPanel == 0 {
+			t.handleLoadServerKey()
+			return nil
+		}
+	case 'u':
+		if t.currentPanel == 1 {
+			t.handleUnloadKey()
+			return nil
+		}
+		// Also handle 'u' key for unloading server's SSH key
+		if t.currentPanel == 0 {
+			t.handleUnloadServerKey()
+			return nil
+		}
+	case 'G':
+		t.handleGitSSHSetup()
+		return nil
+	}
+
+	// Handle 'C' key (Shift+c) for editing SSH key comment
+	if event.Rune() == 'C' {
+		if t.currentPanel == 1 {
+			t.handleEditKeyComment()
+			return nil
+		}
+		if t.currentPanel == 0 {
+			t.handleEditServerKeyComment()
+			return nil
+		}
 	}
 
 	if event.Key() == tcell.KeyEnter {
+		if t.currentPanel != 0 {
+			// Enter key on SSH Keys panels - no action for now
+			return nil
+		}
 		t.handleServerConnect()
+		return nil
+	}
+
+	if event.Key() == tcell.KeyTab {
+		t.handleTabSwitch()
+		return nil
+	}
+
+	if event.Key() == tcell.KeyBacktab {
+		t.handleTabSwitch()
 		return nil
 	}
 
@@ -146,26 +198,101 @@ func (t *tui) handleTagsEdit() {
 }
 
 func (t *tui) handleNavigateDown() {
-	if t.app.GetFocus() == t.serverList {
-		currentIdx := t.serverList.GetCurrentItem()
-		itemCount := t.serverList.GetItemCount()
+	var currentIdx, itemCount int
+
+	switch t.currentPanel {
+	case 0:
+		// Navigate in Servers panel
+		currentIdx = t.serverList.GetCurrentItem()
+		itemCount = t.serverList.GetItemCount()
 		if currentIdx < itemCount-1 {
 			t.serverList.SetCurrentItem(currentIdx + 1)
 		} else {
 			t.serverList.SetCurrentItem(0)
 		}
+	case 1:
+		// Navigate in SSH Agent panel
+		currentIdx = t.sshAgentKeysList.GetCurrentItem()
+		itemCount = t.sshAgentKeysList.GetItemCount()
+		if currentIdx < itemCount-1 {
+			t.sshAgentKeysList.SetCurrentItem(currentIdx + 1)
+		} else {
+			t.sshAgentKeysList.SetCurrentItem(0)
+		}
 	}
 }
 
 func (t *tui) handleNavigateUp() {
-	if t.app.GetFocus() == t.serverList {
-		currentIdx := t.serverList.GetCurrentItem()
+	var currentIdx, itemCount int
+
+	switch t.currentPanel {
+	case 0:
+		// Navigate in Servers panel
+		currentIdx = t.serverList.GetCurrentItem()
+		itemCount = t.serverList.GetItemCount()
 		if currentIdx > 0 {
 			t.serverList.SetCurrentItem(currentIdx - 1)
 		} else {
-			t.serverList.SetCurrentItem(t.serverList.GetItemCount() - 1)
+			t.serverList.SetCurrentItem(itemCount - 1)
+		}
+	case 1:
+		// Navigate in SSH Agent panel
+		currentIdx = t.sshAgentKeysList.GetCurrentItem()
+		itemCount = t.sshAgentKeysList.GetItemCount()
+		if currentIdx > 0 {
+			t.sshAgentKeysList.SetCurrentItem(currentIdx - 1)
+		} else {
+			t.sshAgentKeysList.SetCurrentItem(itemCount - 1)
 		}
 	}
+}
+
+func (t *tui) handleTabSwitch() {
+	// Cycle through panels: 0 (Servers) → 1 (SSH Agent) → 0
+	t.currentPanel = (t.currentPanel + 1) % 2
+
+	// Update focus to the new panel
+	switch t.currentPanel {
+	case 0:
+		t.app.SetFocus(t.serverList)
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			t.serverDetails.UpdateServer(server)
+		}
+	case 1:
+		t.app.SetFocus(t.sshAgentKeysList)
+		if key, ok := t.sshAgentKeysList.GetSelectedKey(); ok {
+			t.sshKeyDetails.UpdateKey(key)
+		}
+	}
+
+	t.updatePanelBorders()
+	t.updateRightPanel()
+}
+
+func (t *tui) handlePanelClick(panelIndex int) {
+	// If clicking on the already-focused panel, do nothing
+	if t.currentPanel == panelIndex {
+		return
+	}
+
+	// Switch focus to the clicked panel
+	t.currentPanel = panelIndex
+
+	switch t.currentPanel {
+	case 0:
+		t.app.SetFocus(t.serverList)
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			t.serverDetails.UpdateServer(server)
+		}
+	case 1:
+		t.app.SetFocus(t.sshAgentKeysList)
+		if key, ok := t.sshAgentKeysList.GetSelectedKey(); ok {
+			t.sshKeyDetails.UpdateKey(key)
+		}
+	}
+
+	t.updatePanelBorders()
+	t.updateRightPanel()
 }
 
 func (t *tui) handleSearchInput(query string) {
@@ -173,7 +300,7 @@ func (t *tui) handleSearchInput(query string) {
 	sortServersForUI(filtered, t.sortMode)
 	t.serverList.UpdateServers(filtered)
 	if len(filtered) == 0 {
-		t.details.ShowEmpty()
+		t.serverDetails.ShowEmpty()
 	}
 }
 
@@ -209,7 +336,7 @@ func (t *tui) handleSearchNavigate(direction int) {
 		}
 
 		if server, ok := t.serverList.GetSelectedServer(); ok {
-			t.details.UpdateServer(server)
+			t.serverDetails.UpdateServer(server)
 		}
 	}
 }
@@ -231,7 +358,13 @@ func (t *tui) handleServerConnect() {
 }
 
 func (t *tui) handleServerSelectionChange(server domain.Server) {
-	t.details.UpdateServer(server)
+	t.serverDetails.UpdateServer(server)
+}
+
+func (t *tui) handleSSHKeySelectionChange(key domain.SSHKey) {
+	if t.sshKeyDetails != nil {
+		t.sshKeyDetails.UpdateKey(key)
+	}
 }
 
 func (t *tui) handleServerAdd() {
@@ -289,6 +422,7 @@ func (t *tui) handleFormCancel() {
 
 func (t *tui) handlePingSelected() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
+
 		alias := server.Alias
 
 		t.showStatusTemp(fmt.Sprintf("Pinging %s…", alias))
@@ -310,6 +444,7 @@ func (t *tui) handlePingSelected() {
 }
 
 func (t *tui) handleModalClose() {
+	t.updateGitInfoPanel()
 	t.returnToMain()
 }
 
@@ -339,7 +474,7 @@ func (t *tui) handleRefreshBackground() {
 			if prevIdx >= 0 && prevIdx < t.serverList.List.GetItemCount() {
 				t.serverList.SetCurrentItem(prevIdx)
 				if srv, ok := t.serverList.GetSelectedServer(); ok {
-					t.details.UpdateServer(srv)
+					t.serverDetails.UpdateServer(srv)
 				}
 			}
 			t.showStatusTemp(fmt.Sprintf("Refreshed %d servers", len(servers)))
@@ -573,20 +708,6 @@ func (t *tui) blurSearchBar() {
 // Internal Operations (perform actual work)
 // =============================================================================
 
-func (t *tui) refreshServerList() {
-	query := ""
-	if t.searchBar != nil {
-		query = t.searchBar.InputField.GetText()
-	}
-	filtered, _ := t.serverService.ListServers(query)
-	sortServersForUI(filtered, t.sortMode)
-	t.serverList.UpdateServers(filtered)
-}
-
-func (t *tui) returnToMain() {
-	t.app.SetRoot(t.root, true)
-}
-
 // showStatusTemp displays a temporary message in the status bar (default green) and then restores the default text.
 func (t *tui) showStatusTemp(msg string) {
 	if t.statusBar == nil {
@@ -628,4 +749,430 @@ func (t *tui) handleStopForwarding() {
 			})
 		}()
 	}
+}
+
+func (t *tui) handleLoadKey() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	// Get selected key from SSH Agent panel
+	key, ok := t.sshAgentKeysList.GetSelectedKey()
+	if !ok {
+		t.showStatusTempColor("No SSH key selected", "#FF6B6B")
+		return
+	}
+
+	if key.LoadedInAgent {
+		t.showStatusTempColor("Key already loaded in ssh-agent", "#FFA500")
+		return
+	}
+
+	t.showStatusTemp(fmt.Sprintf("Loading key %s...", key.Name))
+
+	// LoadKeyToAgent needs user interaction for passphrase
+	// Suspend is blocking, so we can do this synchronously
+	keyPath := key.Path
+	keyName := key.Name
+
+	t.app.Suspend(func() {
+		err := t.gitService.LoadKeyToAgent(keyPath)
+		if err != nil {
+			fmt.Printf("\nFailed to load key: %v\n", err)
+			fmt.Print("Press Enter to continue...")
+			var dummy string
+			_, _ = fmt.Scanln(&dummy)
+		}
+	})
+
+	// Refresh SSH keys list after load (back in main thread)
+	t.refreshSSHKeysList()
+	t.showStatusTemp(fmt.Sprintf("Key %s loaded successfully", keyName))
+}
+
+func (t *tui) handleUnloadKey() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	// Get selected key from SSH Agent panel
+	key, ok := t.sshAgentKeysList.GetSelectedKey()
+	if !ok {
+		t.showStatusTempColor("No SSH key selected", "#FF6B6B")
+		return
+	}
+
+	if !key.LoadedInAgent {
+		t.showStatusTempColor("Key not loaded in ssh-agent", "#FFA500")
+		return
+	}
+
+	if key.PublicKeyLine == "" {
+		t.showStatusTempColor("Key has no public key line, cannot unload", "#FF6B6B")
+		return
+	}
+
+	t.showStatusTemp(fmt.Sprintf("Unloading key %s...", key.Name))
+
+	go func(publicKeyLine string, keyName string) {
+		err := t.gitService.UnloadKeyFromAgent(publicKeyLine)
+		t.app.QueueUpdateDraw(func() {
+			if err != nil {
+				// Store error for printing at exit
+				t.storeErrorf("[Unload SSH Key] Failed to unload key '%s': %v", keyName, err)
+				t.showStatusTempColor(fmt.Sprintf("Failed to unload key: %v", err), "#FF6B6B")
+			} else {
+				t.refreshSSHKeysList()
+				t.showStatusTemp(fmt.Sprintf("Key %s unloaded successfully", keyName))
+			}
+		})
+	}(key.PublicKeyLine, key.Name)
+}
+
+// handleLoadServerKey loads the SSH key associated with the selected server.
+func (t *tui) handleLoadServerKey() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	// Get selected server from Servers panel
+	server, ok := t.serverList.GetSelectedServer()
+	if !ok {
+		t.showStatusTempColor("No server selected", "#FF6B6B")
+		return
+	}
+
+	// Get the server's SSH key
+	sshKey := t.getSSHKeyForServer(server)
+	if sshKey == nil {
+		t.showStatusTempColor("No SSH key found for this server", "#FF6B6B")
+		return
+	}
+
+	if sshKey.LoadedInAgent {
+		t.showStatusTempColor("Key already loaded in ssh-agent", "#FFA500")
+		return
+	}
+
+	t.showStatusTemp(fmt.Sprintf("Loading key %s...", sshKey.Name))
+
+	// LoadKeyToAgent needs user interaction for passphrase
+	// Suspend is blocking, so we can do this synchronously
+	keyPath := sshKey.Path
+	keyName := sshKey.Name
+
+	t.app.Suspend(func() {
+		err := t.gitService.LoadKeyToAgent(keyPath)
+		if err != nil {
+			// Store error for printing at exit
+			t.storeErrorf("[Load Server SSH Key] Failed to load key '%s' (path: %s): %v", keyName, keyPath, err)
+			fmt.Printf("\nFailed to load key: %v\n", err)
+			fmt.Print("Press Enter to continue...")
+			var dummy string
+			_, _ = fmt.Scanln(&dummy)
+		}
+	})
+
+	// Refresh UI after load (back in main thread)
+	t.refreshServerList() // Refresh to update key status in server details
+	t.refreshSSHKeysList()
+	t.showStatusTemp(fmt.Sprintf("Key %s loaded successfully", keyName))
+}
+
+// handleUnloadServerKey unloads the SSH key associated with the selected server.
+func (t *tui) handleUnloadServerKey() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	// Get selected server from Servers panel
+	server, ok := t.serverList.GetSelectedServer()
+	if !ok {
+		t.showStatusTempColor("No server selected", "#FF6B6B")
+		return
+	}
+
+	// Get the server's SSH key
+	sshKey := t.getSSHKeyForServer(server)
+	if sshKey == nil {
+		t.showStatusTempColor("No SSH key found for this server", "#FF6B6B")
+		return
+	}
+
+	if !sshKey.LoadedInAgent {
+		t.showStatusTempColor("Key not loaded in ssh-agent", "#FFA500")
+		return
+	}
+
+	if sshKey.PublicKeyLine == "" {
+		t.showStatusTempColor("Key has no public key line, cannot unload", "#FF6B6B")
+		return
+	}
+
+	t.showStatusTemp(fmt.Sprintf("Unloading key %s...", sshKey.Name))
+
+	go func(publicKeyLine string, keyName string) {
+		err := t.gitService.UnloadKeyFromAgent(publicKeyLine)
+		t.app.QueueUpdateDraw(func() {
+			if err != nil {
+				// Store error for printing at exit
+				t.storeErrorf("[Unload Server SSH Key] Failed to unload key '%s': %v", keyName, err)
+				t.showStatusTempColor(fmt.Sprintf("Failed to unload key: %v", err), "#FF6B6B")
+			} else {
+				t.refreshServerList() // Refresh to update key status in server details
+				t.refreshSSHKeysList()
+				t.showStatusTemp(fmt.Sprintf("Key %s unloaded successfully", keyName))
+			}
+		})
+	}(sshKey.PublicKeyLine, sshKey.Name)
+}
+
+// getSSHKeyForServer gets the SSH key associated with a server.
+func (t *tui) getSSHKeyForServer(server domain.Server) *domain.SSHKey {
+	if t.gitService == nil || t.serverRepo == nil {
+		return nil
+	}
+
+	// Get the first identity file if available
+	if len(server.IdentityFiles) == 0 {
+		return nil
+	}
+
+	identityFile := server.IdentityFiles[0]
+
+	// Expand ~ to home directory for comparison
+	if strings.HasPrefix(identityFile, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			identityFile = filepath.Join(homeDir, identityFile[2:])
+		}
+	} else if identityFile == "~" {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			identityFile = homeDir
+		}
+	}
+
+	// Fetch all SSH keys and find the one matching this identity file
+	allKeys, err := t.gitService.ListAllSSHKeys(t.serverRepo)
+	if err != nil {
+		return nil
+	}
+
+	for _, key := range allKeys {
+		if key.Path == identityFile {
+			return &key
+		}
+	}
+
+	return nil
+}
+
+func (t *tui) handleGitSSHSetup() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	setup := NewGitSSHSetup(t.app, t.gitService, t.serverRepo).
+		OnDone(t.handleModalClose).
+		OnCancel(t.handleModalClose)
+
+	if err := setup.Show(); err != nil {
+		modal := tview.NewModal().
+			SetText(fmt.Sprintf("Cannot setup Git SSH key:\n\n%v", err)).
+			AddButtons([]string{"OK"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				t.handleModalClose()
+			})
+		t.app.SetRoot(modal, true)
+	}
+}
+
+// handleEditKeyComment opens the modal for editing SSH key comments.
+func (t *tui) handleEditKeyComment() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	// Get the currently displayed key from SSHKeyDetails
+	key := t.sshKeyDetails.GetCurrentKey()
+	if key == nil {
+		t.showStatusTempColor("No SSH key selected", "#FF6B6B")
+		return
+	}
+
+	// Only allow editing keys with a known file path
+	if key.Path == "" {
+		t.showStatusTempColor("Cannot edit comment for keys without a file path", "#FFA500")
+		return
+	}
+
+	editor := NewEditKeyComment(t.app).
+		SetKey(key.Name, key.Path, key.Comment).
+		OnSave(func(newComment string) {
+			// For encrypted keys, suspend TUI to allow passphrase input
+			if key.IsEncrypted {
+				t.app.Suspend(func() {
+					if err := t.gitService.UpdateKeyComment(key.Path, newComment); err != nil {
+						fmt.Printf("\nFailed to update comment: %v\n", err)
+						fmt.Print("Press Enter to continue...")
+						var dummy string
+						_, _ = fmt.Scanln(&dummy)
+					}
+				})
+				// Refresh after suspend (back in main thread)
+				t.refreshSSHKeysList()
+				t.showStatusTemp("SSH key comment updated successfully")
+			} else {
+				// For unencrypted keys, update directly
+				if err := t.gitService.UpdateKeyComment(key.Path, newComment); err != nil {
+					t.storeErrorf("[Edit SSH Key Comment] Failed to update comment for '%s': %v", key.Name, err)
+					t.showStatusTempColor(fmt.Sprintf("Failed to update comment: %v", err), "#FF6B6B")
+				} else {
+					t.showStatusTemp("SSH key comment updated successfully")
+					// Refresh the SSH keys list to show the updated comment
+					t.refreshSSHKeysList()
+				}
+			}
+		}).
+		OnCancel(t.handleModalClose)
+
+	if err := editor.Show(); err != nil {
+		modal := tview.NewModal().
+			SetText(fmt.Sprintf("Cannot edit SSH key comment:\n\n%v", err)).
+			AddButtons([]string{"OK"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				t.handleModalClose()
+			})
+		t.app.SetRoot(modal, true)
+	}
+}
+
+// handleEditServerKeyComment opens the modal for editing the SSH key comment of the selected server.
+func (t *tui) handleEditServerKeyComment() {
+	if t.gitService == nil {
+		t.showStatusTempColor("Git service not available", "#FF6B6B")
+		return
+	}
+
+	// Get the selected server
+	server, ok := t.serverList.GetSelectedServer()
+	if !ok {
+		t.showStatusTempColor("No server selected", "#FF6B6B")
+		return
+	}
+
+	// Get the SSH key for this server
+	sshKey := t.getSSHKeyForServer(server)
+	if sshKey == nil {
+		t.showStatusTempColor("No SSH key found for this server", "#FF6B6B")
+		return
+	}
+
+	// Only allow editing keys with a known file path
+	if sshKey.Path == "" {
+		t.showStatusTempColor("Cannot edit comment for keys without a file path", "#FFA500")
+		return
+	}
+
+	// Remember if the key was loaded before editing
+	wasLoaded := sshKey.LoadedInAgent
+
+	editor := NewEditKeyComment(t.app).
+		SetKey(sshKey.Name, sshKey.Path, sshKey.Comment).
+		OnSave(func(newComment string) {
+			// For encrypted keys, suspend TUI to allow passphrase input
+			if sshKey.IsEncrypted {
+				t.app.Suspend(func() {
+					if err := t.gitService.UpdateKeyComment(sshKey.Path, newComment); err != nil {
+						fmt.Printf("\nFailed to update comment: %v\n", err)
+						fmt.Print("Press Enter to continue...")
+						var dummy string
+						_, _ = fmt.Scanln(&dummy)
+					}
+				})
+			} else {
+				// For unencrypted keys, update directly
+				if err := t.gitService.UpdateKeyComment(sshKey.Path, newComment); err != nil {
+					t.storeErrorf("[Edit SSH Key Comment] Failed to update comment for '%s': %v", sshKey.Name, err)
+					t.showStatusTempColor(fmt.Sprintf("Failed to update comment: %v", err), "#FF6B6B")
+					return
+				}
+			}
+
+			// If the key was loaded in the agent, we need to unload and reload it
+			// to get the fresh comment
+			if wasLoaded {
+				// Unload the key from agent
+				if sshKey.PublicKeyLine != "" {
+					if err := t.gitService.UnloadKeyFromAgent(sshKey.PublicKeyLine); err != nil {
+						t.storeErrorf("[Edit SSH Key Comment] Failed to unload key: %v", err)
+					}
+				}
+
+				t.showStatusTemp("SSH key comment updated! Press 'l' to reload the key in ssh-agent.")
+			} else {
+				t.showStatusTemp("SSH key comment updated successfully")
+			}
+
+			// Refresh the server details to show the updated comment
+			if server, ok := t.serverList.GetSelectedServer(); ok {
+				t.serverDetails.UpdateServer(server)
+			}
+			// Also refresh SSH keys list
+			t.refreshSSHKeysList()
+		}).
+		OnCancel(t.handleModalClose)
+
+	if err := editor.Show(); err != nil {
+		modal := tview.NewModal().
+			SetText(fmt.Sprintf("Cannot edit SSH key comment:\n\n%v", err)).
+			AddButtons([]string{"OK"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				t.handleModalClose()
+			})
+		t.app.SetRoot(modal, true)
+	}
+}
+
+func (t *tui) refreshServerList() {
+	query := ""
+	if t.searchBar != nil {
+		query = t.searchBar.InputField.GetText()
+	}
+	filtered, _ := t.serverService.ListServers(query)
+
+	sortServersForUI(filtered, t.sortMode)
+	t.serverList.UpdateServers(filtered)
+}
+
+func (t *tui) refreshSSHKeysList() {
+	if t.gitService == nil {
+		return
+	}
+
+	// Refresh agent keys
+	agentKeys, err := t.gitService.ListSSHKeysFromAgent()
+	if err != nil {
+		t.showStatusTempColor(fmt.Sprintf("Failed to refresh SSH agent keys: %v", err), "#FF6B6B")
+	} else {
+		t.sshAgentKeysList.UpdateKeys(agentKeys)
+	}
+
+	// Update details for current selection if on SSH Agent panel
+	if t.currentPanel == 1 {
+		if key, ok := t.sshAgentKeysList.GetSelectedKey(); ok {
+			t.sshKeyDetails.UpdateKey(key)
+		}
+	}
+}
+
+func (t *tui) returnToMain() {
+	t.app.SetRoot(t.root, true)
 }

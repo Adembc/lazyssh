@@ -52,8 +52,10 @@ func main() {
 	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
 
 	serverRepo := ssh_config_file.NewRepository(log, sshConfigFile, metaDataFile)
-	serverService := services.NewServerService(log, serverRepo)
-	tui := ui.NewTUI(log, serverService, version, gitCommit)
+	gitService := services.NewGitService(log)
+	gitService.SetServerRepository(serverRepo)
+	serverService := services.NewServerService(log, serverRepo, gitService)
+	tui := ui.NewTUI(log, serverService, serverRepo, gitService, version, gitCommit)
 
 	rootCmd := &cobra.Command{
 		Use:   ui.AppName,
