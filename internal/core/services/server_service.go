@@ -35,6 +35,7 @@ import (
 
 type serverService struct {
 	serverRepository ports.ServerRepository
+	gitService       ports.GitService
 	logger           *zap.SugaredLogger
 
 	fwMu     sync.Mutex
@@ -42,10 +43,11 @@ type serverService struct {
 }
 
 // NewServerService creates a new instance of serverService.
-func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) ports.ServerService {
+func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository, gs ports.GitService) ports.ServerService {
 	return &serverService{
 		logger:           logger,
 		serverRepository: sr,
+		gitService:       gs,
 	}
 }
 

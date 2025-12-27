@@ -16,20 +16,27 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/Adembc/lazyssh/internal/core/ports"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type ServerDetails struct {
 	*tview.TextView
+	gitService ports.GitService
+	serverRepo ports.ServerRepository
 }
 
-func NewServerDetails() *ServerDetails {
+func NewServerDetails(gitService ports.GitService, serverRepo ports.ServerRepository) *ServerDetails {
 	details := &ServerDetails{
-		TextView: tview.NewTextView(),
+		TextView:   tview.NewTextView(),
+		gitService: gitService,
+		serverRepo: serverRepo,
 	}
 	details.build()
 	return details
@@ -55,6 +62,47 @@ func renderTagChips(tags []string) string {
 		chips = append(chips, fmt.Sprintf("[black:#5FAFFF] %s [-:-:-]", t))
 	}
 	return strings.Join(chips, " ")
+}
+
+// getSSHKeyForServer attempts to fetch SSH key details for the server's identity file
+func (sd *ServerDetails) getSSHKeyForServer(server domain.Server) *domain.SSHKey {
+	if sd.gitService == nil || sd.serverRepo == nil {
+		return nil
+	}
+
+	// Get the first identity file if available
+	if len(server.IdentityFiles) == 0 {
+		return nil
+	}
+
+	identityFile := server.IdentityFiles[0]
+
+	// Expand ~ to home directory for comparison
+	if strings.HasPrefix(identityFile, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			identityFile = filepath.Join(homeDir, identityFile[2:])
+		}
+	} else if identityFile == "~" {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			identityFile = homeDir
+		}
+	}
+
+	// Fetch all SSH keys and find the one matching this identity file
+	allKeys, err := sd.gitService.ListAllSSHKeys(sd.serverRepo)
+	if err != nil {
+		return nil
+	}
+
+	for _, key := range allKeys {
+		if key.Path == identityFile {
+			return &key
+		}
+	}
+
+	return nil
 }
 
 func (sd *ServerDetails) UpdateServer(server domain.Server) {
@@ -87,6 +135,42 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 		aliasText, hostText, userText, portText,
 		serverKey, tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
+
+	// Add SSH Key Details section if key is configured
+	if sshKey := sd.getSSHKeyForServer(server); sshKey != nil {
+		text += "\n[::b]SSH Key Details:[-]\n"
+		text += fmt.Sprintf("  [dim]Path:[-] %s\n", sshKey.Path)
+		text += fmt.Sprintf("  [dim]Type:[-] %s\n", sshKey.Type)
+		if sshKey.Size > 0 {
+			text += fmt.Sprintf("  [dim]Size:[-] %d bits\n", sshKey.Size)
+		}
+		if sshKey.Comment != "" {
+			text += fmt.Sprintf("  [dim]Comment:[-] %s\n", sshKey.Comment)
+		}
+		text += "\n[::b]  Status:[-]\n"
+		if sshKey.LoadedInAgent {
+			text += "    [green]✓[-] Loaded in ssh-agent\n"
+		} else {
+			text += "    [dim]○[-] Not loaded in ssh-agent\n"
+		}
+		if sshKey.HasPublicKey {
+			text += "    [green]✓[-] Public key (.pub) exists\n"
+		} else {
+			text += "    [red]✗[-] Public key (.pub) missing\n"
+		}
+		if sshKey.IsEncrypted {
+			text += "    [yellow]🔒[-] Encrypted (passphrase protected)\n"
+		} else {
+			text += "    [dim]🔓[-] Not encrypted\n"
+		}
+		text += "\n[::b]  Commands:[-]\n"
+		if sshKey.LoadedInAgent {
+			text += "    [yellow]u[-]: Unload from ssh-agent\n"
+		} else {
+			text += "    [yellow]l[-]: Load into ssh-agent\n"
+		}
+		text += "    [yellow]C[-]: Edit comment\n"
+	}
 
 	// Advanced settings section (only show non-empty fields)
 	// Organized by logical grouping for better readability
@@ -213,7 +297,7 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	// Commands list
-	text += "\n[::b]Commands:[-]\n  Enter: SSH connect\n  f: Port forward\n  x: Stop forwarding\n  c: Copy SSH command\n  g: Ping server\n  r: Refresh list\n  a: Add new server\n  e: Edit entry\n  t: Edit tags\n  d: Delete entry\n  p: Pin/Unpin"
+	text += "\n[::b]Commands:[-]\n  [yellow]Enter[-]: SSH connect\n  [yellow]f[-]: Port forward\n  [yellow]x[-]: Stop forwarding\n  [yellow]c[-]: Copy SSH command\n  [yellow]g[-]: Ping server\n  [yellow]r[-]: Refresh list\n  [yellow]a[-]: Add new server\n  [yellow]e[-]: Edit entry\n  [yellow]t[-]: Edit tags\n  [yellow]d[-]: Delete entry\n  [yellow]p[-]: Pin/Unpin"
 
 	sd.TextView.SetText(text)
 }
