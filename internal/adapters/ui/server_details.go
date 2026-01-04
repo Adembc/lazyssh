@@ -70,6 +70,11 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 	tagsText := renderTagChips(server.Tags)
 
+	groupText := server.Group
+	if groupText == "" {
+		groupText = "-"
+	}
+
 	// Basic information
 	aliasText := strings.Join(server.Aliases, ", ")
 
@@ -83,9 +88,9 @@ func (sd *ServerDetails) UpdateServer(server domain.Server) {
 	}
 
 	text := fmt.Sprintf(
-		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
+		"[::b]%s[-]\n\n[::b]Basic Settings:[-]\n  Host: [white]%s[-]\n  User: [white]%s[-]\n  Port: [white]%s[-]\n  Key:  [white]%s[-]\n  Group: [white]%s[-]\n  Tags: %s\n  Pinned: [white]%s[-]\n  Last SSH: %s\n  SSH Count: [white]%d[-]\n",
 		aliasText, hostText, userText, portText,
-		serverKey, tagsText, pinnedStr,
+		serverKey, groupText, tagsText, pinnedStr,
 		lastSeen, server.SSHCount)
 
 	// Advanced settings section (only show non-empty fields)

@@ -26,6 +26,8 @@ type ServerList struct {
 	*tview.List
 	servers           []domain.Server
 	displayedItems    []*domain.Server
+	displayedHeaders  []string
+	collapsedGroups   map[string]bool
 	onSelection       func(domain.Server)
 	onSelectionChange func(domain.Server)
 	onReturnToSearch  func()
@@ -33,7 +35,8 @@ type ServerList struct {
 
 func NewServerList() *ServerList {
 	list := &ServerList{
-		List: tview.NewList(),
+		List:            tview.NewList(),
+		collapsedGroups: make(map[string]bool),
 	}
 	list.build()
 	return list
@@ -72,6 +75,34 @@ func (sl *ServerList) build() {
 			return sl.selectNext()
 		case tcell.KeyUp:
 			return sl.selectPrev()
+		case tcell.KeyEnter, tcell.KeyRune:
+			isSpace := event.Key() == tcell.KeyRune && event.Rune() == ' '
+			isEnter := event.Key() == tcell.KeyEnter
+
+			if isSpace || isEnter {
+				idx := sl.List.GetCurrentItem()
+				if idx >= 0 && idx < len(sl.displayedHeaders) {
+					groupName := sl.displayedHeaders[idx]
+					if groupName != "" {
+						// It is a header
+						sl.collapsedGroups[groupName] = !sl.collapsedGroups[groupName]
+						sl.UpdateServers(sl.servers)
+
+						// Try to find the header again to restore selection
+						newIdx := -1
+						for i, h := range sl.displayedHeaders {
+							if h == groupName {
+								newIdx = i
+								break
+							}
+						}
+						if newIdx >= 0 {
+							sl.List.SetCurrentItem(newIdx)
+						}
+						return nil // Consume event
+					}
+				}
+			}
 		}
 		return event
 	})
@@ -81,6 +112,7 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 	sl.servers = servers
 	sl.List.Clear()
 	sl.displayedItems = make([]*domain.Server, 0)
+	sl.displayedHeaders = make([]string, 0)
 
 	inPinnedSection := false
 	firstUnpinned := true
@@ -94,6 +126,17 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		}
 	}
 
+	addHeader := func(name string) {
+		isCollapsed := sl.collapsedGroups[name]
+		icon := "[-]"
+		if isCollapsed {
+			icon = "[+]"
+		}
+		sl.List.AddItem(fmt.Sprintf("[yellow::b]%s %s[-]", icon, name), "", 0, nil)
+		sl.displayedItems = append(sl.displayedItems, nil)
+		sl.displayedHeaders = append(sl.displayedHeaders, name)
+	}
+
 	for i := range servers {
 		s := servers[i]
 		isPinned := !s.PinnedAt.IsZero()
@@ -102,9 +145,11 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 			if !inPinnedSection {
 				inPinnedSection = true
 				if hasGroups {
-					sl.List.AddItem("[yellow::b]Pinned[-]", "", 0, nil)
-					sl.displayedItems = append(sl.displayedItems, nil)
+					addHeader("Pinned")
 				}
+			}
+			if hasGroups && sl.collapsedGroups["Pinned"] {
+				continue
 			}
 		} else {
 			if inPinnedSection {
@@ -117,11 +162,18 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 					if groupName == "" {
 						groupName = "Ungrouped"
 					}
-					sl.List.AddItem(fmt.Sprintf("[yellow::b]%s[-]", groupName), "", 0, nil)
-					sl.displayedItems = append(sl.displayedItems, nil)
+					addHeader(groupName)
 				}
 				lastGroup = s.Group
 				firstUnpinned = false
+			}
+
+			currentGroup := s.Group
+			if currentGroup == "" {
+				currentGroup = "Ungrouped"
+			}
+			if hasGroups && sl.collapsedGroups[currentGroup] {
+				continue
 			}
 		}
 
@@ -136,6 +188,7 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 			}
 		})
 		sl.displayedItems = append(sl.displayedItems, &sl.servers[i])
+		sl.displayedHeaders = append(sl.displayedHeaders, "")
 	}
 
 	if sl.List.GetItemCount() > 0 {
@@ -147,10 +200,14 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 				break
 			}
 		}
+		// If no items found (all collapsed), select first header
+		if firstSelectable == -1 {
+			firstSelectable = 0
+		}
 
 		if firstSelectable >= 0 {
 			sl.List.SetCurrentItem(firstSelectable)
-			if sl.onSelectionChange != nil {
+			if sl.onSelectionChange != nil && sl.displayedItems[firstSelectable] != nil {
 				sl.onSelectionChange(*sl.displayedItems[firstSelectable])
 			}
 		}
@@ -192,7 +249,7 @@ func (sl *ServerList) selectNext() *tcell.EventKey {
 	}
 
 	for i := current + 1; i < count; i++ {
-		if i < len(sl.displayedItems) && sl.displayedItems[i] != nil {
+		if i < len(sl.displayedItems) {
 			sl.List.SetCurrentItem(i)
 			return nil
 		}
@@ -209,7 +266,7 @@ func (sl *ServerList) selectPrev() *tcell.EventKey {
 	}
 
 	for i := current - 1; i >= 0; i-- {
-		if i < len(sl.displayedItems) && sl.displayedItems[i] != nil {
+		if i < len(sl.displayedItems) {
 			sl.List.SetCurrentItem(i)
 			return nil
 		}
