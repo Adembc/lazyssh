@@ -708,64 +708,34 @@ func (t *tui) handleConnectGroupTmux(groupName string) {
 	// If inside tmux, we shouldn't nest sessions easily without care.
 	// For simplicity, let's assume we want to launch a new tmux session.
 
-	var cmdParts []string
-	// Start first pane with name
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux new-session -d -s %s -n '%s' 'ssh %s'",
-		sessionName, groupServers[0].Alias, groupServers[0].Alias))
-	// Enable pane synchronization
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-window-option -t %s synchronize-panes on", sessionName))
-
-	for i := 1; i < len(groupServers); i++ {
-		// Create split with command, but setting pane title requires extra step or different flag
-		// -P allows setting options on create, -F format.
-		// Standard way to set pane title is printf escape sequence inside the shell or -T title
-		// But ssh usually overwrites it.
-		// We can use tmux select-pane -T after creation?
-		// Or rename window? But we have multiple panes in one window.
-		// tmux allow-rename off might be needed.
-
-		// Simple approach: execute ssh
-		cmdParts = append(cmdParts, fmt.Sprintf("tmux split-window -t %s 'ssh %s'", sessionName, groupServers[i].Alias))
-		// We can try to set pane title if tmux version supports it, but ssh often overrides.
-		// Let's rely on ssh displaying the hostname.
-
-		// If user wants "pane title" visible, we need `set -g pane-border-status top`
-		// Let's enable pane border status for this session
+	quote := func(s string) string {
+		return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 	}
 
-	// Enable pane titles
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-status top", sessionName))
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-format \"#{pane_index} #T\"", sessionName))
-
-	// Set titles for all panes (trickier because ssh runs immediately)
-	// We can wrap ssh command: "printf '\033]2;%s\033\\'; ssh %s"
-
-	// Let's rebuild the command loop to include title setting via tmux select-pane -T
-	cmdParts = []string{}
+	var cmdParts []string
 
 	// Use BuildSSHCommand to get the full SSH command string
 	sshCmd0 := BuildSSHCommand(groupServers[0])
 
 	// Start session with first server
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux new-session -d -s %s \"%s\"", sessionName, sshCmd0))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux new-session -d -s %s %s", quote(sessionName), quote(sshCmd0)))
 	// Set title for the first pane (which is active immediately after creation)
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux select-pane -t %s -T \"%s\"", sessionName, groupServers[0].Alias))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux select-pane -t %s -T %s", quote(sessionName), quote(groupServers[0].Alias)))
 
 	// Enable pane options
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-window-option -t %s synchronize-panes on", sessionName))
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-status top", sessionName))
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-format \" #{pane_title} \"", sessionName))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-status top", quote(sessionName)))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-format %s", quote(sessionName), quote(" #{pane_title} ")))
 
 	for i := 1; i < len(groupServers); i++ {
 		sshCmdI := BuildSSHCommand(groupServers[i])
 		// Split window
-		cmdParts = append(cmdParts, fmt.Sprintf("tmux split-window -t %s \"%s\"", sessionName, sshCmdI))
+		cmdParts = append(cmdParts, fmt.Sprintf("tmux split-window -t %s %s", quote(sessionName), quote(sshCmdI)))
 		// Set title for the new pane (it becomes active after split)
-		cmdParts = append(cmdParts, fmt.Sprintf("tmux select-pane -t %s -T \"%s\"", sessionName, groupServers[i].Alias))
+		cmdParts = append(cmdParts, fmt.Sprintf("tmux select-pane -t %s -T %s", quote(sessionName), quote(groupServers[i].Alias)))
 	}
 
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux select-layout -t %s tiled", sessionName))
-	cmdParts = append(cmdParts, fmt.Sprintf("tmux attach-session -t %s", sessionName))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux select-layout -t %s tiled", quote(sessionName)))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux attach-session -t %s", quote(sessionName)))
 
 	fullCmd := strings.Join(cmdParts, " ; ")
 
