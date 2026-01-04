@@ -68,6 +68,10 @@ func (sl *ServerList) build() {
 				sl.onReturnToSearch()
 			}
 			return nil
+		case tcell.KeyDown:
+			return sl.selectNext()
+		case tcell.KeyUp:
+			return sl.selectPrev()
 		}
 		return event
 	})
@@ -105,11 +109,6 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		} else {
 			if inPinnedSection {
 				inPinnedSection = false
-				// Add spacer
-				if hasGroups {
-					sl.List.AddItem("", "", 0, nil)
-					sl.displayedItems = append(sl.displayedItems, nil)
-				}
 			}
 
 			if firstUnpinned || s.Group != lastGroup {
@@ -182,4 +181,38 @@ func (sl *ServerList) OnSelectionChange(fn func(server domain.Server)) *ServerLi
 func (sl *ServerList) OnReturnToSearch(fn func()) *ServerList {
 	sl.onReturnToSearch = fn
 	return sl
+}
+
+func (sl *ServerList) selectNext() *tcell.EventKey {
+	current := sl.List.GetCurrentItem()
+	count := sl.List.GetItemCount()
+
+	if count == 0 {
+		return nil
+	}
+
+	for i := current + 1; i < count; i++ {
+		if i < len(sl.displayedItems) && sl.displayedItems[i] != nil {
+			sl.List.SetCurrentItem(i)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (sl *ServerList) selectPrev() *tcell.EventKey {
+	current := sl.List.GetCurrentItem()
+	count := sl.List.GetItemCount()
+
+	if count == 0 {
+		return nil
+	}
+
+	for i := current - 1; i >= 0; i-- {
+		if i < len(sl.displayedItems) && sl.displayedItems[i] != nil {
+			sl.List.SetCurrentItem(i)
+			return nil
+		}
+	}
+	return nil
 }
