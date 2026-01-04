@@ -413,9 +413,9 @@ var fieldHelpData = map[string]FieldHelp{
 	},
 	"Group": {
 		Field:       "Group",
-		Description: "Group name for organizing servers in the list view.",
+		Description: "Group name for organizing servers. Use '/' for nested groups (e.g. Work/ProjectA).",
 		Syntax:      "any_string",
-		Examples:    []string{"production", "database", "web-servers"},
+		Examples:    []string{"production", "database", "Work/ProjectA/DB"},
 		Default:     "none",
 		Category:    "Basic",
 	},

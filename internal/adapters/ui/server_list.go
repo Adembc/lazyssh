@@ -16,6 +16,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
@@ -115,9 +116,9 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 	sl.displayedHeaders = make([]string, 0)
 
 	inPinnedSection := false
-	firstUnpinned := true
-	lastGroup := ""
 
+	// Helper to track nested groups
+	lastGroupParts := []string{}
 	hasGroups := false
 	for _, s := range servers {
 		if s.Group != "" {
@@ -126,15 +127,16 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		}
 	}
 
-	addHeader := func(name string) {
-		isCollapsed := sl.collapsedGroups[name]
+	addHeader := func(fullPath string, name string, depth int) {
+		isCollapsed := sl.collapsedGroups[fullPath]
 		icon := "[-]"
 		if isCollapsed {
 			icon = "[+]"
 		}
-		sl.List.AddItem(fmt.Sprintf("[yellow::b]%s %s[-]", icon, name), "", 0, nil)
+		indent := strings.Repeat("  ", depth)
+		sl.List.AddItem(fmt.Sprintf("%s[yellow::b]%s %s[-]", indent, icon, name), "", 0, nil)
 		sl.displayedItems = append(sl.displayedItems, nil)
-		sl.displayedHeaders = append(sl.displayedHeaders, name)
+		sl.displayedHeaders = append(sl.displayedHeaders, fullPath)
 	}
 
 	for i := range servers {
@@ -145,8 +147,10 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 			if !inPinnedSection {
 				inPinnedSection = true
 				if hasGroups {
-					addHeader("Pinned")
+					addHeader("Pinned", "Pinned", 0)
 				}
+				// Reset group context when entering pinned
+				lastGroupParts = []string{}
 			}
 			if hasGroups && sl.collapsedGroups["Pinned"] {
 				continue
@@ -154,31 +158,99 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		} else {
 			if inPinnedSection {
 				inPinnedSection = false
+				// Reset group context when leaving pinned
+				lastGroupParts = []string{}
 			}
 
-			if firstUnpinned || s.Group != lastGroup {
-				if hasGroups {
-					groupName := s.Group
-					if groupName == "" {
-						groupName = "Ungrouped"
-					}
-					addHeader(groupName)
+			if hasGroups {
+				currentGroup := s.Group
+				if currentGroup == "" {
+					currentGroup = "Ungrouped"
 				}
-				lastGroup = s.Group
-				firstUnpinned = false
-			}
 
-			currentGroup := s.Group
-			if currentGroup == "" {
-				currentGroup = "Ungrouped"
-			}
-			if hasGroups && sl.collapsedGroups[currentGroup] {
+				currentParts := strings.Split(currentGroup, "/")
+
+				// Calculate common prefix with previous server's group
+				commonLen := 0
+				for j := 0; j < len(lastGroupParts) && j < len(currentParts); j++ {
+					if lastGroupParts[j] == currentParts[j] {
+						commonLen++
+					} else {
+						break
+					}
+				}
+
+				// Determine visibility based on parent groups
+				serverVisible := true
+				fullPath := ""
+
+				// Check visibility and render headers for divergent parts
+				for j, part := range currentParts {
+					if j > 0 {
+						fullPath += "/"
+					}
+					fullPath += part
+
+					// Check if any parent up to this point is collapsed
+					// But we only care if a *parent* is collapsed to hide *this* header.
+					// The header itself being collapsed affects its children.
+
+					// Wait, we need to check if the PARENT of the current header is collapsed
+					// to decide if we show THIS header.
+					parentPath := ""
+					if j > 0 {
+						parentPath = fullPath[:strings.LastIndex(fullPath, "/")]
+					}
+
+					parentCollapsed := false
+					if parentPath != "" && sl.collapsedGroups[parentPath] {
+						parentCollapsed = true
+					} else if j == 0 && inPinnedSection {
+						// Should not happen as we handle pinned separately, but conceptually
+					}
+
+					// If parent is collapsed, we stop everything down this path
+					if parentCollapsed {
+						serverVisible = false
+						break
+					}
+
+					// Render header if it's new (divergent from last)
+					if j >= commonLen {
+						addHeader(fullPath, part, j)
+					}
+
+					// Check if THIS group is collapsed (affects children and server)
+					if sl.collapsedGroups[fullPath] {
+						serverVisible = false
+					}
+				}
+
+				lastGroupParts = currentParts
+
+				if !serverVisible {
+					continue
+				}
+
+				// Update indent for server
+				primary, secondary := formatServerLine(servers[i])
+				indent := strings.Repeat("  ", len(currentParts)+1)
+				primary = indent + primary
+
+				idx := i
+				sl.List.AddItem(primary, secondary, 0, func() {
+					if sl.onSelection != nil {
+						sl.onSelection(sl.servers[idx])
+					}
+				})
+				sl.displayedItems = append(sl.displayedItems, &sl.servers[i])
+				sl.displayedHeaders = append(sl.displayedHeaders, "")
 				continue
 			}
 		}
 
+		// Fallback for no groups or Pinned items rendering
 		primary, secondary := formatServerLine(servers[i])
-		// Indent content
 		primary = "  " + primary
 
 		idx := i
