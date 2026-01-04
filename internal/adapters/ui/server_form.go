@@ -1242,6 +1242,11 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 // createGroupAutocomplete creates an autocomplete function for the Group field
 func (sf *ServerForm) createGroupAutocomplete() func(string) []string {
 	return func(currentText string) []string {
+		// Don't show suggestions if the field is empty to allow Tab navigation
+		if currentText == "" {
+			return nil
+		}
+
 		if len(sf.existingGroups) == 0 {
 			return nil
 		}
@@ -1254,7 +1259,7 @@ func (sf *ServerForm) createGroupAutocomplete() func(string) []string {
 			if group == "" {
 				continue
 			}
-			if searchTerm == "" || matchesSequence(strings.ToLower(group), searchTerm) {
+			if matchesSequence(strings.ToLower(group), searchTerm) {
 				filtered = append(filtered, group)
 			}
 		}
