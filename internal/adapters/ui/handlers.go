@@ -16,6 +16,9 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -643,4 +646,145 @@ func (t *tui) handleStopForwarding() {
 			})
 		}()
 	}
+}
+
+func (t *tui) handleGroupAction(groupName string, action string) {
+	if action == "menu" {
+		t.showGroupContextMenu(groupName)
+	} else if action == "tmux-all" {
+		t.handleConnectGroupTmux(groupName)
+	}
+}
+
+func (t *tui) showGroupContextMenu(groupName string) {
+	menu := tview.NewModal().
+		SetText(fmt.Sprintf("Group Actions: %s", groupName)).
+		AddButtons([]string{"Connect to All (tmux)", "Cancel"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonLabel == "Connect to All (tmux)" {
+				t.handleConnectGroupTmux(groupName)
+			}
+			t.handleModalClose()
+		})
+	t.app.SetRoot(menu, true)
+}
+
+func (t *tui) handleConnectGroupTmux(groupName string) {
+	servers, _ := t.serverService.ListServers("")
+	var groupServers []domain.Server
+
+	for _, s := range servers {
+		// Check if server belongs to the group or any sub-group
+		if s.Group == groupName || strings.HasPrefix(s.Group, groupName+"/") {
+			groupServers = append(groupServers, s)
+		}
+	}
+
+	if len(groupServers) == 0 {
+		t.showStatusTempColor("No servers in group "+groupName, "#FF6B6B")
+		return
+	}
+
+	// Sort by alias for deterministic order
+	sort.Slice(groupServers, func(i, j int) bool {
+		return groupServers[i].Alias < groupServers[j].Alias
+	})
+
+	// Build tmux command
+	// tmux new-session -d -s groupname 'ssh alias1'
+	// tmux split-window -t groupname 'ssh alias2'
+	// tmux select-layout -t groupname tiled
+	// tmux attach -t groupname
+
+	// We'll generate a script or command string to copy to clipboard or run?
+	// The requirement says "Connect to all (tmux)". Usually implies running tmux locally.
+	// Since we are inside the TUI, replacing the TUI with tmux session might be complex directly.
+	// However, we can suspend the app and run the command.
+
+	// Use timestamp to ensure unique session name
+	sessionName := fmt.Sprintf("lazyssh-%s-%d", strings.ReplaceAll(groupName, "/", "-"), time.Now().Unix())
+
+	// Check if we are inside tmux already?
+	// If inside tmux, we shouldn't nest sessions easily without care.
+	// For simplicity, let's assume we want to launch a new tmux session.
+
+	var cmdParts []string
+	// Start first pane with name
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux new-session -d -s %s -n '%s' 'ssh %s'",
+		sessionName, groupServers[0].Alias, groupServers[0].Alias))
+	// Enable pane synchronization
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-window-option -t %s synchronize-panes on", sessionName))
+
+	for i := 1; i < len(groupServers); i++ {
+		// Create split with command, but setting pane title requires extra step or different flag
+		// -P allows setting options on create, -F format.
+		// Standard way to set pane title is printf escape sequence inside the shell or -T title
+		// But ssh usually overwrites it.
+		// We can use tmux select-pane -T after creation?
+		// Or rename window? But we have multiple panes in one window.
+		// tmux allow-rename off might be needed.
+
+		// Simple approach: execute ssh
+		cmdParts = append(cmdParts, fmt.Sprintf("tmux split-window -t %s 'ssh %s'", sessionName, groupServers[i].Alias))
+		// We can try to set pane title if tmux version supports it, but ssh often overrides.
+		// Let's rely on ssh displaying the hostname.
+
+		// If user wants "pane title" visible, we need `set -g pane-border-status top`
+		// Let's enable pane border status for this session
+	}
+
+	// Enable pane titles
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-status top", sessionName))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-format \"#{pane_index} #T\"", sessionName))
+
+	// Set titles for all panes (trickier because ssh runs immediately)
+	// We can wrap ssh command: "printf '\033]2;%s\033\\'; ssh %s"
+
+	// Let's rebuild the command loop to include title setting via tmux select-pane -T
+	cmdParts = []string{}
+
+	// Use BuildSSHCommand to get the full SSH command string
+	sshCmd0 := BuildSSHCommand(groupServers[0])
+
+	// Start session with first server
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux new-session -d -s %s \"%s\"", sessionName, sshCmd0))
+	// Set title for the first pane (which is active immediately after creation)
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux select-pane -t %s -T \"%s\"", sessionName, groupServers[0].Alias))
+
+	// Enable pane options
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-window-option -t %s synchronize-panes on", sessionName))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-status top", sessionName))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-format \" #{pane_title} \"", sessionName))
+
+	for i := 1; i < len(groupServers); i++ {
+		sshCmdI := BuildSSHCommand(groupServers[i])
+		// Split window
+		cmdParts = append(cmdParts, fmt.Sprintf("tmux split-window -t %s \"%s\"", sessionName, sshCmdI))
+		// Set title for the new pane (it becomes active after split)
+		cmdParts = append(cmdParts, fmt.Sprintf("tmux select-pane -t %s -T \"%s\"", sessionName, groupServers[i].Alias))
+	}
+
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux select-layout -t %s tiled", sessionName))
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux attach-session -t %s", sessionName))
+
+	fullCmd := strings.Join(cmdParts, " ; ")
+
+	// Execute the command in the shell
+	t.app.Suspend(func() {
+		fmt.Printf("Launching tmux session for group %s (%d servers)...\n", groupName, len(groupServers))
+		for _, s := range groupServers {
+			fmt.Printf(" - %s\n", s.Alias)
+		}
+
+		cmd := exec.Command("sh", "-c", fullCmd)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("Error launching tmux: %v\n", err)
+			fmt.Println("Press Enter to continue...")
+			fmt.Scanln()
+		}
+	})
 }

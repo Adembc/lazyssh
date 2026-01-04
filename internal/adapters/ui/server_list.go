@@ -32,6 +32,7 @@ type ServerList struct {
 	onSelection       func(domain.Server)
 	onSelectionChange func(domain.Server)
 	onReturnToSearch  func()
+	onGroupAction     func(groupName string, action string)
 }
 
 func NewServerList() *ServerList {
@@ -79,13 +80,16 @@ func (sl *ServerList) build() {
 		case tcell.KeyEnter, tcell.KeyRune:
 			isSpace := event.Key() == tcell.KeyRune && event.Rune() == ' '
 			isEnter := event.Key() == tcell.KeyEnter
+			isMenu := event.Key() == tcell.KeyRune && event.Rune() == 'm'
 
-			if isSpace || isEnter {
-				idx := sl.List.GetCurrentItem()
-				if idx >= 0 && idx < len(sl.displayedHeaders) {
-					groupName := sl.displayedHeaders[idx]
-					if groupName != "" {
-						// It is a header
+			idx := sl.List.GetCurrentItem()
+			if idx >= 0 && idx < len(sl.displayedHeaders) {
+				groupName := sl.displayedHeaders[idx]
+
+				// Handle Group Actions
+				if groupName != "" {
+					if isSpace || isEnter {
+						// Toggle Collapse
 						sl.collapsedGroups[groupName] = !sl.collapsedGroups[groupName]
 						sl.UpdateServers(sl.servers)
 
@@ -100,7 +104,11 @@ func (sl *ServerList) build() {
 						if newIdx >= 0 {
 							sl.List.SetCurrentItem(newIdx)
 						}
-						return nil // Consume event
+						return nil
+					} else if isMenu {
+						// Trigger Context Menu Action
+						sl.showGroupContextMenu(groupName)
+						return nil
 					}
 				}
 			}
@@ -310,6 +318,19 @@ func (sl *ServerList) OnSelectionChange(fn func(server domain.Server)) *ServerLi
 func (sl *ServerList) OnReturnToSearch(fn func()) *ServerList {
 	sl.onReturnToSearch = fn
 	return sl
+}
+
+func (sl *ServerList) OnGroupAction(fn func(groupName string, action string)) *ServerList {
+	sl.onGroupAction = fn
+	return sl
+}
+
+func (sl *ServerList) showGroupContextMenu(groupName string) {
+	// Trigger the callback to let the parent (TUI) handle the menu display
+	// We pass "menu" action to indicate that a context menu is requested
+	if sl.onGroupAction != nil {
+		sl.onGroupAction(groupName, "menu")
+	}
 }
 
 func (sl *ServerList) selectNext() *tcell.EventKey {
