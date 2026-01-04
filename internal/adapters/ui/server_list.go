@@ -15,6 +15,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -23,6 +25,7 @@ import (
 type ServerList struct {
 	*tview.List
 	servers           []domain.Server
+	displayedItems    []*domain.Server
 	onSelection       func(domain.Server)
 	onSelectionChange func(domain.Server)
 	onReturnToSearch  func()
@@ -49,8 +52,11 @@ func (sl *ServerList) build() {
 		SetHighlightFullLine(true)
 
 	sl.List.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
-		if index >= 0 && index < len(sl.servers) && sl.onSelectionChange != nil {
-			sl.onSelectionChange(sl.servers[index])
+		if index >= 0 && index < len(sl.displayedItems) {
+			item := sl.displayedItems[index]
+			if item != nil && sl.onSelectionChange != nil {
+				sl.onSelectionChange(*item)
+			}
 		}
 	})
 
@@ -70,29 +76,81 @@ func (sl *ServerList) build() {
 func (sl *ServerList) UpdateServers(servers []domain.Server) {
 	sl.servers = servers
 	sl.List.Clear()
+	sl.displayedItems = make([]*domain.Server, 0)
+
+	inPinnedSection := false
+	firstUnpinned := true
+	lastGroup := ""
 
 	for i := range servers {
+		s := servers[i]
+		isPinned := !s.PinnedAt.IsZero()
+
+		if isPinned {
+			if !inPinnedSection {
+				inPinnedSection = true
+				sl.List.AddItem("[yellow::b]Pinned[-]", "", 0, nil)
+				sl.displayedItems = append(sl.displayedItems, nil)
+			}
+		} else {
+			if inPinnedSection {
+				inPinnedSection = false
+				// Add spacer
+				sl.List.AddItem("", "", 0, nil)
+				sl.displayedItems = append(sl.displayedItems, nil)
+			}
+
+			if firstUnpinned || s.Group != lastGroup {
+				groupName := s.Group
+				if groupName == "" {
+					groupName = "Ungrouped"
+				}
+				sl.List.AddItem(fmt.Sprintf("[yellow::b]%s[-]", groupName), "", 0, nil)
+				sl.displayedItems = append(sl.displayedItems, nil)
+				lastGroup = s.Group
+				firstUnpinned = false
+			}
+		}
+
 		primary, secondary := formatServerLine(servers[i])
+		// Indent content
+		primary = "  " + primary
+
 		idx := i
 		sl.List.AddItem(primary, secondary, 0, func() {
 			if sl.onSelection != nil {
 				sl.onSelection(sl.servers[idx])
 			}
 		})
+		sl.displayedItems = append(sl.displayedItems, &sl.servers[i])
 	}
 
 	if sl.List.GetItemCount() > 0 {
-		sl.List.SetCurrentItem(0)
-		if sl.onSelectionChange != nil {
-			sl.onSelectionChange(sl.servers[0])
+		// Find first selectable item
+		firstSelectable := -1
+		for i, item := range sl.displayedItems {
+			if item != nil {
+				firstSelectable = i
+				break
+			}
+		}
+
+		if firstSelectable >= 0 {
+			sl.List.SetCurrentItem(firstSelectable)
+			if sl.onSelectionChange != nil {
+				sl.onSelectionChange(*sl.displayedItems[firstSelectable])
+			}
 		}
 	}
 }
 
 func (sl *ServerList) GetSelectedServer() (domain.Server, bool) {
 	idx := sl.List.GetCurrentItem()
-	if idx >= 0 && idx < len(sl.servers) {
-		return sl.servers[idx], true
+	if idx >= 0 && idx < len(sl.displayedItems) {
+		item := sl.displayedItems[idx]
+		if item != nil {
+			return *item, true
+		}
 	}
 	return domain.Server{}, false
 }

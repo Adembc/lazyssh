@@ -27,6 +27,7 @@ import (
 
 type ServerMetadata struct {
 	Tags     []string `json:"tags,omitempty"`
+	Group    string   `json:"group,omitempty"`
 	LastSeen string   `json:"last_seen,omitempty"`
 	PinnedAt string   `json:"pinned_at,omitempty"`
 	SSHCount int      `json:"ssh_count,omitempty"`
@@ -103,6 +104,7 @@ func (m *metadataManager) updateServer(server domain.Server, oldAlias string) er
 	merged := existing
 
 	merged.Tags = server.Tags
+	merged.Group = server.Group
 
 	if !server.LastSeen.IsZero() {
 		merged.LastSeen = server.LastSeen.Format(time.RFC3339)

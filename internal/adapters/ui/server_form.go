@@ -1072,6 +1072,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			Port:                 fmt.Sprint(sf.original.Port),
 			Key:                  strings.Join(sf.original.IdentityFiles, ", "),
 			Tags:                 strings.Join(sf.original.Tags, ", "),
+			Group:                sf.original.Group,
 			ProxyJump:            sf.original.ProxyJump,
 			ProxyCommand:         sf.original.ProxyCommand,
 			RemoteCommand:        sf.original.RemoteCommand,
@@ -1147,6 +1148,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 		Port:  "22", // Keep port 22 as it's the standard SSH port
 		Key:   "",   // Empty for new servers (SSH will try default keys)
 		Tags:  "",
+		Group: "",
 
 		// All other fields should be empty for new servers
 		// The SSH client will use its defaults when these are not specified
@@ -1253,6 +1255,9 @@ func (sf *ServerForm) createBasicForm() {
 
 	// Tags field
 	sf.addValidatedInputField(form, "Tags:", "Tags", defaultValues.Tags, 30, GetFieldPlaceholder("Tags"))
+
+	// Group field
+	sf.addValidatedInputField(form, "Group:", "Group", defaultValues.Group, 30, GetFieldPlaceholder("Group"))
 
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSaveButton)
@@ -1645,6 +1650,7 @@ type ServerFormData struct {
 	Port  string
 	Key   string
 	Tags  string
+	Group string
 
 	// Connection and proxy settings
 	ProxyJump            string
@@ -1780,6 +1786,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Port:  getFieldText("Port:"),
 		Key:   getFieldText("Keys:"),
 		Tags:  getFieldText("Tags:"),
+		Group: getFieldText("Group:"),
 		// Connection and proxy settings
 		ProxyJump:            getFieldText("ProxyJump:"),
 		ProxyCommand:         getFieldText("ProxyCommand:"),
@@ -2188,6 +2195,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		Port:                 port,
 		IdentityFiles:        keys,
 		Tags:                 tags,
+		Group:                data.Group,
 		ProxyJump:            data.ProxyJump,
 		ProxyCommand:         data.ProxyCommand,
 		RemoteCommand:        data.RemoteCommand,
