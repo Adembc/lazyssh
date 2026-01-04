@@ -234,10 +234,24 @@ func (t *tui) handleServerSelectionChange(server domain.Server) {
 	t.details.UpdateServer(server)
 }
 
+func (t *tui) getUniqueGroups() []string {
+	servers, _ := t.serverService.ListServers("")
+	uniqueGroups := make(map[string]bool)
+	var groups []string
+	for _, s := range servers {
+		if s.Group != "" && !uniqueGroups[s.Group] {
+			uniqueGroups[s.Group] = true
+			groups = append(groups, s.Group)
+		}
+	}
+	return groups
+}
+
 func (t *tui) handleServerAdd() {
 	form := NewServerForm(ServerFormAdd, nil).
 		SetApp(t.app).
 		SetVersionInfo(t.version, t.commit).
+		SetExistingGroups(t.getUniqueGroups()).
 		OnSave(t.handleServerSave).
 		OnCancel(t.handleFormCancel)
 	t.app.SetRoot(form, true)
@@ -248,6 +262,7 @@ func (t *tui) handleServerEdit() {
 		form := NewServerForm(ServerFormEdit, &server).
 			SetApp(t.app).
 			SetVersionInfo(t.version, t.commit).
+			SetExistingGroups(t.getUniqueGroups()).
 			OnSave(t.handleServerSave).
 			OnCancel(t.handleFormCancel)
 		t.app.SetRoot(form, true)

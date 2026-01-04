@@ -44,27 +44,28 @@ const (
 )
 
 type ServerForm struct {
-	*tview.Flex               // The root container (includes header, form panel and hint bar)
-	header        *AppHeader  // The app header
-	formPanel     *tview.Flex // The actual form panel
-	pages         *tview.Pages
-	tabBar        *tview.TextView
-	forms         map[string]*tview.Form
-	currentTab    string
-	tabs          []string
-	tabAbbrev     map[string]string // Abbreviated tab names for narrow views
-	mode          ServerFormMode
-	original      *domain.Server
-	onSave        func(domain.Server, *domain.Server)
-	onCancel      func()
-	app           *tview.Application // Reference to app for showing modals
-	version       string             // Version for header
-	commit        string             // Commit for header
-	validation    *ValidationState   // Validation state for all fields
-	helpPanel     *tview.TextView    // Help panel for field descriptions
-	helpMode      HelpDisplayMode    // Current help display mode
-	currentField  string             // Currently focused field
-	mainContainer *tview.Flex        // Container for form and help panel
+	*tview.Flex                // The root container (includes header, form panel and hint bar)
+	header         *AppHeader  // The app header
+	formPanel      *tview.Flex // The actual form panel
+	pages          *tview.Pages
+	tabBar         *tview.TextView
+	forms          map[string]*tview.Form
+	currentTab     string
+	tabs           []string
+	tabAbbrev      map[string]string // Abbreviated tab names for narrow views
+	mode           ServerFormMode
+	original       *domain.Server
+	onSave         func(domain.Server, *domain.Server)
+	onCancel       func()
+	app            *tview.Application // Reference to app for showing modals
+	version        string             // Version for header
+	commit         string             // Commit for header
+	validation     *ValidationState   // Validation state for all fields
+	helpPanel      *tview.TextView    // Help panel for field descriptions
+	helpMode       HelpDisplayMode    // Current help display mode
+	currentField   string             // Currently focused field
+	mainContainer  *tview.Flex        // Container for form and help panel
+	existingGroups []string           // List of existing groups for autocomplete
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -1238,6 +1239,33 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 	}
 }
 
+// createGroupAutocomplete creates an autocomplete function for the Group field
+func (sf *ServerForm) createGroupAutocomplete() func(string) []string {
+	return func(currentText string) []string {
+		if len(sf.existingGroups) == 0 {
+			return nil
+		}
+
+		// Filter suggestions
+		var filtered []string
+		searchTerm := strings.ToLower(currentText)
+
+		for _, group := range sf.existingGroups {
+			if group == "" {
+				continue
+			}
+			if searchTerm == "" || matchesSequence(strings.ToLower(group), searchTerm) {
+				filtered = append(filtered, group)
+			}
+		}
+
+		if len(filtered) == 0 {
+			return nil
+		}
+		return filtered
+	}
+}
+
 // createBasicForm creates the Basic configuration tab
 func (sf *ServerForm) createBasicForm() {
 	form := tview.NewForm()
@@ -1257,7 +1285,8 @@ func (sf *ServerForm) createBasicForm() {
 	sf.addValidatedInputField(form, "Tags:", "Tags", defaultValues.Tags, 30, GetFieldPlaceholder("Tags"))
 
 	// Group field
-	sf.addValidatedInputField(form, "Group:", "Group", defaultValues.Group, 30, GetFieldPlaceholder("Group"))
+	groupField := sf.addValidatedInputField(form, "Group:", "Group", defaultValues.Group, 30, GetFieldPlaceholder("Group"))
+	groupField.SetAutocompleteFunc(sf.createGroupAutocomplete())
 
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSaveButton)
@@ -2291,5 +2320,10 @@ func (sf *ServerForm) SetVersionInfo(version, commit string) *ServerForm {
 		// Rebuild header if already exists
 		sf.header = NewAppHeader(sf.version, sf.commit, RepoURL)
 	}
+	return sf
+}
+
+func (sf *ServerForm) SetExistingGroups(groups []string) *ServerForm {
+	sf.existingGroups = groups
 	return sf
 }
