@@ -82,6 +82,14 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 	firstUnpinned := true
 	lastGroup := ""
 
+	hasGroups := false
+	for _, s := range servers {
+		if s.Group != "" {
+			hasGroups = true
+			break
+		}
+	}
+
 	for i := range servers {
 		s := servers[i]
 		isPinned := !s.PinnedAt.IsZero()
@@ -89,24 +97,30 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		if isPinned {
 			if !inPinnedSection {
 				inPinnedSection = true
-				sl.List.AddItem("[yellow::b]Pinned[-]", "", 0, nil)
-				sl.displayedItems = append(sl.displayedItems, nil)
+				if hasGroups {
+					sl.List.AddItem("[yellow::b]Pinned[-]", "", 0, nil)
+					sl.displayedItems = append(sl.displayedItems, nil)
+				}
 			}
 		} else {
 			if inPinnedSection {
 				inPinnedSection = false
 				// Add spacer
-				sl.List.AddItem("", "", 0, nil)
-				sl.displayedItems = append(sl.displayedItems, nil)
+				if hasGroups {
+					sl.List.AddItem("", "", 0, nil)
+					sl.displayedItems = append(sl.displayedItems, nil)
+				}
 			}
 
 			if firstUnpinned || s.Group != lastGroup {
-				groupName := s.Group
-				if groupName == "" {
-					groupName = "Ungrouped"
+				if hasGroups {
+					groupName := s.Group
+					if groupName == "" {
+						groupName = "Ungrouped"
+					}
+					sl.List.AddItem(fmt.Sprintf("[yellow::b]%s[-]", groupName), "", 0, nil)
+					sl.displayedItems = append(sl.displayedItems, nil)
 				}
-				sl.List.AddItem(fmt.Sprintf("[yellow::b]%s[-]", groupName), "", 0, nil)
-				sl.displayedItems = append(sl.displayedItems, nil)
 				lastGroup = s.Group
 				firstUnpinned = false
 			}
