@@ -726,6 +726,9 @@ func (t *tui) handleConnectGroupTmux(groupName string) {
 	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-status top", quote(sessionName)))
 	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s pane-border-format %s", quote(sessionName), quote(" #{pane_title} ")))
 
+	// Enable mouse support
+	cmdParts = append(cmdParts, fmt.Sprintf("tmux set-option -t %s mouse on", quote(sessionName)))
+
 	for i := 1; i < len(groupServers); i++ {
 		sshCmdI := BuildSSHCommand(groupServers[i])
 		// Split window
