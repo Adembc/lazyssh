@@ -97,7 +97,8 @@ func (t *tui) buildComponents() *tui {
 
 	t.serverList = NewServerList().
 		OnSelectionChange(t.handleServerSelectionChange).
-		OnReturnToSearch(t.handleReturnToSearch)
+		OnReturnToSearch(t.handleReturnToSearch).
+		OnGroupAction(t.handleGroupAction)
 	t.details = NewServerDetails()
 	t.statusBar = NewStatusBar()
 

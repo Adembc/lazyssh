@@ -182,6 +182,8 @@ func GetFieldPlaceholder(fieldName string) string {
 		return "e.g., ~/.ssh/id_rsa, ~/.ssh/id_ed25519"
 	case "Tags":
 		return "comma-separated tags"
+	case "Group":
+		return "e.g., production, database"
 	case "ProxyJump": //nolint:goconst // Field name used in switch case
 		return "e.g., bastion.example.com"
 	case "ProxyCommand":

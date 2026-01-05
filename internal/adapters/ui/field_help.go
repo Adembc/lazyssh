@@ -411,6 +411,14 @@ var fieldHelpData = map[string]FieldHelp{
 		Default:     "none",
 		Category:    "Basic",
 	},
+	"Group": {
+		Field:       "Group",
+		Description: "Group name for organizing servers. Use '/' for nested groups (e.g. Work/ProjectA).",
+		Syntax:      "any_string",
+		Examples:    []string{"production", "database", "Work/ProjectA/DB"},
+		Default:     "none",
+		Category:    "Basic",
+	},
 
 	// Connection - IP and Address fields
 	"IPQoS": {

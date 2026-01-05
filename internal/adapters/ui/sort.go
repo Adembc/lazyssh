@@ -98,6 +98,20 @@ func sortServersForUI(servers []domain.Server, mode SortMode) {
 		}
 
 		// both unpinned
+		// Group sorting
+		gi := strings.ToLower(si.Group)
+		gj := strings.ToLower(sj.Group)
+		if gi != gj {
+			// Put empty group (ungrouped) last
+			if gi == "" {
+				return false
+			}
+			if gj == "" {
+				return true
+			}
+			return gi < gj
+		}
+
 		switch mode {
 		case SortByLastSeenDesc, SortByLastSeenAsc:
 			zi := si.LastSeen.IsZero()

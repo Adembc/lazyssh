@@ -44,27 +44,28 @@ const (
 )
 
 type ServerForm struct {
-	*tview.Flex               // The root container (includes header, form panel and hint bar)
-	header        *AppHeader  // The app header
-	formPanel     *tview.Flex // The actual form panel
-	pages         *tview.Pages
-	tabBar        *tview.TextView
-	forms         map[string]*tview.Form
-	currentTab    string
-	tabs          []string
-	tabAbbrev     map[string]string // Abbreviated tab names for narrow views
-	mode          ServerFormMode
-	original      *domain.Server
-	onSave        func(domain.Server, *domain.Server)
-	onCancel      func()
-	app           *tview.Application // Reference to app for showing modals
-	version       string             // Version for header
-	commit        string             // Commit for header
-	validation    *ValidationState   // Validation state for all fields
-	helpPanel     *tview.TextView    // Help panel for field descriptions
-	helpMode      HelpDisplayMode    // Current help display mode
-	currentField  string             // Currently focused field
-	mainContainer *tview.Flex        // Container for form and help panel
+	*tview.Flex                // The root container (includes header, form panel and hint bar)
+	header         *AppHeader  // The app header
+	formPanel      *tview.Flex // The actual form panel
+	pages          *tview.Pages
+	tabBar         *tview.TextView
+	forms          map[string]*tview.Form
+	currentTab     string
+	tabs           []string
+	tabAbbrev      map[string]string // Abbreviated tab names for narrow views
+	mode           ServerFormMode
+	original       *domain.Server
+	onSave         func(domain.Server, *domain.Server)
+	onCancel       func()
+	app            *tview.Application // Reference to app for showing modals
+	version        string             // Version for header
+	commit         string             // Commit for header
+	validation     *ValidationState   // Validation state for all fields
+	helpPanel      *tview.TextView    // Help panel for field descriptions
+	helpMode       HelpDisplayMode    // Current help display mode
+	currentField   string             // Currently focused field
+	mainContainer  *tview.Flex        // Container for form and help panel
+	existingGroups []string           // List of existing groups for autocomplete
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -1072,6 +1073,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			Port:                 fmt.Sprint(sf.original.Port),
 			Key:                  strings.Join(sf.original.IdentityFiles, ", "),
 			Tags:                 strings.Join(sf.original.Tags, ", "),
+			Group:                sf.original.Group,
 			ProxyJump:            sf.original.ProxyJump,
 			ProxyCommand:         sf.original.ProxyCommand,
 			RemoteCommand:        sf.original.RemoteCommand,
@@ -1147,6 +1149,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 		Port:  "22", // Keep port 22 as it's the standard SSH port
 		Key:   "",   // Empty for new servers (SSH will try default keys)
 		Tags:  "",
+		Group: "",
 
 		// All other fields should be empty for new servers
 		// The SSH client will use its defaults when these are not specified
@@ -1236,6 +1239,38 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 	}
 }
 
+// createGroupAutocomplete creates an autocomplete function for the Group field
+func (sf *ServerForm) createGroupAutocomplete() func(string) []string {
+	return func(currentText string) []string {
+		// Don't show suggestions if the field is empty to allow Tab navigation
+		if currentText == "" {
+			return nil
+		}
+
+		if len(sf.existingGroups) == 0 {
+			return nil
+		}
+
+		// Filter suggestions
+		var filtered []string
+		searchTerm := strings.ToLower(currentText)
+
+		for _, group := range sf.existingGroups {
+			if group == "" {
+				continue
+			}
+			if matchesSequence(strings.ToLower(group), searchTerm) {
+				filtered = append(filtered, group)
+			}
+		}
+
+		if len(filtered) == 0 {
+			return nil
+		}
+		return filtered
+	}
+}
+
 // createBasicForm creates the Basic configuration tab
 func (sf *ServerForm) createBasicForm() {
 	form := tview.NewForm()
@@ -1253,6 +1288,10 @@ func (sf *ServerForm) createBasicForm() {
 
 	// Tags field
 	sf.addValidatedInputField(form, "Tags:", "Tags", defaultValues.Tags, 30, GetFieldPlaceholder("Tags"))
+
+	// Group field
+	groupField := sf.addValidatedInputField(form, "Group:", "Group", defaultValues.Group, 30, GetFieldPlaceholder("Group"))
+	groupField.SetAutocompleteFunc(sf.createGroupAutocomplete())
 
 	// Add save and cancel buttons
 	form.AddButton("Save", sf.handleSaveButton)
@@ -1645,6 +1684,7 @@ type ServerFormData struct {
 	Port  string
 	Key   string
 	Tags  string
+	Group string
 
 	// Connection and proxy settings
 	ProxyJump            string
@@ -1780,6 +1820,7 @@ func (sf *ServerForm) getFormData() ServerFormData {
 		Port:  getFieldText("Port:"),
 		Key:   getFieldText("Keys:"),
 		Tags:  getFieldText("Tags:"),
+		Group: getFieldText("Group:"),
 		// Connection and proxy settings
 		ProxyJump:            getFieldText("ProxyJump:"),
 		ProxyCommand:         getFieldText("ProxyCommand:"),
@@ -2188,6 +2229,7 @@ func (sf *ServerForm) dataToServer(data ServerFormData) domain.Server {
 		Port:                 port,
 		IdentityFiles:        keys,
 		Tags:                 tags,
+		Group:                data.Group,
 		ProxyJump:            data.ProxyJump,
 		ProxyCommand:         data.ProxyCommand,
 		RemoteCommand:        data.RemoteCommand,
@@ -2283,5 +2325,10 @@ func (sf *ServerForm) SetVersionInfo(version, commit string) *ServerForm {
 		// Rebuild header if already exists
 		sf.header = NewAppHeader(sf.version, sf.commit, RepoURL)
 	}
+	return sf
+}
+
+func (sf *ServerForm) SetExistingGroups(groups []string) *ServerForm {
+	sf.existingGroups = groups
 	return sf
 }
