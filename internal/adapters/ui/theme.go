@@ -65,6 +65,7 @@ type Theme struct {
 	StatusSuccess    string // success status messages
 	StatusError      string // error status messages
 	HintKey          string // keyboard hint keys
+	AliasText        string // server alias in list
 }
 
 // DarkTheme is the default dark color scheme.
@@ -104,6 +105,7 @@ var DarkTheme = Theme{
 	StatusSuccess:    "#A0FFA0",
 	StatusError:      "#FF6B6B",
 	HintKey:          "white",
+	AliasText:        "white",
 }
 
 // LightTheme is the light color scheme for better visibility in bright environments.
@@ -143,6 +145,7 @@ var LightTheme = Theme{
 	StatusSuccess:    "#16A34A",
 	StatusError:      "#DC2626",
 	HintKey:          "#1A1A1A",
+	AliasText:        "#1A1A1A",
 }
 
 // CurrentTheme is the active theme used throughout the application.

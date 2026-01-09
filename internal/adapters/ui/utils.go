@@ -96,7 +96,7 @@ func formatServerLine(s domain.Server) (primary, secondary string) {
 	}
 	// Use a consistent color for alias; host/IP fixed width; then forwarding column
 	primary = fmt.Sprintf("%s [%s::b]%-12s[-] [%s]%-18s[-] %s [%s]Last SSH: %s[-]  %s",
-		icon, CurrentTheme.HintKey, s.Alias, CurrentTheme.MutedText, s.Host,
+		icon, CurrentTheme.AliasText, s.Alias, CurrentTheme.MutedText, s.Host,
 		fCol, CurrentTheme.DimText, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
 	secondary = ""
 	return
