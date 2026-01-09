@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -41,8 +40,8 @@ func (sd *ServerDetails) build() {
 		SetBorder(true).
 		SetTitle(" Details ").
 		SetTitleAlign(tview.AlignCenter).
-		SetBorderColor(tcell.Color238).
-		SetTitleColor(tcell.Color250)
+		SetBorderColor(CurrentTheme.BorderColor).
+		SetTitleColor(CurrentTheme.TitleColor)
 }
 
 // renderTagChips builds colored tag chips for details view.
@@ -52,7 +51,8 @@ func renderTagChips(tags []string) string {
 	}
 	chips := make([]string, 0, len(tags))
 	for _, t := range tags {
-		chips = append(chips, fmt.Sprintf("[black:#5FAFFF] %s [-:-:-]", t))
+		chips = append(chips, fmt.Sprintf("[%s:%s] %s [-:-:-]",
+			CurrentTheme.TagChipText, CurrentTheme.TagChipBg, t))
 	}
 	return strings.Join(chips, " ")
 }

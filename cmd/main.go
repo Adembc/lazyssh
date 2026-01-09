@@ -20,10 +20,9 @@ import (
 	"path/filepath"
 
 	"github.com/Adembc/lazyssh/internal/adapters/data/ssh_config_file"
-	"github.com/Adembc/lazyssh/internal/logger"
-
 	"github.com/Adembc/lazyssh/internal/adapters/ui"
 	"github.com/Adembc/lazyssh/internal/core/services"
+	"github.com/Adembc/lazyssh/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -50,6 +49,13 @@ func main() {
 	}
 	sshConfigFile := filepath.Join(home, ".ssh", "config")
 	metaDataFile := filepath.Join(home, ".lazyssh", "metadata.json")
+
+	// Load theme preference before creating UI
+	settings, err := ssh_config_file.LoadSettings(metaDataFile)
+	if err != nil {
+		log.Warnw("failed to load settings, using default theme", "error", err)
+	}
+	ui.SetTheme(settings.Theme)
 
 	serverRepo := ssh_config_file.NewRepository(log, sshConfigFile, metaDataFile)
 	serverService := services.NewServerService(log, serverRepo)

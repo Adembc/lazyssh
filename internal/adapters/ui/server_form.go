@@ -131,8 +131,8 @@ func (sf *ServerForm) build() {
 	sf.formPanel.SetBorder(true).
 		SetTitle(" " + sf.titleForMode() + " ").
 		SetTitleAlign(tview.AlignCenter).
-		SetBorderColor(tcell.Color238).
-		SetTitleColor(tcell.Color250)
+		SetBorderColor(CurrentTheme.BorderColor).
+		SetTitleColor(CurrentTheme.TitleColor)
 
 	sf.formPanel.AddItem(sf.tabBar, 1, 0, false).
 		AddItem(sf.pages, 0, 1, true)
@@ -170,9 +170,10 @@ func (sf *ServerForm) build() {
 
 	// Create hint bar with same background as main screen's status bar
 	hintBar := tview.NewTextView().SetDynamicColors(true)
-	hintBar.SetBackgroundColor(tcell.Color235)
+	hintBar.SetBackgroundColor(CurrentTheme.StatusBarBackground)
 	hintBar.SetTextAlign(tview.AlignCenter)
-	hintBar.SetText("[white]^H/^L[-] Navigate  • [white]^S[-] Save  • [white]Esc[-] Cancel")
+	k := CurrentTheme.HintKey
+	hintBar.SetText(fmt.Sprintf("[%s]^H/^L[-] Navigate  • [%s]^S[-] Save  • [%s]Esc[-] Cancel", k, k, k))
 
 	// Setup main container - header at top, hint bar at bottom
 	sf.Flex.AddItem(sf.header, 2, 0, false).
@@ -485,7 +486,7 @@ func (sf *ServerForm) formatDetailedHelp(help *FieldHelp) string {
 
 	// Title with field name and separator below
 	b.WriteString(fmt.Sprintf("[yellow::b]📖 %s[-::-]\n", help.Field))
-	b.WriteString("[#444444]" + strings.Repeat("─", separatorWidth) + "[-]\n\n")
+	b.WriteString(fmt.Sprintf("[%s]%s[-]\n\n", CurrentTheme.Separator, strings.Repeat("─", separatorWidth)))
 
 	// Description - needs escaping as it might contain brackets
 	b.WriteString(fmt.Sprintf("%s\n\n", escapeForTview(help.Description)))
@@ -1932,7 +1933,7 @@ func (sf *ServerForm) handleSave() bool {
 
 	// Reset title and border (validation already done above)
 	sf.formPanel.SetTitle(" " + sf.titleForMode() + " ")
-	sf.formPanel.SetBorderColor(tcell.Color238)
+	sf.formPanel.SetBorderColor(CurrentTheme.BorderColor)
 
 	server := sf.dataToServer(data)
 	if sf.onSave != nil {

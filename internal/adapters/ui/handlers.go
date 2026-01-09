@@ -86,6 +86,9 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'x':
 		t.handleStopForwarding()
 		return nil
+	case 'T':
+		t.handleThemeToggle()
+		return nil
 	case 'j':
 		t.handleNavigateDown()
 		return nil
@@ -166,6 +169,34 @@ func (t *tui) handleNavigateUp() {
 			t.serverList.SetCurrentItem(t.serverList.GetItemCount() - 1)
 		}
 	}
+}
+
+func (t *tui) handleThemeToggle() {
+	// Cycle theme: dark → light → system → dark
+	var newTheme string
+	switch CurrentThemeMode {
+	case ThemeDark:
+		newTheme = ThemeLight
+	case ThemeLight:
+		newTheme = ThemeSystem
+	default:
+		newTheme = ThemeDark
+	}
+
+	// Save theme preference
+	if err := t.serverService.SaveTheme(newTheme); err != nil {
+		t.showStatusTempColor("Failed to save theme: "+err.Error(), CurrentTheme.StatusError)
+		return
+	}
+
+	// Apply new theme
+	SetTheme(newTheme)
+	ApplyTheme()
+
+	// Rebuild UI to apply theme changes
+	t.rebuildUI()
+
+	t.showStatusTemp("Theme: " + newTheme)
 }
 
 func (t *tui) handleSearchInput(query string) {
@@ -296,13 +327,13 @@ func (t *tui) handlePingSelected() {
 			up, dur, err := t.serverService.Ping(server)
 			t.app.QueueUpdateDraw(func() {
 				if err != nil {
-					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN (%v)", alias, err), "#FF6B6B")
+					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN (%v)", alias, err), CurrentTheme.StatusError)
 					return
 				}
 				if up {
-					t.showStatusTempColor(fmt.Sprintf("Ping %s: UP (%s)", alias, dur), "#A0FFA0")
+					t.showStatusTempColor(fmt.Sprintf("Ping %s: UP (%s)", alias, dur), CurrentTheme.StatusSuccess)
 				} else {
-					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN", alias), "#FF6B6B")
+					t.showStatusTempColor(fmt.Sprintf("Ping %s: DOWN", alias), CurrentTheme.StatusError)
 				}
 			})
 		}()
@@ -328,7 +359,7 @@ func (t *tui) handleRefreshBackground() {
 		servers, err := t.serverService.ListServers(q)
 		if err != nil {
 			t.app.QueueUpdateDraw(func() {
-				t.showStatusTempColor(fmt.Sprintf("Refresh failed: %v", err), "#FF6B6B")
+				t.showStatusTempColor(fmt.Sprintf("Refresh failed: %v", err), CurrentTheme.StatusError)
 			})
 			return
 		}
@@ -489,12 +520,12 @@ func (t *tui) showPortForwardForm(server domain.Server) {
 
 	form.AddButton("Start", func() {
 		if err := validatePort(portVal); err != nil {
-			t.showStatusTempColor("Invalid port: "+err.Error(), "#FF6B6B")
+			t.showStatusTempColor("Invalid port: "+err.Error(), CurrentTheme.StatusError)
 			return
 		}
 		if bindAddrVal != "" {
 			if err := validateBindAddress(bindAddrVal); err != nil {
-				t.showStatusTempColor("Invalid bind address: "+err.Error(), "#FF6B6B")
+				t.showStatusTempColor("Invalid bind address: "+err.Error(), CurrentTheme.StatusError)
 				return
 			}
 		}
@@ -509,11 +540,11 @@ func (t *tui) showPortForwardForm(server domain.Server) {
 			args = append(args, "-D", spec)
 		} else {
 			if err := validateHost(hostVal); err != nil {
-				t.showStatusTempColor("Invalid host: "+err.Error(), "#FF6B6B")
+				t.showStatusTempColor("Invalid host: "+err.Error(), CurrentTheme.StatusError)
 				return
 			}
 			if err := validatePort(hostPortVal); err != nil {
-				t.showStatusTempColor("Invalid host port: "+err.Error(), "#FF6B6B")
+				t.showStatusTempColor("Invalid host port: "+err.Error(), CurrentTheme.StatusError)
 				return
 			}
 			spec := portVal + ":" + hostVal + ":" + hostPortVal
@@ -536,7 +567,7 @@ func (t *tui) showPortForwardForm(server domain.Server) {
 				pid, err := t.serverService.StartForward(alias, args)
 				t.app.QueueUpdateDraw(func() {
 					if err != nil {
-						t.showStatusTempColor("Forward failed: "+err.Error(), "#FF6B6B")
+						t.showStatusTempColor("Forward failed: "+err.Error(), CurrentTheme.StatusError)
 					} else {
 						t.refreshServerList()
 						t.showStatusTemp(fmt.Sprintf("Port forwarding started (pid %d)", pid))
@@ -592,7 +623,7 @@ func (t *tui) showStatusTemp(msg string) {
 	if t.statusBar == nil {
 		return
 	}
-	t.showStatusTempColor(msg, "#A0FFA0")
+	t.showStatusTempColor(msg, CurrentTheme.StatusSuccess)
 }
 
 // showStatusTempColor displays a temporary colored message in the status bar and restores default text after 2s.
@@ -620,7 +651,7 @@ func (t *tui) handleStopForwarding() {
 			err := t.serverService.StopForwarding(alias)
 			t.app.QueueUpdateDraw(func() {
 				if err != nil {
-					t.showStatusTempColor("Failed to stop forwarding: "+err.Error(), "#FF6B6B")
+					t.showStatusTempColor("Failed to stop forwarding: "+err.Error(), CurrentTheme.StatusError)
 				} else {
 					t.showStatusTemp("Stopped forwarding for " + alias)
 				}

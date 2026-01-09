@@ -337,6 +337,16 @@ func (s *serverService) Ping(server domain.Server) (bool, time.Duration, error) 
 	return true, time.Since(start), nil
 }
 
+// GetTheme returns the current theme name from settings.
+func (s *serverService) GetTheme() (string, error) {
+	return s.serverRepository.GetTheme()
+}
+
+// SaveTheme saves the theme name to settings.
+func (s *serverService) SaveTheme(theme string) error {
+	return s.serverRepository.SaveTheme(theme)
+}
+
 // resolveSSHDestination uses `ssh -G <alias>` to extract HostName and Port from the user's SSH config.
 // Returns host, port, ok where ok=false if resolution failed.
 func resolveSSHDestination(alias string) (string, int, bool) {

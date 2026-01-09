@@ -25,11 +25,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// Settings contains application-level settings stored in the metadata file.
+type Settings struct {
+	Theme string `json:"theme,omitempty"`
+}
+
+// ServerMetadata contains per-server metadata that is not part of SSH config.
 type ServerMetadata struct {
 	Tags     []string `json:"tags,omitempty"`
 	LastSeen string   `json:"last_seen,omitempty"`
 	PinnedAt string   `json:"pinned_at,omitempty"`
 	SSHCount int      `json:"ssh_count,omitempty"`
+}
+
+// MetadataFile is the top-level structure of the metadata JSON file.
+// It contains both application settings and per-server metadata.
+type MetadataFile struct {
+	Settings Settings                  `json:"settings,omitempty"`
+	Servers  map[string]ServerMetadata `json:"servers,omitempty"`
 }
 
 type metadataManager struct {
@@ -41,11 +54,16 @@ func newMetadataManager(filePath string, logger *zap.SugaredLogger) *metadataMan
 	return &metadataManager{filePath: filePath, logger: logger}
 }
 
-func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
-	metadata := make(map[string]ServerMetadata)
+// loadFile loads the entire metadata file, handling both old and new formats.
+// Old format: {"server1": {...}, "server2": {...}}
+// New format: {"settings": {...}, "servers": {"server1": {...}, ...}}
+func (m *metadataManager) loadFile() (*MetadataFile, error) {
+	result := &MetadataFile{
+		Servers: make(map[string]ServerMetadata),
+	}
 
 	if _, err := os.Stat(m.filePath); os.IsNotExist(err) {
-		return metadata, nil
+		return result, nil
 	}
 
 	data, err := os.ReadFile(m.filePath)
@@ -54,24 +72,51 @@ func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
 	}
 
 	if len(data) == 0 {
-		return metadata, nil
+		return result, nil
 	}
 
-	if err := json.Unmarshal(data, &metadata); err != nil {
+	// First, try to parse as the new format
+	if err := json.Unmarshal(data, result); err != nil {
 		return nil, fmt.Errorf("parse metadata JSON '%s': %w", m.filePath, err)
 	}
 
-	return metadata, nil
+	// Check if this was the old format (no "servers" key, just server entries at root)
+	// In the old format, result.Servers will be nil/empty and the root object contains server data
+	if len(result.Servers) == 0 {
+		// Try parsing as old format (map of server metadata directly)
+		var oldFormat map[string]ServerMetadata
+		if err := json.Unmarshal(data, &oldFormat); err == nil {
+			// Check if this looks like server metadata (has expected fields)
+			// and not a settings object
+			isOldFormat := false
+			for _, v := range oldFormat {
+				// If any entry has tags, last_seen, pinned_at, or ssh_count, it's old format
+				if len(v.Tags) > 0 || v.LastSeen != "" || v.PinnedAt != "" || v.SSHCount > 0 {
+					isOldFormat = true
+					break
+				}
+			}
+			if isOldFormat {
+				result.Servers = oldFormat
+			}
+		}
+	}
+
+	if result.Servers == nil {
+		result.Servers = make(map[string]ServerMetadata)
+	}
+
+	return result, nil
 }
 
-func (m *metadataManager) saveAll(metadata map[string]ServerMetadata) error {
+// saveFile saves the entire metadata file in the new format.
+func (m *metadataManager) saveFile(file *MetadataFile) error {
 	if err := m.ensureDirectory(); err != nil {
 		m.logger.Errorw("failed to ensure metadata directory", "path", m.filePath, "error", err)
-
 		return fmt.Errorf("ensure metadata directory for '%s': %w", m.filePath, err)
 	}
 
-	data, err := json.MarshalIndent(metadata, "", "  ")
+	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		m.logger.Errorw("failed to marshal metadata", "path", m.filePath, "error", err)
 		return fmt.Errorf("marshal metadata for '%s': %w", m.filePath, err)
@@ -82,6 +127,46 @@ func (m *metadataManager) saveAll(metadata map[string]ServerMetadata) error {
 		return fmt.Errorf("write metadata '%s': %w", m.filePath, err)
 	}
 	return nil
+}
+
+// GetSettings returns the application settings from the metadata file.
+func (m *metadataManager) GetSettings() (Settings, error) {
+	file, err := m.loadFile()
+	if err != nil {
+		return Settings{}, err
+	}
+	return file.Settings, nil
+}
+
+// SaveSettings saves the application settings to the metadata file.
+func (m *metadataManager) SaveSettings(settings Settings) error {
+	file, err := m.loadFile()
+	if err != nil {
+		m.logger.Errorw("failed to load metadata in SaveSettings", "path", m.filePath, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
+	}
+
+	file.Settings = settings
+	return m.saveFile(file)
+}
+
+func (m *metadataManager) loadAll() (map[string]ServerMetadata, error) {
+	file, err := m.loadFile()
+	if err != nil {
+		return nil, err
+	}
+	return file.Servers, nil
+}
+
+func (m *metadataManager) saveAll(metadata map[string]ServerMetadata) error {
+	file, err := m.loadFile()
+	if err != nil {
+		// If we can't load, start fresh but preserve any settings
+		file = &MetadataFile{}
+	}
+
+	file.Servers = metadata
+	return m.saveFile(file)
 }
 
 func (m *metadataManager) updateServer(server domain.Server, oldAlias string) error {
