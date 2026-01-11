@@ -189,6 +189,15 @@ func (t *tui) handleThemeToggle() {
 		return
 	}
 
+	// Manage theme watcher based on new mode
+	if t.themeWatcher != nil {
+		if newTheme == ThemeSystem {
+			t.themeWatcher.Start()
+		} else {
+			t.themeWatcher.Stop()
+		}
+	}
+
 	// Apply new theme
 	SetTheme(newTheme)
 	ApplyTheme()

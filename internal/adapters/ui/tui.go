@@ -44,7 +44,8 @@ type tui struct {
 	left    *tview.Flex
 	content *tview.Flex
 
-	sortMode SortMode
+	sortMode     SortMode
+	themeWatcher *ThemeWatcher
 }
 
 func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) App {
@@ -65,6 +66,7 @@ func (t *tui) Run() error {
 	}()
 	t.app.EnableMouse(true)
 	t.initializeTheme()
+	t.initializeThemeWatcher()
 	t.buildComponents()
 	t.buildLayout()
 	t.bindEvents()
@@ -75,11 +77,46 @@ func (t *tui) Run() error {
 		t.logger.Errorw("application run error", "error", err)
 		return err
 	}
+	t.stopThemeWatcher()
 	return nil
 }
 
 func (t *tui) initializeTheme() {
 	ApplyTheme()
+}
+
+func (t *tui) initializeThemeWatcher() {
+	t.themeWatcher = NewThemeWatcher(func(newTheme string) {
+		// Only react if we're in system theme mode
+		if CurrentThemeMode != ThemeSystem {
+			return
+		}
+		// Check if the theme actually changed
+		if newTheme == CurrentTheme.Name {
+			return
+		}
+		// Apply the new theme on the UI thread
+		t.app.QueueUpdateDraw(func() {
+			if newTheme == ThemeLight {
+				CurrentTheme = &LightTheme
+			} else {
+				CurrentTheme = &DarkTheme
+			}
+			ApplyTheme()
+			t.rebuildUI()
+			t.showStatusTemp("Theme: " + newTheme + " (system)")
+		})
+	})
+	// Start watching if system theme is selected
+	if CurrentThemeMode == ThemeSystem {
+		t.themeWatcher.Start()
+	}
+}
+
+func (t *tui) stopThemeWatcher() {
+	if t.themeWatcher != nil {
+		t.themeWatcher.Stop()
+	}
 }
 
 func (t *tui) buildComponents() {

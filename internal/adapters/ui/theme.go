@@ -132,8 +132,8 @@ var LightTheme = Theme{
 	// Hex colors for markup
 	BrandPrimary:     "#1A1A1A",
 	BrandSecondary:   "#0088CC",
-	VersionTag:       "#16A34A",
-	CommitTag:        "#7C3AED",
+	VersionTag:       "#065F46",
+	CommitTag:        "#4C1D95",
 	LinkColor:        "#0066CC",
 	MutedText:        "#666666",
 	DimText:          "#888888",
