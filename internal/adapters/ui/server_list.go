@@ -41,11 +41,11 @@ func (sl *ServerList) build() {
 	sl.List.SetBorder(true).
 		SetTitle(" Servers ").
 		SetTitleAlign(tview.AlignCenter).
-		SetBorderColor(tcell.Color238).
-		SetTitleColor(tcell.Color250)
+		SetBorderColor(CurrentTheme.BorderColor).
+		SetTitleColor(CurrentTheme.TitleColor)
 	sl.List.
-		SetSelectedBackgroundColor(tcell.Color24).
-		SetSelectedTextColor(tcell.Color255).
+		SetSelectedBackgroundColor(CurrentTheme.SelectedBackground).
+		SetSelectedTextColor(CurrentTheme.SelectedText).
 		SetHighlightFullLine(true)
 
 	sl.List.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {

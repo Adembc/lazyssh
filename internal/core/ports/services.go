@@ -32,4 +32,6 @@ type ServerService interface {
 	StopForwarding(alias string) error
 	IsForwarding(alias string) bool
 	Ping(server domain.Server) (bool, time.Duration, error)
+	GetTheme() (string, error)
+	SaveTheme(theme string) error
 }

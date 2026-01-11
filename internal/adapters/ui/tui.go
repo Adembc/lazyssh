@@ -15,7 +15,6 @@
 package ui
 
 import (
-	"github.com/gdamore/tcell/v2"
 	"go.uber.org/zap"
 
 	"github.com/Adembc/lazyssh/internal/core/ports"
@@ -45,7 +44,8 @@ type tui struct {
 	left    *tview.Flex
 	content *tview.Flex
 
-	sortMode SortMode
+	sortMode     SortMode
+	themeWatcher *ThemeWatcher
 }
 
 func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) App {
@@ -65,29 +65,61 @@ func (t *tui) Run() error {
 		}
 	}()
 	t.app.EnableMouse(true)
-	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData()
+	t.initializeTheme()
+	t.initializeThemeWatcher()
+	t.buildComponents()
+	t.buildLayout()
+	t.bindEvents()
+	t.loadInitialData()
 	t.app.SetRoot(t.root, true)
 	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit)
 	if err := t.app.Run(); err != nil {
 		t.logger.Errorw("application run error", "error", err)
 		return err
 	}
+	t.stopThemeWatcher()
 	return nil
 }
 
-func (t *tui) initializeTheme() *tui {
-	tview.Styles.PrimitiveBackgroundColor = tcell.Color232
-	tview.Styles.ContrastBackgroundColor = tcell.Color235
-	tview.Styles.BorderColor = tcell.Color238
-	tview.Styles.TitleColor = tcell.Color250
-	tview.Styles.PrimaryTextColor = tcell.Color252
-	tview.Styles.TertiaryTextColor = tcell.Color245
-	tview.Styles.SecondaryTextColor = tcell.Color245
-	tview.Styles.GraphicsColor = tcell.Color238
-	return t
+func (t *tui) initializeTheme() {
+	ApplyTheme()
 }
 
-func (t *tui) buildComponents() *tui {
+func (t *tui) initializeThemeWatcher() {
+	t.themeWatcher = NewThemeWatcher(func(newTheme string) {
+		// Only react if we're in system theme mode
+		if CurrentThemeMode != ThemeSystem {
+			return
+		}
+		// Check if the theme actually changed
+		if newTheme == CurrentTheme.Name {
+			return
+		}
+		// Apply the new theme on the UI thread
+		t.app.QueueUpdateDraw(func() {
+			if newTheme == ThemeLight {
+				CurrentTheme = &LightTheme
+			} else {
+				CurrentTheme = &DarkTheme
+			}
+			ApplyTheme()
+			t.rebuildUI()
+			t.showStatusTemp("Theme: " + newTheme + " (system)")
+		})
+	})
+	// Start watching if system theme is selected
+	if CurrentThemeMode == ThemeSystem {
+		t.themeWatcher.Start()
+	}
+}
+
+func (t *tui) stopThemeWatcher() {
+	if t.themeWatcher != nil {
+		t.themeWatcher.Stop()
+	}
+}
+
+func (t *tui) buildComponents() {
 	t.header = NewAppHeader(t.version, t.commit, RepoURL)
 	t.searchBar = NewSearchBar().
 		OnSearch(t.handleSearchInput).
@@ -103,11 +135,9 @@ func (t *tui) buildComponents() *tui {
 
 	// default sort mode
 	t.sortMode = SortByAliasAsc
-
-	return t
 }
 
-func (t *tui) buildLayout() *tui {
+func (t *tui) buildLayout() {
 	t.left = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(t.searchBar, 3, 0, false).
 		AddItem(t.serverList, 0, 1, true)
@@ -123,25 +153,56 @@ func (t *tui) buildLayout() *tui {
 		AddItem(t.header, 2, 0, false).
 		AddItem(t.content, 0, 1, true).
 		AddItem(t.statusBar, 1, 0, false)
-	return t
 }
 
-func (t *tui) bindEvents() *tui {
+func (t *tui) bindEvents() {
 	t.root.SetInputCapture(t.handleGlobalKeys)
-	return t
 }
 
-func (t *tui) loadInitialData() *tui {
+func (t *tui) loadInitialData() {
 	servers, _ := t.serverService.ListServers("")
 	sortServersForUI(servers, t.sortMode)
 	t.updateListTitle()
 	t.serverList.UpdateServers(servers)
-
-	return t
 }
 
 func (t *tui) updateListTitle() {
 	if t.serverList != nil {
 		t.serverList.SetTitle(" Servers — Sort: " + t.sortMode.String() + " ")
 	}
+}
+
+// rebuildUI rebuilds all UI components to apply theme changes.
+// It preserves the current state (search query, selection, sort mode).
+func (t *tui) rebuildUI() {
+	// Save current state
+	query := ""
+	if t.searchBar != nil {
+		query = t.searchBar.InputField.GetText()
+	}
+	currentIdx := 0
+	if t.serverList != nil {
+		currentIdx = t.serverList.GetCurrentItem()
+	}
+
+	// Rebuild components
+	t.buildComponents()
+	t.buildLayout()
+	t.bindEvents()
+
+	// Restore state
+	if query != "" {
+		t.searchBar.InputField.SetText(query)
+	}
+	t.loadInitialData()
+	if currentIdx >= 0 && currentIdx < t.serverList.GetItemCount() {
+		t.serverList.SetCurrentItem(currentIdx)
+	}
+	if srv, ok := t.serverList.GetSelectedServer(); ok {
+		t.details.UpdateServer(srv)
+	}
+
+	// Update display
+	t.app.SetRoot(t.root, true)
+	t.app.SetFocus(t.serverList)
 }
