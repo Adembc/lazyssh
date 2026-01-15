@@ -100,9 +100,9 @@ func (t *tui) buildComponents() *tui {
 		OnSelectionChange(t.handleServerSelectionChange).
 		OnReturnToSearch(t.handleReturnToSearch)
 	t.activeList = NewServerList().
-		SetTitle(" Active Sessions (K: Kill) ").
 		OnSelectionChange(t.handleServerSelectionChange).
 		OnReturnToSearch(t.handleReturnToSearch)
+	t.activeList.List.SetTitle(" Active Sessions (K: Kill) ")
 	t.details = NewServerDetails()
 	t.statusBar = NewStatusBar()
 

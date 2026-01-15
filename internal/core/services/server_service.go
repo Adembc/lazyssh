@@ -53,6 +53,8 @@ type activeSSHSession struct {
 	pid            int
 }
 
+const unknownLabel = "unknown"
+
 // NewServerService creates a new instance of serverService.
 func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) ports.ServerService {
 	return &serverService{
@@ -128,7 +130,7 @@ func (s *serverService) ListActiveSessions(query string) ([]domain.Server, error
 			if session.alias != "" {
 				entry.Alias = session.alias
 			} else {
-				entry.Alias = "unknown"
+				entry.Alias = unknownLabel
 			}
 			entry.Aliases = []string{entry.Alias}
 		}
@@ -136,7 +138,7 @@ func (s *serverService) ListActiveSessions(query string) ([]domain.Server, error
 		if session.host != "" {
 			entry.Host = session.host
 		} else if entry.Host == "" {
-			entry.Host = "unknown"
+			entry.Host = unknownLabel
 		}
 		if session.user != "" {
 			entry.User = session.user
@@ -687,13 +689,54 @@ func parseSSHArgs(args []string) activeSSHSession {
 	if len(args) == 0 {
 		return activeSSHSession{}
 	}
-	user := ""
-	port := 0
-	dest := ""
-	identityFiles := make([]string, 0)
-	localForward := make([]string, 0)
-	remoteForward := make([]string, 0)
-	dynamicForward := make([]string, 0)
+	state := parseSSHOptions(args)
+	if state.dest == "" {
+		return activeSSHSession{}
+	}
+
+	host := state.dest
+	if at := strings.LastIndex(state.dest, "@"); at > -1 {
+		if state.user == "" {
+			state.user = state.dest[:at]
+		}
+		host = state.dest[at+1:]
+	}
+	if host == "" {
+		host = unknownLabel
+	}
+	if state.port == 0 {
+		state.port = 22
+	}
+
+	return activeSSHSession{
+		alias:          state.dest,
+		host:           host,
+		user:           state.user,
+		port:           state.port,
+		identityFiles:  state.identityFiles,
+		localForward:   state.localForward,
+		remoteForward:  state.remoteForward,
+		dynamicForward: state.dynamicForward,
+	}
+}
+
+type sshParseState struct {
+	user           string
+	port           int
+	dest           string
+	identityFiles  []string
+	localForward   []string
+	remoteForward  []string
+	dynamicForward []string
+}
+
+func parseSSHOptions(args []string) sshParseState {
+	state := sshParseState{
+		identityFiles:  make([]string, 0),
+		localForward:   make([]string, 0),
+		remoteForward:  make([]string, 0),
+		dynamicForward: make([]string, 0),
+	}
 
 	start := 1
 	if args[0] != "ssh" {
@@ -703,113 +746,90 @@ func parseSSHArgs(args []string) activeSSHSession {
 		arg := args[i]
 		if arg == "--" {
 			if i+1 < len(args) {
-				dest = args[i+1]
+				state.dest = args[i+1]
 			}
 			break
 		}
 		if strings.HasPrefix(arg, "-") {
 			if sshOptionConsumesValue(arg) {
-				val := ""
-				if len(arg) > 2 {
-					val = arg[2:]
-				} else if i+1 < len(args) {
-					val = args[i+1]
-					i++
-				}
+				val, nextIdx := sshOptionValue(arg, args, i)
+				i = nextIdx
 				switch {
 				case strings.HasPrefix(arg, "-p"):
 					if n, err := strconv.Atoi(val); err == nil {
-						port = n
+						state.port = n
 					}
 				case strings.HasPrefix(arg, "-l"):
 					if val != "" {
-						user = val
+						state.user = val
 					}
 				case strings.HasPrefix(arg, "-i"):
 					if val != "" {
-						identityFiles = append(identityFiles, val)
+						state.identityFiles = append(state.identityFiles, val)
 					}
 				case strings.HasPrefix(arg, "-L"):
 					if val != "" {
-						localForward = append(localForward, val)
+						state.localForward = append(state.localForward, val)
 					}
 				case strings.HasPrefix(arg, "-R"):
 					if val != "" {
-						remoteForward = append(remoteForward, val)
+						state.remoteForward = append(state.remoteForward, val)
 					}
 				case strings.HasPrefix(arg, "-D"):
 					if val != "" {
-						dynamicForward = append(dynamicForward, val)
+						state.dynamicForward = append(state.dynamicForward, val)
 					}
 				case strings.HasPrefix(arg, "-o"):
-					lowerVal := strings.ToLower(val)
-					if strings.HasPrefix(lowerVal, "user=") {
-						user = val[len("user="):]
-					}
-					if strings.HasPrefix(lowerVal, "port=") {
-						if n, err := strconv.Atoi(val[len("port="):]); err == nil {
-							port = n
-						}
-					}
-					if strings.HasPrefix(lowerVal, "identityfile=") {
-						identity := val[len("identityfile="):]
-						if identity != "" {
-							identityFiles = append(identityFiles, identity)
-						}
-					}
-					if strings.HasPrefix(lowerVal, "localforward=") {
-						spec := val[len("localforward="):]
-						if spec != "" {
-							localForward = append(localForward, spec)
-						}
-					}
-					if strings.HasPrefix(lowerVal, "remoteforward=") {
-						spec := val[len("remoteforward="):]
-						if spec != "" {
-							remoteForward = append(remoteForward, spec)
-						}
-					}
-					if strings.HasPrefix(lowerVal, "dynamicforward=") {
-						spec := val[len("dynamicforward="):]
-						if spec != "" {
-							dynamicForward = append(dynamicForward, spec)
-						}
-					}
+					applySSHOptionValue(val, &state)
 				}
 			}
 			continue
 		}
-		dest = arg
+		state.dest = arg
 		break
 	}
+	return state
+}
 
-	if dest == "" {
-		return activeSSHSession{}
+func sshOptionValue(arg string, args []string, idx int) (string, int) {
+	if len(arg) > 2 {
+		return arg[2:], idx
 	}
+	if idx+1 < len(args) {
+		return args[idx+1], idx + 1
+	}
+	return "", idx
+}
 
-	host := dest
-	if at := strings.LastIndex(dest, "@"); at > -1 {
-		if user == "" {
-			user = dest[:at]
+func applySSHOptionValue(val string, state *sshParseState) {
+	lowerVal := strings.ToLower(val)
+	switch {
+	case strings.HasPrefix(lowerVal, "user="):
+		state.user = val[len("user="):]
+	case strings.HasPrefix(lowerVal, "port="):
+		if n, err := strconv.Atoi(val[len("port="):]); err == nil {
+			state.port = n
 		}
-		host = dest[at+1:]
-	}
-	if host == "" {
-		host = "unknown"
-	}
-	if port == 0 {
-		port = 22
-	}
-
-	return activeSSHSession{
-		alias:          dest,
-		host:           host,
-		user:           user,
-		port:           port,
-		identityFiles:  identityFiles,
-		localForward:   localForward,
-		remoteForward:  remoteForward,
-		dynamicForward: dynamicForward,
+	case strings.HasPrefix(lowerVal, "identityfile="):
+		identity := val[len("identityfile="):]
+		if identity != "" {
+			state.identityFiles = append(state.identityFiles, identity)
+		}
+	case strings.HasPrefix(lowerVal, "localforward="):
+		spec := val[len("localforward="):]
+		if spec != "" {
+			state.localForward = append(state.localForward, spec)
+		}
+	case strings.HasPrefix(lowerVal, "remoteforward="):
+		spec := val[len("remoteforward="):]
+		if spec != "" {
+			state.remoteForward = append(state.remoteForward, spec)
+		}
+	case strings.HasPrefix(lowerVal, "dynamicforward="):
+		spec := val[len("dynamicforward="):]
+		if spec != "" {
+			state.dynamicForward = append(state.dynamicForward, spec)
+		}
 	}
 }
 
