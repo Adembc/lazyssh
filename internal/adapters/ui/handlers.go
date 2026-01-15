@@ -44,6 +44,15 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	}
 
 	switch event.Rune() {
+	case '0':
+		t.handleSearchFocus()
+		return nil
+	case '1':
+		t.handleServerListFocus()
+		return nil
+	case '2':
+		t.handleDetailsFocus()
+		return nil
 	case 'q':
 		t.handleQuit()
 		return nil
@@ -180,6 +189,18 @@ func (t *tui) handleSearchInput(query string) {
 func (t *tui) handleSearchFocus() {
 	if t.app != nil && t.searchBar != nil {
 		t.app.SetFocus(t.searchBar)
+	}
+}
+
+func (t *tui) handleServerListFocus() {
+	if t.app != nil && t.serverList != nil {
+		t.app.SetFocus(t.serverList)
+	}
+}
+
+func (t *tui) handleDetailsFocus() {
+	if t.app != nil && t.details != nil {
+		t.app.SetFocus(t.details)
 	}
 }
 
