@@ -40,7 +40,7 @@ func (s *SearchBar) build() {
 		SetFieldTextColor(tcell.Color252).
 		SetFieldWidth(30).
 		SetBorder(true).
-		SetTitle(" Search ").
+		SetTitle(" 0 Search ").
 		SetTitleAlign(tview.AlignCenter).
 		SetBorderColor(tcell.Color238).
 		SetTitleColor(tcell.Color250)
