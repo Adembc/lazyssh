@@ -38,6 +38,7 @@ type tui struct {
 	header     *AppHeader
 	searchBar  *SearchBar
 	serverList *ServerList
+	activeList *ServerList
 	details    *ServerDetails
 	statusBar  *tview.TextView
 
@@ -98,6 +99,10 @@ func (t *tui) buildComponents() *tui {
 	t.serverList = NewServerList().
 		OnSelectionChange(t.handleServerSelectionChange).
 		OnReturnToSearch(t.handleReturnToSearch)
+	t.activeList = NewServerList().
+		SetTitle(" Active Sessions (K: Kill) ").
+		OnSelectionChange(t.handleServerSelectionChange).
+		OnReturnToSearch(t.handleReturnToSearch)
 	t.details = NewServerDetails()
 	t.statusBar = NewStatusBar()
 
@@ -110,7 +115,8 @@ func (t *tui) buildComponents() *tui {
 func (t *tui) buildLayout() *tui {
 	t.left = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(t.searchBar, 3, 0, false).
-		AddItem(t.serverList, 0, 1, true)
+		AddItem(t.serverList, 0, 1, true).
+		AddItem(t.activeList, 10, 0, false)
 
 	right := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(t.details, 0, 1, false)
@@ -136,6 +142,8 @@ func (t *tui) loadInitialData() *tui {
 	sortServersForUI(servers, t.sortMode)
 	t.updateListTitle()
 	t.serverList.UpdateServers(servers)
+	active, _ := t.serverService.ListActiveSessions("")
+	t.activeList.UpdateServers(active)
 
 	return t
 }

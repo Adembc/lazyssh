@@ -41,6 +41,18 @@ type serverService struct {
 	forwards map[string][]*os.Process
 }
 
+type activeSSHSession struct {
+	alias          string
+	host           string
+	user           string
+	port           int
+	identityFiles  []string
+	localForward   []string
+	remoteForward  []string
+	dynamicForward []string
+	pid            int
+}
+
 // NewServerService creates a new instance of serverService.
 func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) ports.ServerService {
 	return &serverService{
@@ -71,6 +83,85 @@ func (s *serverService) ListServers(query string) ([]domain.Server, error) {
 	})
 
 	return servers, nil
+}
+
+// ListActiveSessions returns currently running SSH sessions as list entries.
+func (s *serverService) ListActiveSessions(query string) ([]domain.Server, error) {
+	activeSessions, err := s.listActiveSSHSessions()
+	if err != nil {
+		return nil, err
+	}
+
+	configured, err := s.serverRepository.ListServers("")
+	if err != nil {
+		return nil, err
+	}
+
+	aliasIndex := make(map[string]domain.Server, len(configured))
+	hostIndex := make(map[string]domain.Server, len(configured))
+	for _, server := range configured {
+		aliasIndex[strings.ToLower(server.Alias)] = server
+		for _, alias := range server.Aliases {
+			aliasIndex[strings.ToLower(alias)] = server
+		}
+		if server.Host != "" {
+			hostIndex[strings.ToLower(server.Host)] = server
+		}
+	}
+
+	query = strings.ToLower(strings.TrimSpace(query))
+	entries := make([]domain.Server, 0, len(activeSessions))
+	for _, session := range activeSessions {
+		entry := domain.Server{}
+		if session.alias != "" {
+			if server, ok := aliasIndex[strings.ToLower(session.alias)]; ok {
+				entry = server
+			}
+		}
+		if entry.Alias == "" && session.host != "" {
+			if server, ok := hostIndex[strings.ToLower(session.host)]; ok {
+				entry = server
+			}
+		}
+
+		if entry.Alias == "" {
+			if session.alias != "" {
+				entry.Alias = session.alias
+			} else {
+				entry.Alias = "unknown"
+			}
+			entry.Aliases = []string{entry.Alias}
+		}
+
+		if session.host != "" {
+			entry.Host = session.host
+		} else if entry.Host == "" {
+			entry.Host = "unknown"
+		}
+		if session.user != "" {
+			entry.User = session.user
+		}
+		if session.port > 0 {
+			entry.Port = session.port
+		} else if entry.Port == 0 {
+			entry.Port = 22
+		}
+
+		entry.IdentityFiles = mergeIdentityFiles(entry.IdentityFiles, session.identityFiles)
+		entry.LocalForward = mergeForwardSpecs(entry.LocalForward, session.localForward)
+		entry.RemoteForward = mergeForwardSpecs(entry.RemoteForward, session.remoteForward)
+		entry.DynamicForward = mergeForwardSpecs(entry.DynamicForward, session.dynamicForward)
+		entry.ActivePID = session.pid
+		entry.LastSeen = time.Now()
+		entry.Tags = append([]string{"active"}, entry.Tags...)
+
+		if query != "" && !matchesServerQuery(entry, query) {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
 }
 
 // validateServer performs core validation of server fields.
@@ -309,6 +400,75 @@ func (s *serverService) IsForwarding(alias string) bool {
 	return len(s.forwards[alias]) > 0
 }
 
+// KillActiveSessions terminates active SSH sessions matching the server.
+func (s *serverService) KillActiveSessions(server domain.Server) (int, error) {
+	sessions, err := s.listActiveSSHSessions()
+	if err != nil {
+		return 0, err
+	}
+
+	if server.ActivePID > 0 {
+		for _, session := range sessions {
+			if session.pid == server.ActivePID {
+				if err := killPID(session.pid); err != nil {
+					return 0, err
+				}
+				return 1, nil
+			}
+		}
+		return 0, fmt.Errorf("active ssh session not found")
+	}
+
+	var pids []int
+	for _, session := range sessions {
+		if matchSessionForServer(server, session) && session.pid > 0 {
+			pids = append(pids, session.pid)
+		}
+	}
+	if len(pids) == 0 {
+		return 0, fmt.Errorf("no active ssh sessions found")
+	}
+
+	var errs []error
+	killed := 0
+	for _, pid := range pids {
+		if killErr := killPID(pid); killErr != nil {
+			errs = append(errs, fmt.Errorf("pid %d: %w", pid, killErr))
+			continue
+		}
+		killed++
+	}
+
+	if len(errs) > 0 {
+		return killed, fmt.Errorf("failed to terminate sessions: %v", errs)
+	}
+	return killed, nil
+}
+
+// ResolveConfigServer attempts to map a server entry to a configured server.
+func (s *serverService) ResolveConfigServer(server domain.Server) (domain.Server, bool, error) {
+	servers, err := s.serverRepository.ListServers("")
+	if err != nil {
+		return domain.Server{}, false, err
+	}
+	for _, candidate := range servers {
+		if strings.EqualFold(candidate.Alias, server.Alias) {
+			return candidate, true, nil
+		}
+		for _, alias := range candidate.Aliases {
+			if strings.EqualFold(alias, server.Alias) {
+				return candidate, true, nil
+			}
+		}
+		if server.Host != "" && candidate.Host != "" {
+			if strings.EqualFold(candidate.Host, server.Host) {
+				return candidate, true, nil
+			}
+		}
+	}
+	return domain.Server{}, false, nil
+}
+
 // Ping checks if the server is reachable on its SSH port.
 func (s *serverService) Ping(server domain.Server) (bool, time.Duration, error) {
 	start := time.Now()
@@ -376,4 +536,292 @@ func resolveSSHDestination(alias string) (string, int, bool) {
 		port = 22
 	}
 	return host, port, true
+}
+
+func mergeIdentityFiles(existing []string, incoming []string) []string {
+	if len(incoming) == 0 {
+		return existing
+	}
+	seen := make(map[string]struct{}, len(existing))
+	for _, v := range existing {
+		seen[v] = struct{}{}
+	}
+	for _, v := range incoming {
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		existing = append(existing, v)
+		seen[v] = struct{}{}
+	}
+	return existing
+}
+
+func matchSessionForServer(server domain.Server, session activeSSHSession) bool {
+	if session.alias != "" {
+		if strings.EqualFold(session.alias, server.Alias) {
+			return true
+		}
+		for _, alias := range server.Aliases {
+			if strings.EqualFold(session.alias, alias) {
+				return true
+			}
+		}
+	}
+	if session.host != "" && server.Host != "" {
+		return strings.EqualFold(session.host, server.Host)
+	}
+	return false
+}
+
+func killPID(pid int) error {
+	proc, findErr := os.FindProcess(pid)
+	if findErr != nil {
+		return findErr
+	}
+	return proc.Signal(syscall.SIGTERM)
+}
+
+func mergeForwardSpecs(existing []string, incoming []string) []string {
+	if len(incoming) == 0 {
+		return existing
+	}
+	seen := make(map[string]struct{}, len(existing))
+	for _, v := range existing {
+		seen[v] = struct{}{}
+	}
+	for _, v := range incoming {
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		existing = append(existing, v)
+		seen[v] = struct{}{}
+	}
+	return existing
+}
+
+func matchesServerQuery(server domain.Server, query string) bool {
+	fields := []string{
+		strings.ToLower(server.Host),
+		strings.ToLower(server.User),
+		strings.ToLower(server.Alias),
+	}
+	for _, tag := range server.Tags {
+		fields = append(fields, strings.ToLower(tag))
+	}
+	if len(server.Aliases) > 0 {
+		for _, alias := range server.Aliases {
+			fields = append(fields, strings.ToLower(alias))
+		}
+	}
+
+	for _, field := range fields {
+		if strings.Contains(field, query) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *serverService) listActiveSSHSessions() ([]activeSSHSession, error) {
+	cmd := exec.Command("ps", "-ax", "-o", "pid=", "-o", "comm=", "-o", "args=")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	sessions := make([]activeSSHSession, 0)
+	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		pid, comm, args := splitPSLine(line)
+		if comm != "ssh" {
+			continue
+		}
+		parts := strings.Fields(args)
+		if len(parts) == 0 {
+			continue
+		}
+		session := parseSSHArgs(parts)
+		if session.alias == "" {
+			continue
+		}
+		session.pid = pid
+		sessions = append(sessions, session)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+func splitPSLine(line string) (pid int, comm string, args string) {
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return 0, "", ""
+	}
+	if n, err := strconv.Atoi(fields[0]); err == nil {
+		pid = n
+	}
+	comm = fields[1]
+	start := strings.Index(line, comm)
+	if start == -1 {
+		if len(fields) > 2 {
+			args = strings.Join(fields[2:], " ")
+		}
+		return pid, comm, strings.TrimSpace(args)
+	}
+	args = strings.TrimSpace(line[start+len(comm):])
+	return pid, comm, args
+}
+
+func parseSSHArgs(args []string) activeSSHSession {
+	if len(args) == 0 {
+		return activeSSHSession{}
+	}
+	user := ""
+	port := 0
+	dest := ""
+	identityFiles := make([]string, 0)
+	localForward := make([]string, 0)
+	remoteForward := make([]string, 0)
+	dynamicForward := make([]string, 0)
+
+	start := 1
+	if args[0] != "ssh" {
+		start = 0
+	}
+	for i := start; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			if i+1 < len(args) {
+				dest = args[i+1]
+			}
+			break
+		}
+		if strings.HasPrefix(arg, "-") {
+			if sshOptionConsumesValue(arg) {
+				val := ""
+				if len(arg) > 2 {
+					val = arg[2:]
+				} else if i+1 < len(args) {
+					val = args[i+1]
+					i++
+				}
+				switch {
+				case strings.HasPrefix(arg, "-p"):
+					if n, err := strconv.Atoi(val); err == nil {
+						port = n
+					}
+				case strings.HasPrefix(arg, "-l"):
+					if val != "" {
+						user = val
+					}
+				case strings.HasPrefix(arg, "-i"):
+					if val != "" {
+						identityFiles = append(identityFiles, val)
+					}
+				case strings.HasPrefix(arg, "-L"):
+					if val != "" {
+						localForward = append(localForward, val)
+					}
+				case strings.HasPrefix(arg, "-R"):
+					if val != "" {
+						remoteForward = append(remoteForward, val)
+					}
+				case strings.HasPrefix(arg, "-D"):
+					if val != "" {
+						dynamicForward = append(dynamicForward, val)
+					}
+				case strings.HasPrefix(arg, "-o"):
+					lowerVal := strings.ToLower(val)
+					if strings.HasPrefix(lowerVal, "user=") {
+						user = val[len("user="):]
+					}
+					if strings.HasPrefix(lowerVal, "port=") {
+						if n, err := strconv.Atoi(val[len("port="):]); err == nil {
+							port = n
+						}
+					}
+					if strings.HasPrefix(lowerVal, "identityfile=") {
+						identity := val[len("identityfile="):]
+						if identity != "" {
+							identityFiles = append(identityFiles, identity)
+						}
+					}
+					if strings.HasPrefix(lowerVal, "localforward=") {
+						spec := val[len("localforward="):]
+						if spec != "" {
+							localForward = append(localForward, spec)
+						}
+					}
+					if strings.HasPrefix(lowerVal, "remoteforward=") {
+						spec := val[len("remoteforward="):]
+						if spec != "" {
+							remoteForward = append(remoteForward, spec)
+						}
+					}
+					if strings.HasPrefix(lowerVal, "dynamicforward=") {
+						spec := val[len("dynamicforward="):]
+						if spec != "" {
+							dynamicForward = append(dynamicForward, spec)
+						}
+					}
+				}
+			}
+			continue
+		}
+		dest = arg
+		break
+	}
+
+	if dest == "" {
+		return activeSSHSession{}
+	}
+
+	host := dest
+	if at := strings.LastIndex(dest, "@"); at > -1 {
+		if user == "" {
+			user = dest[:at]
+		}
+		host = dest[at+1:]
+	}
+	if host == "" {
+		host = "unknown"
+	}
+	if port == 0 {
+		port = 22
+	}
+
+	return activeSSHSession{
+		alias:          dest,
+		host:           host,
+		user:           user,
+		port:           port,
+		identityFiles:  identityFiles,
+		localForward:   localForward,
+		remoteForward:  remoteForward,
+		dynamicForward: dynamicForward,
+	}
+}
+
+func sshOptionConsumesValue(opt string) bool {
+	base := opt
+	if len(opt) > 2 && strings.HasPrefix(opt, "-") && !strings.HasPrefix(opt, "--") {
+		base = opt[:2]
+	}
+	switch base {
+	case "-p", "-l", "-i", "-o", "-F", "-b", "-c", "-D", "-E", "-e", "-I", "-J", "-L", "-m", "-O", "-Q", "-R", "-S", "-W", "-w":
+		return true
+	default:
+		return false
+	}
 }

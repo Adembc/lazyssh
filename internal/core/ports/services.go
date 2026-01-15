@@ -22,6 +22,7 @@ import (
 
 type ServerService interface {
 	ListServers(query string) ([]domain.Server, error)
+	ListActiveSessions(query string) ([]domain.Server, error)
 	UpdateServer(server domain.Server, newServer domain.Server) error
 	AddServer(server domain.Server) error
 	DeleteServer(server domain.Server) error
@@ -31,5 +32,7 @@ type ServerService interface {
 	StartForward(alias string, extraArgs []string) (int, error)
 	StopForwarding(alias string) error
 	IsForwarding(alias string) bool
+	KillActiveSessions(server domain.Server) (int, error)
+	ResolveConfigServer(server domain.Server) (domain.Server, bool, error)
 	Ping(server domain.Server) (bool, time.Duration, error)
 }

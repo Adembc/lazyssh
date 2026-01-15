@@ -55,6 +55,7 @@ type ServerForm struct {
 	tabAbbrev     map[string]string // Abbreviated tab names for narrow views
 	mode          ServerFormMode
 	original      *domain.Server
+	prefill       *domain.Server
 	onSave        func(domain.Server, *domain.Server)
 	onCancel      func()
 	app           *tview.Application // Reference to app for showing modals
@@ -111,6 +112,11 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 	form.currentTab = "Basic"
 	// Don't build here, wait for version info to be set
 	return form
+}
+
+func (sf *ServerForm) SetPrefill(server *domain.Server) *ServerForm {
+	sf.prefill = server
+	return sf
 }
 
 func (sf *ServerForm) build() {
@@ -1065,78 +1071,13 @@ func (sf *ServerForm) validateAllFields() bool {
 // getDefaultValues returns default form values based on mode
 func (sf *ServerForm) getDefaultValues() ServerFormData {
 	if sf.mode == ServerFormEdit && sf.original != nil {
-		return ServerFormData{
-			Alias:                sf.original.Alias,
-			Host:                 sf.original.Host,
-			User:                 sf.original.User,
-			Port:                 fmt.Sprint(sf.original.Port),
-			Key:                  strings.Join(sf.original.IdentityFiles, ", "),
-			Tags:                 strings.Join(sf.original.Tags, ", "),
-			ProxyJump:            sf.original.ProxyJump,
-			ProxyCommand:         sf.original.ProxyCommand,
-			RemoteCommand:        sf.original.RemoteCommand,
-			RequestTTY:           sf.original.RequestTTY,
-			SessionType:          sf.original.SessionType,
-			ConnectTimeout:       sf.original.ConnectTimeout,
-			ConnectionAttempts:   sf.original.ConnectionAttempts,
-			BindAddress:          sf.original.BindAddress,
-			BindInterface:        sf.original.BindInterface,
-			AddressFamily:        sf.original.AddressFamily,
-			ExitOnForwardFailure: sf.original.ExitOnForwardFailure,
-			IPQoS:                sf.original.IPQoS,
-			// Hostname canonicalization
-			CanonicalizeHostname:        sf.original.CanonicalizeHostname,
-			CanonicalDomains:            sf.original.CanonicalDomains,
-			CanonicalizeFallbackLocal:   sf.original.CanonicalizeFallbackLocal,
-			CanonicalizeMaxDots:         sf.original.CanonicalizeMaxDots,
-			CanonicalizePermittedCNAMEs: sf.original.CanonicalizePermittedCNAMEs,
-			GatewayPorts:                sf.original.GatewayPorts,
-			LocalForward:                strings.Join(sf.original.LocalForward, ", "),
-			RemoteForward:               strings.Join(sf.original.RemoteForward, ", "),
-			DynamicForward:              strings.Join(sf.original.DynamicForward, ", "),
-			ClearAllForwardings:         sf.original.ClearAllForwardings,
-			// Public key
-			PubkeyAuthentication: sf.original.PubkeyAuthentication,
-			IdentitiesOnly:       sf.original.IdentitiesOnly,
-			// SSH Agent
-			AddKeysToAgent: sf.original.AddKeysToAgent,
-			IdentityAgent:  sf.original.IdentityAgent,
-			// Password & Interactive
-			PasswordAuthentication:       sf.original.PasswordAuthentication,
-			KbdInteractiveAuthentication: sf.original.KbdInteractiveAuthentication,
-			NumberOfPasswordPrompts:      sf.original.NumberOfPasswordPrompts,
-			// Advanced
-			PreferredAuthentications:    sf.original.PreferredAuthentications,
-			ForwardAgent:                sf.original.ForwardAgent,
-			ForwardX11:                  sf.original.ForwardX11,
-			ForwardX11Trusted:           sf.original.ForwardX11Trusted,
-			ControlMaster:               sf.original.ControlMaster,
-			ControlPath:                 sf.original.ControlPath,
-			ControlPersist:              sf.original.ControlPersist,
-			ServerAliveInterval:         sf.original.ServerAliveInterval,
-			ServerAliveCountMax:         sf.original.ServerAliveCountMax,
-			Compression:                 sf.original.Compression,
-			TCPKeepAlive:                sf.original.TCPKeepAlive,
-			BatchMode:                   sf.original.BatchMode,
-			StrictHostKeyChecking:       sf.original.StrictHostKeyChecking,
-			UserKnownHostsFile:          sf.original.UserKnownHostsFile,
-			HostKeyAlgorithms:           sf.original.HostKeyAlgorithms,
-			PubkeyAcceptedAlgorithms:    sf.original.PubkeyAcceptedAlgorithms,
-			HostbasedAcceptedAlgorithms: sf.original.HostbasedAcceptedAlgorithms,
-			MACs:                        sf.original.MACs,
-			Ciphers:                     sf.original.Ciphers,
-			KexAlgorithms:               sf.original.KexAlgorithms,
-			VerifyHostKeyDNS:            sf.original.VerifyHostKeyDNS,
-			UpdateHostKeys:              sf.original.UpdateHostKeys,
-			HashKnownHosts:              sf.original.HashKnownHosts,
-			VisualHostKey:               sf.original.VisualHostKey,
-			LocalCommand:                sf.original.LocalCommand,
-			PermitLocalCommand:          sf.original.PermitLocalCommand,
-			EscapeChar:                  sf.original.EscapeChar,
-			SendEnv:                     strings.Join(sf.original.SendEnv, ", "),
-			SetEnv:                      strings.Join(sf.original.SetEnv, ", "),
-			LogLevel:                    sf.original.LogLevel,
-		}
+		return serverToFormData(*sf.original)
+	}
+	if sf.mode == ServerFormAdd && sf.prefill != nil {
+		data := serverToFormData(*sf.prefill)
+		data.Alias = ""
+		data.Tags = ""
+		return data
 	}
 	// For new servers, use empty values instead of SSH defaults
 	// SSH defaults will be applied by the SSH client if values are not specified
@@ -1233,6 +1174,81 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 
 		// Debugging
 		LogLevel: "",
+	}
+}
+
+func serverToFormData(server domain.Server) ServerFormData {
+	return ServerFormData{
+		Alias:                server.Alias,
+		Host:                 server.Host,
+		User:                 server.User,
+		Port:                 fmt.Sprint(server.Port),
+		Key:                  strings.Join(server.IdentityFiles, ", "),
+		Tags:                 strings.Join(server.Tags, ", "),
+		ProxyJump:            server.ProxyJump,
+		ProxyCommand:         server.ProxyCommand,
+		RemoteCommand:        server.RemoteCommand,
+		RequestTTY:           server.RequestTTY,
+		SessionType:          server.SessionType,
+		ConnectTimeout:       server.ConnectTimeout,
+		ConnectionAttempts:   server.ConnectionAttempts,
+		BindAddress:          server.BindAddress,
+		BindInterface:        server.BindInterface,
+		AddressFamily:        server.AddressFamily,
+		ExitOnForwardFailure: server.ExitOnForwardFailure,
+		IPQoS:                server.IPQoS,
+		// Hostname canonicalization
+		CanonicalizeHostname:        server.CanonicalizeHostname,
+		CanonicalDomains:            server.CanonicalDomains,
+		CanonicalizeFallbackLocal:   server.CanonicalizeFallbackLocal,
+		CanonicalizeMaxDots:         server.CanonicalizeMaxDots,
+		CanonicalizePermittedCNAMEs: server.CanonicalizePermittedCNAMEs,
+		GatewayPorts:                server.GatewayPorts,
+		LocalForward:                strings.Join(server.LocalForward, ", "),
+		RemoteForward:               strings.Join(server.RemoteForward, ", "),
+		DynamicForward:              strings.Join(server.DynamicForward, ", "),
+		ClearAllForwardings:         server.ClearAllForwardings,
+		// Public key
+		PubkeyAuthentication: server.PubkeyAuthentication,
+		IdentitiesOnly:       server.IdentitiesOnly,
+		// SSH Agent
+		AddKeysToAgent: server.AddKeysToAgent,
+		IdentityAgent:  server.IdentityAgent,
+		// Password & Interactive
+		PasswordAuthentication:       server.PasswordAuthentication,
+		KbdInteractiveAuthentication: server.KbdInteractiveAuthentication,
+		NumberOfPasswordPrompts:      server.NumberOfPasswordPrompts,
+		// Advanced
+		PreferredAuthentications:    server.PreferredAuthentications,
+		ForwardAgent:                server.ForwardAgent,
+		ForwardX11:                  server.ForwardX11,
+		ForwardX11Trusted:           server.ForwardX11Trusted,
+		ControlMaster:               server.ControlMaster,
+		ControlPath:                 server.ControlPath,
+		ControlPersist:              server.ControlPersist,
+		ServerAliveInterval:         server.ServerAliveInterval,
+		ServerAliveCountMax:         server.ServerAliveCountMax,
+		Compression:                 server.Compression,
+		TCPKeepAlive:                server.TCPKeepAlive,
+		BatchMode:                   server.BatchMode,
+		StrictHostKeyChecking:       server.StrictHostKeyChecking,
+		UserKnownHostsFile:          server.UserKnownHostsFile,
+		HostKeyAlgorithms:           server.HostKeyAlgorithms,
+		PubkeyAcceptedAlgorithms:    server.PubkeyAcceptedAlgorithms,
+		HostbasedAcceptedAlgorithms: server.HostbasedAcceptedAlgorithms,
+		MACs:                        server.MACs,
+		Ciphers:                     server.Ciphers,
+		KexAlgorithms:               server.KexAlgorithms,
+		VerifyHostKeyDNS:            server.VerifyHostKeyDNS,
+		UpdateHostKeys:              server.UpdateHostKeys,
+		HashKnownHosts:              server.HashKnownHosts,
+		VisualHostKey:               server.VisualHostKey,
+		LocalCommand:                server.LocalCommand,
+		PermitLocalCommand:          server.PermitLocalCommand,
+		EscapeChar:                  server.EscapeChar,
+		SendEnv:                     strings.Join(server.SendEnv, ", "),
+		SetEnv:                      strings.Join(server.SetEnv, ", "),
+		LogLevel:                    server.LogLevel,
 	}
 }
 
