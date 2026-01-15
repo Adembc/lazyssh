@@ -86,6 +86,11 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	case 'x':
 		t.handleStopForwarding()
 		return nil
+	case 'K':
+		if t.isActiveListFocused() {
+			t.handleKillActiveSessions()
+		}
+		return nil
 	case 'j':
 		t.handleNavigateDown()
 		return nil
@@ -172,6 +177,8 @@ func (t *tui) handleSearchInput(query string) {
 	filtered, _ := t.serverService.ListServers(query)
 	sortServersForUI(filtered, t.sortMode)
 	t.serverList.UpdateServers(filtered)
+	active, _ := t.serverService.ListActiveSessions(query)
+	t.activeList.UpdateServers(active)
 	if len(filtered) == 0 {
 		t.details.ShowEmpty()
 	}
@@ -235,6 +242,19 @@ func (t *tui) handleServerSelectionChange(server domain.Server) {
 }
 
 func (t *tui) handleServerAdd() {
+	if t.isActiveListFocused() {
+		if server, ok := t.activeList.GetSelectedServer(); ok {
+			form := NewServerForm(ServerFormAdd, nil).
+				SetPrefill(&server).
+				SetApp(t.app).
+				SetVersionInfo(t.version, t.commit).
+				OnSave(t.handleServerSave).
+				OnCancel(t.handleFormCancel)
+			t.app.SetRoot(form, true)
+			return
+		}
+	}
+
 	form := NewServerForm(ServerFormAdd, nil).
 		SetApp(t.app).
 		SetVersionInfo(t.version, t.commit).
@@ -244,6 +264,10 @@ func (t *tui) handleServerAdd() {
 }
 
 func (t *tui) handleServerEdit() {
+	if t.isActiveListFocused() {
+		t.showStatusTemp("Edit disabled for active sessions. Use 'a' to add.")
+		return
+	}
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 		form := NewServerForm(ServerFormEdit, &server).
 			SetApp(t.app).
@@ -258,7 +282,15 @@ func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 	var err error
 	if original != nil {
 		// Edit mode
-		err = t.serverService.UpdateServer(*original, server)
+		base := *original
+		if resolved, ok, resolveErr := t.serverService.ResolveConfigServer(*original); resolveErr != nil {
+			err = resolveErr
+		} else if ok {
+			base = resolved
+		}
+		if err == nil {
+			err = t.serverService.UpdateServer(base, server)
+		}
 	} else {
 		// Add mode
 		err = t.serverService.AddServer(server)
@@ -332,9 +364,17 @@ func (t *tui) handleRefreshBackground() {
 			})
 			return
 		}
+		active, activeErr := t.serverService.ListActiveSessions(q)
+		if activeErr != nil {
+			t.app.QueueUpdateDraw(func() {
+				t.showStatusTempColor(fmt.Sprintf("Active refresh failed: %v", activeErr), "#FF6B6B")
+			})
+			return
+		}
 		sortServersForUI(servers, t.sortMode)
 		t.app.QueueUpdateDraw(func() {
 			t.serverList.UpdateServers(servers)
+			t.activeList.UpdateServers(active)
 			// Try to restore selection if still valid
 			if prevIdx >= 0 && prevIdx < t.serverList.List.GetItemCount() {
 				t.serverList.SetCurrentItem(prevIdx)
@@ -581,6 +621,8 @@ func (t *tui) refreshServerList() {
 	filtered, _ := t.serverService.ListServers(query)
 	sortServersForUI(filtered, t.sortMode)
 	t.serverList.UpdateServers(filtered)
+	active, _ := t.serverService.ListActiveSessions(query)
+	t.activeList.UpdateServers(active)
 }
 
 func (t *tui) returnToMain() {
@@ -628,4 +670,29 @@ func (t *tui) handleStopForwarding() {
 			})
 		}()
 	}
+}
+
+// Terminate active SSH sessions for the selected server.
+func (t *tui) handleKillActiveSessions() {
+	if server, ok := t.activeList.GetSelectedServer(); ok {
+		go func(selected domain.Server) {
+			count, err := t.serverService.KillActiveSessions(selected)
+			t.app.QueueUpdateDraw(func() {
+				if err != nil {
+					t.showStatusTempColor("Failed to terminate SSH sessions: "+err.Error(), "#FF6B6B")
+				} else {
+					t.showStatusTemp(fmt.Sprintf("Terminated %d SSH session(s) for %s", count, selected.Alias))
+				}
+				t.refreshServerList()
+			})
+		}(server)
+	}
+}
+
+func (t *tui) isActiveListFocused() bool {
+	if t.app == nil || t.activeList == nil {
+		return false
+	}
+	focus := t.app.GetFocus()
+	return focus == t.activeList || focus == t.activeList.List
 }

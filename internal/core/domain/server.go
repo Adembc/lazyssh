@@ -27,6 +27,7 @@ type Server struct {
 	LastSeen      time.Time
 	PinnedAt      time.Time
 	SSHCount      int
+	ActivePID     int
 
 	// Additional SSH config fields
 	// Connection and proxy settings
