@@ -526,6 +526,11 @@ func (sf *ServerForm) setupKeyboardShortcuts() {
 	sf.Flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// Help panel is always visible - no toggle needed
 
+		// Check if user is focused on an input field - allow normal key handling
+		if sf.isInputFieldFocused() {
+			return event
+		}
+
 		// Check for Ctrl key combinations with regular keys
 		if event.Key() == tcell.KeyRune && event.Modifiers()&tcell.ModCtrl != 0 {
 			switch event.Rune() {
@@ -574,6 +579,11 @@ func (sf *ServerForm) setupKeyboardShortcuts() {
 // setupFormShortcuts sets up keyboard shortcuts for a form
 func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
 	form.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Check if user is focused on an input field - allow normal key handling
+		if sf.isInputFieldFocused() {
+			return event
+		}
+
 		// Check for Ctrl key combinations
 		if event.Key() == tcell.KeyRune && event.Modifiers()&tcell.ModCtrl != 0 {
 			switch event.Rune() {
@@ -610,6 +620,26 @@ func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
 
 		return event
 	})
+}
+
+// isInputFieldFocused checks if the current focus is on an input field
+// Returns true if the user is typing in an input field, false otherwise
+func (sf *ServerForm) isInputFieldFocused() bool {
+	if sf.app == nil {
+		return false
+	}
+
+	focused := sf.app.GetFocus()
+	if focused == nil {
+		return false
+	}
+
+	switch focused.(type) {
+	case *tview.InputField, *tview.TextArea:
+		return true
+	default:
+		return false
+	}
 }
 
 // createOptionsWithDefault creates dropdown options with default value indicated
