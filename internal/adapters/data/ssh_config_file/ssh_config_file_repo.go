@@ -73,6 +73,30 @@ func (r *Repository) ListServers(query string) ([]domain.Server, error) {
 	return r.filterServers(servers, query), nil
 }
 
+// GetServerByAlias returns a server by its alias, or nil if not found.
+func (r *Repository) GetServerByAlias(alias string) (*domain.Server, error) {
+	cfg, err := r.loadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	servers := r.toDomainServer(cfg)
+	metadata, err := r.metadataManager.loadAll()
+	if err != nil {
+		r.logger.Warnf("Failed to load metadata: %v", err)
+		metadata = make(map[string]ServerMetadata)
+	}
+	servers = r.mergeMetadata(servers, metadata)
+
+	for i := range servers {
+		if servers[i].Alias == alias {
+			return &servers[i], nil
+		}
+	}
+
+	return nil, nil
+}
+
 // AddServer adds a new server to the SSH config.
 func (r *Repository) AddServer(server domain.Server) error {
 	cfg, err := r.loadConfig()

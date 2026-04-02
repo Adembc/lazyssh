@@ -73,6 +73,11 @@ func (s *serverService) ListServers(query string) ([]domain.Server, error) {
 	return servers, nil
 }
 
+// GetServerByAlias returns a server by its alias, or nil if not found.
+func (s *serverService) GetServerByAlias(alias string) (*domain.Server, error) {
+	return s.serverRepository.GetServerByAlias(alias)
+}
+
 // validateServer performs core validation of server fields.
 func validateServer(srv domain.Server) error {
 	if strings.TrimSpace(srv.Alias) == "" {
