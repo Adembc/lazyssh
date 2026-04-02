@@ -22,6 +22,7 @@ import (
 
 type ServerService interface {
 	ListServers(query string) ([]domain.Server, error)
+	GetServerByAlias(alias string) (*domain.Server, error)
 	UpdateServer(server domain.Server, newServer domain.Server) error
 	AddServer(server domain.Server) error
 	DeleteServer(server domain.Server) error

@@ -64,6 +64,35 @@ func main() {
 	}
 	rootCmd.SilenceUsage = true
 
+	// Add --server flag to connect directly to a server
+	rootCmd.Flags().StringP("server", "s", "", "Connect directly to the specified server alias")
+
+	// Handle direct SSH connection when server flag is provided
+	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		serverAlias, _ := cmd.Flags().GetString("server")
+
+		// If server alias provided as flag or argument, connect directly
+		if serverAlias == "" && len(args) > 0 {
+			serverAlias = args[0]
+		}
+
+		if serverAlias != "" {
+			server, err := serverService.GetServerByAlias(serverAlias)
+			if err != nil {
+				log.Errorw("failed to get server", "error", err, "alias", serverAlias)
+				return fmt.Errorf("failed to connect to server '%s': %w", serverAlias, err)
+			}
+			if server == nil {
+				log.Errorw("server not found", "alias", serverAlias)
+				return fmt.Errorf("server '%s' not found in SSH config", serverAlias)
+			}
+			return serverService.SSH(server.Alias)
+		}
+
+		// Otherwise, run the TUI
+		return tui.Run()
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

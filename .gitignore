@@ -25,7 +25,6 @@ go.work
 go.work.sum
 
 # env file
-.env
 
 # Editor/IDE
 # .idea/
@@ -39,3 +38,5 @@ dist/
 
 # Binary output
 lazyssh
+config.bat
+node_modules
