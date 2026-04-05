@@ -126,7 +126,16 @@ SSH into the selected server
 brew install Adembc/homebrew-tap/lazyssh
 ```
 
-### Option 2: Download Binary from Releases
+### Option 2: Install from Copr (Fedora/RHEL/EPEL)
+
+**Unofficial** [Copr repository](https://copr.fedorainfracloud.org/coprs/komapro/lazyssh/) maintained by [komapro](https://github.com/komapro).
+
+```bash
+dnf copr enable komapro/lazyssh
+dnf install lazyssh
+```
+
+### Option 3: Download Binary from Releases
 
 Download from [GitHub Releases](https://github.com/Adembc/lazyssh/releases). You can use the snippet below to automatically fetch the latest version for your OS/ARCH (Darwin/Linux and amd64/arm64 supported):
 
@@ -143,7 +152,7 @@ sudo mv lazyssh /usr/local/bin/
 lazyssh
 ```
 
-### Option 3: Build from Source
+### Option 4: Build from Source
 
 ```bash
 # Clone the repository
