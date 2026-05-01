@@ -5,6 +5,12 @@
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package ssh_config_file
 
@@ -30,7 +36,11 @@ type memFS struct {
 	openReal map[string]string // logical path → real on-disk path for OpenFile redirects
 }
 
-func newMemFS(t interface{ Helper(); Fatalf(string, ...any) }) *memFS {
+func newMemFS(t interface {
+	Helper()
+	Fatalf(string, ...any)
+},
+) *memFS {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "lazyssh-memfs-")
 	if err != nil {
@@ -47,11 +57,10 @@ func (m *memFS) write(path string, content string) {
 	m.files[path] = []byte(content)
 }
 
-func (m *memFS) read(path string) (string, bool) {
+func (m *memFS) read(path string) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	b, ok := m.files[path]
-	return string(b), ok
+	return string(m.files[path])
 }
 
 // --- FileSystem interface ---
@@ -102,13 +111,13 @@ func (m *memFS) Stat(name string) (os.FileInfo, error) {
 func (m *memFS) IsNotExist(err error) bool { return errors.Is(err, os.ErrNotExist) }
 
 func (m *memFS) realPathFor(logical string) string {
-	if real, ok := m.openReal[logical]; ok {
-		return real
+	if rp, ok := m.openReal[logical]; ok {
+		return rp
 	}
 	rel := strings.ReplaceAll(filepath.Clean(logical), string(os.PathSeparator), "_")
-	real := filepath.Join(m.tempDir, rel)
-	m.openReal[logical] = real
-	return real
+	rp := filepath.Join(m.tempDir, rel)
+	m.openReal[logical] = rp
+	return rp
 }
 
 func (m *memFS) Remove(file string) error {
@@ -118,9 +127,9 @@ func (m *memFS) Remove(file string) error {
 		delete(m.files, file)
 		return nil
 	}
-	if real, ok := m.openReal[file]; ok {
+	if rp, ok := m.openReal[file]; ok {
 		delete(m.openReal, file)
-		return os.Remove(real)
+		return os.Remove(rp)
 	}
 	return &os.PathError{Op: "remove", Path: file, Err: os.ErrNotExist}
 }
@@ -147,9 +156,9 @@ func (m *memFS) Chmod(path string, perms os.FileMode) error { return nil }
 
 func (m *memFS) OpenFile(path string, flag int, perms os.FileMode) (*os.File, error) {
 	m.mu.Lock()
-	real := m.realPathFor(path)
+	rp := m.realPathFor(path)
 	m.mu.Unlock()
-	return os.OpenFile(real, flag, perms) // #nosec G304
+	return os.OpenFile(rp, flag, perms) // #nosec G304
 }
 
 func (m *memFS) ReadDir(dir string) ([]os.DirEntry, error) {
@@ -176,10 +185,12 @@ type memDirEntry struct {
 	size int64
 }
 
-func (e memDirEntry) Name() string               { return e.name }
-func (e memDirEntry) IsDir() bool                { return false }
-func (e memDirEntry) Type() os.FileMode          { return 0 }
-func (e memDirEntry) Info() (os.FileInfo, error) { return memFileInfo{name: e.name, size: e.size, mode: 0o600}, nil }
+func (e memDirEntry) Name() string      { return e.name }
+func (e memDirEntry) IsDir() bool       { return false }
+func (e memDirEntry) Type() os.FileMode { return 0 }
+func (e memDirEntry) Info() (os.FileInfo, error) {
+	return memFileInfo{name: e.name, size: e.size, mode: 0o600}, nil
+}
 
 type memWriter struct {
 	fs   *memFS
@@ -194,4 +205,3 @@ func (w *memWriter) Close() error {
 	w.fs.mu.Unlock()
 	return nil
 }
-

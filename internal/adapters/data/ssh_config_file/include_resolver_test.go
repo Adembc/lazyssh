@@ -5,6 +5,12 @@
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package ssh_config_file
 
@@ -15,12 +21,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func newTestRepo(t *testing.T, fs FileSystem, mainPath string) *Repository {
+func newTestRepo(t *testing.T, fs FileSystem) *Repository {
 	t.Helper()
 	logger := zap.NewNop().Sugar()
 	return &Repository{
 		logger:          logger,
-		configPath:      mainPath,
+		configPath:      "/home/u/.ssh/config",
 		fileSystem:      fs,
 		metadataManager: newMetadataManager("/dev/null", logger),
 	}
@@ -33,7 +39,7 @@ func TestResolveIncludes_NoIncludes(t *testing.T) {
 	main := "/home/u/.ssh/config"
 	fs.write(main, "Host alpha\n  HostName 1.1.1.1\n")
 
-	r := newTestRepo(t, fs, main)
+	r := newTestRepo(t, fs)
 	lc, err := r.resolveIncludes(main)
 	if err != nil {
 		t.Fatalf("resolveIncludes: %v", err)
@@ -55,7 +61,7 @@ func TestResolveIncludes_AbsoluteInclude(t *testing.T) {
 	fs.write(main, "Include "+inc+"\nHost alpha\n  HostName 1.1.1.1\n")
 	fs.write(inc, "Host beta\n  HostName 2.2.2.2\n")
 
-	r := newTestRepo(t, fs, main)
+	r := newTestRepo(t, fs)
 	lc, err := r.resolveIncludes(main)
 	if err != nil {
 		t.Fatalf("resolveIncludes: %v", err)
@@ -75,7 +81,7 @@ func TestResolveIncludes_MissingIncludeIsSilent(t *testing.T) {
 	main := "/home/u/.ssh/config"
 	fs.write(main, "Include /nonexistent/file\nHost a\n  HostName x\n")
 
-	r := newTestRepo(t, fs, main)
+	r := newTestRepo(t, fs)
 	lc, err := r.resolveIncludes(main)
 	if err != nil {
 		t.Fatalf("missing include should not error: %v", err)
@@ -94,7 +100,7 @@ func TestResolveIncludes_CycleDetected(t *testing.T) {
 	fs.write(a, "Include "+b+"\n")
 	fs.write(b, "Include "+a+"\n")
 
-	r := newTestRepo(t, fs, a)
+	r := newTestRepo(t, fs)
 	_, err := r.resolveIncludes(a)
 	if err == nil || !strings.Contains(err.Error(), "cycle") {
 		t.Fatalf("want cycle error, got %v", err)
@@ -110,7 +116,7 @@ func TestResolveIncludes_IgnoresIncludeInsideHostBlock(t *testing.T) {
 	fs.write(main, "Host alpha\n  HostName 1.1.1.1\n  Include "+inc+"\n")
 	fs.write(inc, "Host beta\n  HostName 2.2.2.2\n")
 
-	r := newTestRepo(t, fs, main)
+	r := newTestRepo(t, fs)
 	lc, err := r.resolveIncludes(main)
 	if err != nil {
 		t.Fatalf("resolveIncludes: %v", err)
@@ -125,7 +131,7 @@ func TestResolveIncludes_FirstFileMissing(t *testing.T) {
 	defer fs.cleanup()
 
 	main := "/home/u/.ssh/config"
-	r := newTestRepo(t, fs, main)
+	r := newTestRepo(t, fs)
 	lc, err := r.resolveIncludes(main)
 	if err != nil {
 		t.Fatalf("resolveIncludes: %v", err)

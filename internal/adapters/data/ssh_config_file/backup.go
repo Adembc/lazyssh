@@ -105,7 +105,7 @@ func (r *Repository) copyFile(src, dst string) error {
 }
 
 // findBackupFilesFor finds rolling backup files for the named config file in
-// dir. Backups are recognised by `<baseName>-<timestamp>-<BackupSuffix>`.
+// dir. Backups are recognized by `<baseName>-<timestamp>-<BackupSuffix>`.
 func (r *Repository) findBackupFilesFor(dir, baseName string) ([]os.FileInfo, error) {
 	entries, err := r.fileSystem.ReadDir(dir)
 	if err != nil {
@@ -113,7 +113,7 @@ func (r *Repository) findBackupFilesFor(dir, baseName string) ([]os.FileInfo, er
 	}
 
 	prefix := baseName + "-"
-	var backupFiles []os.FileInfo
+	backupFiles := make([]os.FileInfo, 0, len(entries))
 
 	for _, entry := range entries {
 		name := entry.Name()

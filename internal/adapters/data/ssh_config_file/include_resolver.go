@@ -5,6 +5,12 @@
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package ssh_config_file
 
@@ -78,7 +84,7 @@ func (r *Repository) resolveIncludes(mainPath string) (*loadedConfig, error) {
 	}
 
 	if len(lc.files) == 0 {
-		// File didn't exist; preserve loadConfig's first-run behaviour.
+		// File didn't exist; preserve loadConfig's first-run behavior.
 		lc.files = append(lc.files, configFile{
 			path: absMain,
 			cfg:  &ssh_config.Config{Hosts: []*ssh_config.Host{}},
@@ -149,7 +155,7 @@ func (r *Repository) loadFileAndIncludes(path string, lc *loadedConfig, visited 
 // kevinburke/ssh_config keeps the resolved file map unexported.
 //
 // Limitations (documented):
-//   - Only top-level Includes are honoured. Includes inside Host/Match blocks
+//   - Only top-level Includes are honored. Includes inside Host/Match blocks
 //     are ignored. OpenSSH allows them but they're rare; flagging as a v1 cap.
 func (r *Repository) parseIncludeDirectives(absPath string) ([]string, error) {
 	file, err := r.fileSystem.Open(absPath)

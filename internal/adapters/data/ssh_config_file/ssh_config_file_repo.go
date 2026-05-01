@@ -119,7 +119,7 @@ func (r *Repository) UpdateServer(server domain.Server, newServer domain.Server)
 		return &domain.ErrAmbiguousHost{Alias: server.Alias, Candidates: matchPaths(matches)}
 	}
 
-	picked, _ := pickWritableMatch(matches, server.SourceFile)
+	picked := pickWritableMatch(matches, server.SourceFile)
 	host := picked.host
 
 	if server.Alias != newServer.Alias {
@@ -166,7 +166,7 @@ func (r *Repository) DeleteServer(server domain.Server) error {
 		return &domain.ErrAmbiguousHost{Alias: server.Alias, Candidates: matchPaths(matches)}
 	}
 
-	picked, _ := pickWritableMatch(matches, server.SourceFile)
+	picked := pickWritableMatch(matches, server.SourceFile)
 	picked.cfg.Hosts = r.removeHostByAlias(picked.cfg.Hosts, server.Alias)
 
 	if err := r.saveFiles(lc, []string{picked.path}); err != nil {

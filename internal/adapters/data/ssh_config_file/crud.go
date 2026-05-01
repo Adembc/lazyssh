@@ -616,17 +616,14 @@ func preferenceResolves(matches []hostMatch, preferPath string) bool {
 // pickWritableMatch chooses which match to mutate when callers haven't passed
 // a preferred file. If preferPath is non-empty and matches one of the
 // candidates, we use that. Otherwise the first (highest-precedence) match
-// wins. Returns (match, true) when at least one match exists.
-func pickWritableMatch(matches []hostMatch, preferPath string) (hostMatch, bool) {
-	if len(matches) == 0 {
-		return hostMatch{}, false
-	}
+// wins. Callers must ensure matches is non-empty.
+func pickWritableMatch(matches []hostMatch, preferPath string) hostMatch {
 	if preferPath != "" {
 		for _, m := range matches {
 			if m.path == preferPath {
-				return m, true
+				return m
 			}
 		}
 	}
-	return matches[0], true
+	return matches[0]
 }
