@@ -86,6 +86,16 @@ func (r *Repository) toDomainServer(lc *loadedConfig) []domain.Server {
 		}
 	}
 
+	// Clear SourceFile when an alias is defined in more than one file: the
+	// "first-seen" file isn't a recorded user preference, so it must not
+	// auto-resolve the ambiguity prompt on edit/delete. mergeMetadata will
+	// populate SourceFile later if the user has previously chosen a file.
+	for i := range servers {
+		if len(servers[i].SourceFiles) > 1 {
+			servers[i].SourceFile = ""
+		}
+	}
+
 	return servers
 }
 

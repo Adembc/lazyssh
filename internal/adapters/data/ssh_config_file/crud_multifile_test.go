@@ -199,6 +199,91 @@ func TestListServers_MergesDirectivesAcrossFiles(t *testing.T) {
 	}
 }
 
+func TestUpdateServer_OnlyWritesChangedFields(t *testing.T) {
+	// Regression: editing a host defined across multiple Include files must
+	// only write the *changed* fields to the chosen file. Unchanged fields
+	// (drawn from the merged view) must not be dragged into the file.
+	fs := newMemFS(t)
+	defer fs.cleanup()
+
+	main := "/home/u/.ssh/config"
+	override := "/home/u/.ssh/config.d/ogma.override"
+	conf := "/home/u/.ssh/config.d/ogma.conf"
+	fs.write(main, "Include "+override+"\nInclude "+conf+"\n")
+	fs.write(override, "Host ogma\n    ProxyCommand ssh -W %h:%p eostre\n")
+	fs.write(conf, "Host ogma\n    HostName ogma.hrafn.xyz\n    User original\n")
+
+	tmpMeta := filepath.Join(t.TempDir(), "metadata.json")
+	r := newRepoForFS(t, fs, tmpMeta)
+
+	servers, err := r.ListServers("")
+	if err != nil {
+		t.Fatalf("ListServers: %v", err)
+	}
+	srv := servers[0]
+	srv.SourceFile = conf // pretend the user picked .conf in the modal
+	newSrv := srv
+	newSrv.User = "deploy" // only change User
+
+	if err := r.UpdateServer(srv, newSrv); err != nil {
+		t.Fatalf("UpdateServer: %v", err)
+	}
+
+	confContent := fs.read(conf)
+	overrideContent := fs.read(override)
+
+	if !strings.Contains(confContent, "User deploy") {
+		t.Errorf(".conf missing new User: %q", confContent)
+	}
+	if strings.Contains(confContent, "ProxyCommand") {
+		t.Errorf(".conf should not have gained ProxyCommand: %q", confContent)
+	}
+	if strings.Contains(overrideContent, "User") {
+		t.Errorf("override should not have gained User: %q", overrideContent)
+	}
+	if strings.Contains(overrideContent, "HostName") {
+		t.Errorf("override should not have gained HostName: %q", overrideContent)
+	}
+}
+
+func TestUpdateServer_PromptsOnFirstEditWhenSplit(t *testing.T) {
+	// Regression: an alias defined across multiple files (no remembered
+	// metadata.File) must surface ErrAmbiguousHost on first edit, not be
+	// auto-routed to the first-seen file.
+	fs := newMemFS(t)
+	defer fs.cleanup()
+
+	main := "/home/u/.ssh/config"
+	override := "/home/u/.ssh/config.d/ogma.override"
+	conf := "/home/u/.ssh/config.d/ogma.conf"
+	fs.write(main, "Include "+override+"\nInclude "+conf+"\n")
+	fs.write(override, "Host ogma\n  ProxyCommand ssh -W %h:%p eostre\n")
+	fs.write(conf, "Host ogma\n  HostName ogma.hrafn.xyz\n  User u\n")
+
+	tmpMeta := filepath.Join(t.TempDir(), "metadata.json")
+	r := newRepoForFS(t, fs, tmpMeta)
+
+	servers, err := r.ListServers("")
+	if err != nil {
+		t.Fatalf("ListServers: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("want 1 server, got %d", len(servers))
+	}
+	srv := servers[0]
+	if srv.SourceFile != "" {
+		t.Errorf("SourceFile should be empty for split host, got %q", srv.SourceFile)
+	}
+
+	newSrv := srv
+	newSrv.User = "deploy"
+	err = r.UpdateServer(srv, newSrv)
+	var ambig *domain.ErrAmbiguousHost
+	if !errors.As(err, &ambig) {
+		t.Fatalf("want ErrAmbiguousHost on first edit of split host, got %v", err)
+	}
+}
+
 func TestUpdateServer_PersistsFileChoiceToMetadata(t *testing.T) {
 	fs := newMemFS(t)
 	defer fs.cleanup()

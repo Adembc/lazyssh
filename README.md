@@ -13,6 +13,7 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 ## ✨ Features
 
 ### Server Management
+
 - 📜 Read & display servers from your `~/.ssh/config` in a scrollable list.
 - ➕ Add a new server from the UI with comprehensive SSH configuration options.
 - ✏ Edit existing server entries directly from the UI with a tabbed interface.
@@ -21,12 +22,14 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 - 🏓 Ping server to check status.
 
 ### Quick Server Navigation
+
 - 🔍 Fuzzy search by alias, IP, or tags.
 - 🖥 One‑keypress SSH into the selected server (Enter).
 - 🏷 Tag servers (e.g., prod, dev, test) for quick filtering.
 - ↕️ Sort by alias or last SSH (toggle + reverse).
 
 ### Advanced SSH Configuration
+
 - 🔗 Port forwarding (LocalForward, RemoteForward, DynamicForward).
 - 🚀 Connection multiplexing for faster subsequent connections.
 - 🔐 Advanced authentication options (public key, password, agent forwarding).
@@ -35,17 +38,19 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 - ⚙️ Extensive SSH config options organized in tabbed interface.
 
 ### Key Management
+
 - 🔑 SSH key autocomplete with automatic detection of available keys.
 - 📝 Smart key selection with support for multiple keys.
 
-
 ### Upcoming
+
 - 📁 Copy files between local and servers with an easy picker UI.
 - 🔑 SSH Key Deployment Features:
-    - Use default local public key (`~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
-    - Paste custom public keys manually
-    - Generate new keypairs and deploy them
-    - Automatically append keys to `~/.ssh/authorized_keys` with correct permissions
+  - Use default local public key (`~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
+  - Paste custom public keys manually
+  - Generate new keypairs and deploy them
+  - Automatically append keys to `~/.ssh/authorized_keys` with correct permissions
+
 ---
 
 ## 🔐 Security Notice
@@ -62,7 +67,6 @@ It is simply a UI/TUI wrapper around your existing `~/.ssh/config` file.
 - lazyssh only reads and updates your `~/.ssh/config`. A backup of the file is created automatically before any changes.
 
 - File permissions on your SSH config are preserved to ensure security.
-
 
 ## 🛡️ Config Safety: Non‑destructive writes and backups
 
@@ -82,17 +86,17 @@ lazyssh honours top-level `Include` directives in your `~/.ssh/config`. Hosts de
 - **New hosts always go to the main config.** This keeps `Include`d files clean and predictable; you can move a host between files manually if you want it to live elsewhere.
 - **Per-file backups:** rolling backups (`<basename>-<timestamp>-lazyssh.backup`) and the one-time `<basename>.original.backup` are created alongside each included file the first time lazyssh writes to it.
 
-### Limitations (v1)
+### Include support Limitations
 
-- `Include` directives **inside** `Host`/`Match` blocks are ignored. Only top-level Includes are honoured.
+- `Include` directives **inside** `Host`/`Match` blocks are ignored. Only top-level Includes are honored.
 - `Match` directives are not modelled as host entries.
-- Symlinked include files: the atomic rename resolves the symlink target before writing, so the symlink itself is preserved.
 
 ## 📷 Screenshots
 
 <div align="center">
 
 ### 🚀 Startup
+
 <img src="./docs/loader.png" alt="App starting splash/loader" width="800" />
 
 Clean loading screen when launching the app
@@ -100,6 +104,7 @@ Clean loading screen when launching the app
 ---
 
 ### 📋 Server Management Dashboard
+
 <img src="./docs/list server.png" alt="Server list view" width="900" />
 
 Main dashboard displaying all configured servers with status indicators, pinned favorites at the top, and easy navigation
@@ -107,6 +112,7 @@ Main dashboard displaying all configured servers with status indicators, pinned 
 ---
 
 ### 🔎 Search
+
 <img src="./docs/search.png" alt="Fuzzy search servers" width="900" />
 
 Fuzzy search functionality to quickly find servers by name, IP address, or tags
@@ -114,9 +120,11 @@ Fuzzy search functionality to quickly find servers by name, IP address, or tags
 ---
 
 ### ➕ Add/Edit Server
+
 <img src="./docs/add server.png" alt="Add a new server" width="900" />
 
 Tabbed interface for managing SSH connections with extensive configuration options organized into:
+
 - **Basic** - Host, user, port, keys, tags
 - **Connection** - Proxy, timeouts, multiplexing, canonicalization
 - **Forwarding** - Port forwarding, X11, agent
@@ -126,6 +134,7 @@ Tabbed interface for managing SSH connections with extensive configuration optio
 ---
 
 ### 🔐 Connect to server
+
 <img src="./docs/ssh.png" alt="SSH connection details" width="900" />
 
 SSH into the selected server
@@ -196,12 +205,12 @@ make run
 | q     | Quit                          |
 
 **In Server Form:**
-| Key    | Action               |
+| Key | Action |
 | ------ | -------------------- |
-| Ctrl+H | Previous tab         |
-| Ctrl+L | Next tab             |
-| Ctrl+S | Save                 |
-| Esc    | Cancel               |
+| Ctrl+H | Previous tab |
+| Ctrl+L | Next tab |
+| Ctrl+S | Save |
+| Esc | Cancel |
 
 Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
@@ -221,10 +230,11 @@ We love seeing the community make Lazyssh better 🚀
 This repository enforces semantic PR titles via an automated GitHub Action. Please format your PR title as:
 
 - type(scope): short descriptive subject
-Notes:
+  Notes:
 - Scope is optional and should be one of: ui, cli, config, parser.
 
 Allowed types in this repo:
+
 - feat: a new feature
 - fix: a bug fix
 - improve: quality or UX improvements that are not a refactor or perf
@@ -236,6 +246,7 @@ Allowed types in this repo:
 - revert: reverts a previous commit
 
 Examples:
+
 - feat(ui): add server pinning and sorting options
 - fix(parser): handle comments at end of Host blocks
 - improve(cli): show friendly error when ssh binary missing
@@ -255,11 +266,9 @@ If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ an
 <br/>
 <a href="https://buymeacoffee.com/adembc" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="200"></a>
 
-
 ---
 
 ## 🙏 Acknowledgments
 
 - Built with [tview](https://github.com/rivo/tview) and [tcell](https://github.com/gdamore/tcell).
 - Inspired by [k9s](https://github.com/derailed/k9s) and [lazydocker](https://github.com/jesseduffield/lazydocker).
-

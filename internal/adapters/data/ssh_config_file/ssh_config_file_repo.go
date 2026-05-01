@@ -138,7 +138,7 @@ func (r *Repository) UpdateServer(server domain.Server, newServer domain.Server)
 		host.Patterns = newPatterns
 	}
 
-	r.updateHostNodes(host, newServer)
+	r.updateHostNodes(host, server, newServer)
 
 	if err := r.saveFiles(lc, []string{picked.path}); err != nil {
 		r.logger.Warnf("Failed to save config while updating server: %v", err)

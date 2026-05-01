@@ -16,6 +16,7 @@ package ssh_config_file
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
@@ -283,121 +284,122 @@ func removeNodesByKey(nodes []ssh_config.Node, key string) []ssh_config.Node {
 	return filtered
 }
 
-// updateHostNodes updates the nodes of an existing host with new server details.
-func (r *Repository) updateHostNodes(host *ssh_config.Host, newServer domain.Server) {
-	// Handle Port - include if explicitly set (even if it's 22)
+// scalarFieldMap returns the canonical key→value map for a server's scalar
+// SSH config fields. Used by updateHostNodes to diff old vs new and apply
+// only the keys that actually changed (so editing a host in one of several
+// Include files doesn't pollute it with the merged view's other fields).
+func scalarFieldMap(s domain.Server) map[string]string {
 	portValue := ""
-	if newServer.Port != 0 {
-		portValue = fmt.Sprintf("%d", newServer.Port)
+	if s.Port != 0 {
+		portValue = fmt.Sprintf("%d", s.Port)
 	}
-
-	updates := map[string]string{
-		"hostname":                        newServer.Host,
-		"user":                            newServer.User,
+	return map[string]string{
+		"hostname":                        s.Host,
+		"user":                            s.User,
 		"port":                            portValue,
-		"proxycommand":                    newServer.ProxyCommand,
-		"proxyjump":                       newServer.ProxyJump,
-		"remotecommand":                   newServer.RemoteCommand,
-		"requesttty":                      newServer.RequestTTY,
-		"sessiontype":                     newServer.SessionType,
-		"connecttimeout":                  newServer.ConnectTimeout,
-		"connectionattempts":              newServer.ConnectionAttempts,
-		"bindaddress":                     newServer.BindAddress,
-		"bindinterface":                   newServer.BindInterface,
-		"addressfamily":                   newServer.AddressFamily,
-		"exitonforwardfailure":            newServer.ExitOnForwardFailure,
-		"ipqos":                           newServer.IPQoS,
-		"canonicalizehostname":            newServer.CanonicalizeHostname,
-		"canonicaldomains":                newServer.CanonicalDomains,
-		"canonicalizefallbacklocal":       newServer.CanonicalizeFallbackLocal,
-		"canonicalizemaxdots":             newServer.CanonicalizeMaxDots,
-		"canonicalizepermittedcnames":     newServer.CanonicalizePermittedCNAMEs,
-		"clearallforwardings":             newServer.ClearAllForwardings,
-		"gatewayports":                    newServer.GatewayPorts,
-		"pubkeyauthentication":            newServer.PubkeyAuthentication,
-		"passwordauthentication":          newServer.PasswordAuthentication,
-		"preferredauthentications":        newServer.PreferredAuthentications,
-		"pubkeyacceptedalgorithms":        newServer.PubkeyAcceptedAlgorithms,
-		"pubkeyacceptedkeytypes":          newServer.PubkeyAcceptedAlgorithms, // Deprecated alias (since OpenSSH 8.5)
-		"hostbasedacceptedalgorithms":     newServer.HostbasedAcceptedAlgorithms,
-		"hostbasedkeytypes":               newServer.HostbasedAcceptedAlgorithms, // Deprecated alias (since OpenSSH 8.5)
-		"hostbasedacceptedkeytypes":       newServer.HostbasedAcceptedAlgorithms, // Deprecated alias (since OpenSSH 8.5)
-		"identitiesonly":                  newServer.IdentitiesOnly,
-		"addkeystoagent":                  newServer.AddKeysToAgent,
-		"identityagent":                   newServer.IdentityAgent,
-		"kbdinteractiveauthentication":    newServer.KbdInteractiveAuthentication,
-		"challengeresponseauthentication": newServer.KbdInteractiveAuthentication, // Deprecated alias
-		"numberofpasswordprompts":         newServer.NumberOfPasswordPrompts,
-		"forwardagent":                    newServer.ForwardAgent,
-		"forwardx11":                      newServer.ForwardX11,
-		"forwardx11trusted":               newServer.ForwardX11Trusted,
-		"controlmaster":                   newServer.ControlMaster,
-		"controlpath":                     newServer.ControlPath,
-		"controlpersist":                  newServer.ControlPersist,
-		"serveraliveinterval":             newServer.ServerAliveInterval,
-		"serveralivecountmax":             newServer.ServerAliveCountMax,
-		"compression":                     newServer.Compression,
-		"tcpkeepalive":                    newServer.TCPKeepAlive,
-		"batchmode":                       newServer.BatchMode,
-		"stricthostkeychecking":           newServer.StrictHostKeyChecking,
-		"checkhostip":                     newServer.CheckHostIP,
-		"fingerprinthash":                 newServer.FingerprintHash,
-		"userknownhostsfile":              newServer.UserKnownHostsFile,
-		"hostkeyalgorithms":               newServer.HostKeyAlgorithms,
-		"macs":                            newServer.MACs,
-		"ciphers":                         newServer.Ciphers,
-		"kexalgorithms":                   newServer.KexAlgorithms,
-		"verifyhostkeydns":                newServer.VerifyHostKeyDNS,
-		"updatehostkeys":                  newServer.UpdateHostKeys,
-		"hashknownhosts":                  newServer.HashKnownHosts,
-		"visualhostkey":                   newServer.VisualHostKey,
-		"localcommand":                    newServer.LocalCommand,
-		"permitlocalcommand":              newServer.PermitLocalCommand,
-		"escapechar":                      newServer.EscapeChar,
-		"loglevel":                        newServer.LogLevel,
+		"proxycommand":                    s.ProxyCommand,
+		"proxyjump":                       s.ProxyJump,
+		"remotecommand":                   s.RemoteCommand,
+		"requesttty":                      s.RequestTTY,
+		"sessiontype":                     s.SessionType,
+		"connecttimeout":                  s.ConnectTimeout,
+		"connectionattempts":              s.ConnectionAttempts,
+		"bindaddress":                     s.BindAddress,
+		"bindinterface":                   s.BindInterface,
+		"addressfamily":                   s.AddressFamily,
+		"exitonforwardfailure":            s.ExitOnForwardFailure,
+		"ipqos":                           s.IPQoS,
+		"canonicalizehostname":            s.CanonicalizeHostname,
+		"canonicaldomains":                s.CanonicalDomains,
+		"canonicalizefallbacklocal":       s.CanonicalizeFallbackLocal,
+		"canonicalizemaxdots":             s.CanonicalizeMaxDots,
+		"canonicalizepermittedcnames":     s.CanonicalizePermittedCNAMEs,
+		"clearallforwardings":             s.ClearAllForwardings,
+		"gatewayports":                    s.GatewayPorts,
+		"pubkeyauthentication":            s.PubkeyAuthentication,
+		"passwordauthentication":          s.PasswordAuthentication,
+		"preferredauthentications":        s.PreferredAuthentications,
+		"pubkeyacceptedalgorithms":        s.PubkeyAcceptedAlgorithms,
+		"pubkeyacceptedkeytypes":          s.PubkeyAcceptedAlgorithms,
+		"hostbasedacceptedalgorithms":     s.HostbasedAcceptedAlgorithms,
+		"hostbasedkeytypes":               s.HostbasedAcceptedAlgorithms,
+		"hostbasedacceptedkeytypes":       s.HostbasedAcceptedAlgorithms,
+		"identitiesonly":                  s.IdentitiesOnly,
+		"addkeystoagent":                  s.AddKeysToAgent,
+		"identityagent":                   s.IdentityAgent,
+		"kbdinteractiveauthentication":    s.KbdInteractiveAuthentication,
+		"challengeresponseauthentication": s.KbdInteractiveAuthentication,
+		"numberofpasswordprompts":         s.NumberOfPasswordPrompts,
+		"forwardagent":                    s.ForwardAgent,
+		"forwardx11":                      s.ForwardX11,
+		"forwardx11trusted":               s.ForwardX11Trusted,
+		"controlmaster":                   s.ControlMaster,
+		"controlpath":                     s.ControlPath,
+		"controlpersist":                  s.ControlPersist,
+		"serveraliveinterval":             s.ServerAliveInterval,
+		"serveralivecountmax":             s.ServerAliveCountMax,
+		"compression":                     s.Compression,
+		"tcpkeepalive":                    s.TCPKeepAlive,
+		"batchmode":                       s.BatchMode,
+		"stricthostkeychecking":           s.StrictHostKeyChecking,
+		"checkhostip":                     s.CheckHostIP,
+		"fingerprinthash":                 s.FingerprintHash,
+		"userknownhostsfile":              s.UserKnownHostsFile,
+		"hostkeyalgorithms":               s.HostKeyAlgorithms,
+		"macs":                            s.MACs,
+		"ciphers":                         s.Ciphers,
+		"kexalgorithms":                   s.KexAlgorithms,
+		"verifyhostkeydns":                s.VerifyHostKeyDNS,
+		"updatehostkeys":                  s.UpdateHostKeys,
+		"hashknownhosts":                  s.HashKnownHosts,
+		"visualhostkey":                   s.VisualHostKey,
+		"localcommand":                    s.LocalCommand,
+		"permitlocalcommand":              s.PermitLocalCommand,
+		"escapechar":                      s.EscapeChar,
+		"loglevel":                        s.LogLevel,
 	}
+}
 
-	// Update or remove nodes based on value
-	for key, value := range updates {
-		if value != "" {
-			r.updateOrAddKVNode(host, key, value)
+// updateHostNodes applies the diff between oldServer and newServer to host's
+// KV nodes. Unchanged fields are not touched, so editing a single field on a
+// host that's defined across multiple Include files won't drag the merged
+// view's other fields into the file being written.
+func (r *Repository) updateHostNodes(host *ssh_config.Host, oldServer, newServer domain.Server) {
+	oldVals := scalarFieldMap(oldServer)
+	newVals := scalarFieldMap(newServer)
+	for key, newVal := range newVals {
+		if oldVals[key] == newVal {
+			continue
+		}
+		if newVal != "" {
+			r.updateOrAddKVNode(host, key, newVal)
 		} else {
-			// Remove the key if value is empty (user selected default)
 			r.removeKVNode(host, key)
 		}
 	}
 
-	// Replace multi-value entries entirely to reflect the new state
-	host.Nodes = removeNodesByKey(host.Nodes, "IdentityFile")
-	for _, identityFile := range newServer.IdentityFiles {
-		r.addKVNodeIfNotEmpty(host, "IdentityFile", identityFile)
-	}
+	r.updateListField(host, "IdentityFile", oldServer.IdentityFiles, newServer.IdentityFiles, nil)
+	r.updateListField(host, "LocalForward", oldServer.LocalForward, newServer.LocalForward, r.convertCLIForwardToConfigFormat)
+	r.updateListField(host, "RemoteForward", oldServer.RemoteForward, newServer.RemoteForward, r.convertCLIForwardToConfigFormat)
+	r.updateListField(host, "DynamicForward", oldServer.DynamicForward, newServer.DynamicForward, nil)
+	r.updateListField(host, "SendEnv", oldServer.SendEnv, newServer.SendEnv, nil)
+	r.updateListField(host, "SetEnv", oldServer.SetEnv, newServer.SetEnv, nil)
+}
 
-	host.Nodes = removeNodesByKey(host.Nodes, "LocalForward")
-	for _, forward := range newServer.LocalForward {
-		configFormat := r.convertCLIForwardToConfigFormat(forward)
-		r.addKVNodeIfNotEmpty(host, "LocalForward", configFormat)
+// updateListField rewrites a multi-valued KV (e.g. IdentityFile) only when
+// its values actually changed. transform is applied per-value before writing
+// (used for converting CLI forwarding format to SSH config format); pass nil
+// for an identity transform.
+func (r *Repository) updateListField(host *ssh_config.Host, key string, oldVals, newVals []string, transform func(string) string) {
+	if slices.Equal(oldVals, newVals) {
+		return
 	}
-
-	host.Nodes = removeNodesByKey(host.Nodes, "RemoteForward")
-	for _, forward := range newServer.RemoteForward {
-		configFormat := r.convertCLIForwardToConfigFormat(forward)
-		r.addKVNodeIfNotEmpty(host, "RemoteForward", configFormat)
-	}
-
-	host.Nodes = removeNodesByKey(host.Nodes, "DynamicForward")
-	for _, forward := range newServer.DynamicForward {
-		r.addKVNodeIfNotEmpty(host, "DynamicForward", forward)
-	}
-
-	host.Nodes = removeNodesByKey(host.Nodes, "SendEnv")
-	for _, env := range newServer.SendEnv {
-		r.addKVNodeIfNotEmpty(host, "SendEnv", env)
-	}
-
-	host.Nodes = removeNodesByKey(host.Nodes, "SetEnv")
-	for _, env := range newServer.SetEnv {
-		r.addKVNodeIfNotEmpty(host, "SetEnv", env)
+	host.Nodes = removeNodesByKey(host.Nodes, key)
+	for _, v := range newVals {
+		if transform != nil {
+			v = transform(v)
+		}
+		r.addKVNodeIfNotEmpty(host, key, v)
 	}
 }
 
