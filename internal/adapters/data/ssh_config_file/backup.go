@@ -24,26 +24,28 @@ import (
 	"time"
 )
 
-// createBackup creates a timestamped backup of the current config file
-func (r *Repository) createBackup() error {
-	if _, err := r.fileSystem.Stat(r.configPath); os.IsNotExist(err) {
+// createBackupFor creates a timestamped backup of the given config file and
+// prunes older backups for that file beyond MaxBackups.
+func (r *Repository) createBackupFor(path string) error {
+	if _, err := r.fileSystem.Stat(path); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to check if config file exists: %w", err)
 	}
 
 	timestamp := time.Now().UnixMilli()
-	backupPath := fmt.Sprintf("%s-%d-%s", r.configPath, timestamp, BackupSuffix)
+	backupPath := fmt.Sprintf("%s-%d-%s", path, timestamp, BackupSuffix)
 
-	if err := r.copyFile(r.configPath, backupPath); err != nil {
+	if err := r.copyFile(path, backupPath); err != nil {
 		return fmt.Errorf("failed to copy config to backup: %w", err)
 	}
 
 	r.logger.Infof("Created backup: %s", backupPath)
 
-	configDir := filepath.Dir(r.configPath)
+	configDir := filepath.Dir(path)
+	baseName := filepath.Base(path)
 
-	backupFiles, err := r.findBackupFiles(configDir)
+	backupFiles, err := r.findBackupFilesFor(configDir, baseName)
 	if err != nil {
 		return err
 	}
@@ -102,41 +104,45 @@ func (r *Repository) copyFile(src, dst string) error {
 	return destFile.Sync()
 }
 
-// findBackupFiles finds all backup files for the given config file
-func (r *Repository) findBackupFiles(dir string) ([]os.FileInfo, error) {
+// findBackupFilesFor finds rolling backup files for the named config file in
+// dir. Backups are recognized by `<baseName>-<timestamp>-<BackupSuffix>`.
+func (r *Repository) findBackupFilesFor(dir, baseName string) ([]os.FileInfo, error) {
 	entries, err := r.fileSystem.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	var backupFiles []os.FileInfo
+	prefix := baseName + "-"
+	backupFiles := make([]os.FileInfo, 0, len(entries))
 
 	for _, entry := range entries {
 		name := entry.Name()
-		if strings.HasSuffix(name, BackupSuffix) {
-			info, err := entry.Info()
-			if err != nil {
-				r.logger.Warnf("failed to get info for backup file %s: %v", name, err)
-				continue
-			}
-			backupFiles = append(backupFiles, info)
+		if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, BackupSuffix) {
+			continue
 		}
+		info, err := entry.Info()
+		if err != nil {
+			r.logger.Warnf("failed to get info for backup file %s: %v", name, err)
+			continue
+		}
+		backupFiles = append(backupFiles, info)
 	}
 
 	return backupFiles, nil
 }
 
-// createOriginalBackupIfNeeded creates a one-time original backup of the current SSH config.
-func (r *Repository) createOriginalBackupIfNeeded() error {
-	// If no SSH config file, nothing to do.
-	if _, err := r.fileSystem.Stat(r.configPath); os.IsNotExist(err) {
+// createOriginalBackupForIfNeeded creates a one-time original backup of the
+// given config file (next to it, named `<baseName>.original.backup`).
+func (r *Repository) createOriginalBackupForIfNeeded(path string) error {
+	if _, err := r.fileSystem.Stat(path); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to check if config file exists: %w", err)
 	}
 
-	configDir := filepath.Dir(r.configPath)
-	originalBackupPath := filepath.Join(configDir, OriginalBackupName)
+	configDir := filepath.Dir(path)
+	baseName := filepath.Base(path)
+	originalBackupPath := filepath.Join(configDir, baseName+".original.backup")
 
 	if _, err := r.fileSystem.Stat(originalBackupPath); err == nil {
 		return nil
@@ -144,7 +150,7 @@ func (r *Repository) createOriginalBackupIfNeeded() error {
 		return fmt.Errorf("failed to check if original backup exists: %w", err)
 	}
 
-	if err := r.copyFile(r.configPath, originalBackupPath); err != nil {
+	if err := r.copyFile(path, originalBackupPath); err != nil {
 		return fmt.Errorf("failed to create original backup: %w", err)
 	}
 

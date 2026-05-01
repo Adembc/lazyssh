@@ -15,6 +15,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -264,6 +265,23 @@ func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 		err = t.serverService.AddServer(server)
 	}
 	if err != nil {
+		var ambig *domain.ErrAmbiguousHost
+		if errors.As(err, &ambig) && original != nil {
+			t.showFileChoiceModal(ambig.Alias, ambig.Candidates, "Save", func(chosen string) {
+				origCopy := *original
+				origCopy.SourceFile = chosen
+				newCopy := server
+				newCopy.SourceFile = chosen
+				if err := t.serverService.UpdateServer(origCopy, newCopy); err != nil {
+					t.showStatusTempColor("Save failed: "+err.Error(), "#FF6B6B")
+					return
+				}
+				t.showStatusTemp(fmt.Sprintf("Updated %s in %s", newCopy.Alias, chosen))
+				t.refreshServerList()
+				t.handleFormCancel()
+			})
+			return
+		}
 		// Stay on form; show a small modal with the error
 		modal := tview.NewModal().
 			SetText(fmt.Sprintf("Save failed: %v", err)).
@@ -273,6 +291,13 @@ func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
 		return
 	}
 
+	if server.SourceFile != "" {
+		verb := "Added"
+		if original != nil {
+			verb = "Updated"
+		}
+		t.showStatusTemp(fmt.Sprintf("%s %s in %s", verb, server.Alias, server.SourceFile))
+	}
 	t.refreshServerList()
 	t.handleFormCancel()
 }
@@ -355,35 +380,76 @@ func (t *tui) showDeleteConfirmModal(server domain.Server) {
 	msg := fmt.Sprintf("Delete server %s (%s@%s:%d)?\n\nThis action cannot be undone.",
 		server.Alias, server.User, server.Host, server.Port)
 
+	doDelete := func() {
+		err := t.serverService.DeleteServer(server)
+		if err != nil {
+			var ambig *domain.ErrAmbiguousHost
+			if errors.As(err, &ambig) {
+				t.showFileChoiceModal(ambig.Alias, ambig.Candidates, "Delete", func(chosen string) {
+					srv := server
+					srv.SourceFile = chosen
+					if err := t.serverService.DeleteServer(srv); err != nil {
+						t.showStatusTempColor("Delete failed: "+err.Error(), "#FF6B6B")
+						return
+					}
+					t.showStatusTemp(fmt.Sprintf("Deleted %s from %s", srv.Alias, chosen))
+					t.refreshServerList()
+				})
+				return
+			}
+			t.showStatusTempColor("Delete failed: "+err.Error(), "#FF6B6B")
+			return
+		}
+		t.refreshServerList()
+		t.handleModalClose()
+	}
+
 	modal := tview.NewModal().
 		SetText(msg).
 		AddButtons([]string{"[yellow]C[-]ancel", "[yellow]D[-]elete"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 			if buttonIndex == 1 {
-				_ = t.serverService.DeleteServer(server)
-				t.refreshServerList()
+				doDelete()
+				return
 			}
 			t.handleModalClose()
 		})
 
-	// Add keyboard shortcuts for the modal
 	modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
 		case 'c', 'C':
-			// Cancel
 			t.handleModalClose()
 			return nil
 		case 'd', 'D':
-			// Delete
-			_ = t.serverService.DeleteServer(server)
-			t.refreshServerList()
-			t.handleModalClose()
+			doDelete()
 			return nil
 		}
-		// ESC key already handled by default modal behavior
 		return event
 	})
 
+	t.app.SetRoot(modal, true)
+}
+
+// showFileChoiceModal asks the user which config file to apply an action to
+// when the same alias is defined in multiple files. action is a verb shown
+// on the confirmation buttons (e.g. "Save", "Delete"). onChoose is called
+// with the chosen absolute file path; Cancel closes the modal.
+func (t *tui) showFileChoiceModal(alias string, candidates []string, action string, onChoose func(path string)) {
+	msg := fmt.Sprintf("Host %q is defined in multiple files.\nWhich file should %s use?", alias, action)
+	buttons := append([]string{}, candidates...)
+	buttons = append(buttons, "Cancel")
+
+	modal := tview.NewModal().
+		SetText(msg).
+		AddButtons(buttons).
+		SetDoneFunc(func(idx int, label string) {
+			if idx < 0 || idx >= len(candidates) {
+				t.handleModalClose()
+				return
+			}
+			t.handleModalClose()
+			onChoose(candidates[idx])
+		})
 	t.app.SetRoot(modal, true)
 }
 
@@ -408,8 +474,27 @@ func (t *tui) showEditTagsForm(server domain.Server) {
 
 		newServer := server
 		newServer.Tags = tags
-		_ = t.serverService.UpdateServer(server, newServer)
-		// Refresh UI and go back
+		err := t.serverService.UpdateServer(server, newServer)
+		if err != nil {
+			var ambig *domain.ErrAmbiguousHost
+			if errors.As(err, &ambig) {
+				t.showFileChoiceModal(ambig.Alias, ambig.Candidates, "Update", func(chosen string) {
+					orig := server
+					orig.SourceFile = chosen
+					nu := newServer
+					nu.SourceFile = chosen
+					if err := t.serverService.UpdateServer(orig, nu); err != nil {
+						t.showStatusTempColor("Tags update failed: "+err.Error(), "#FF6B6B")
+						return
+					}
+					t.refreshServerList()
+					t.showStatusTemp("Tags updated")
+				})
+				return
+			}
+			t.showStatusTempColor("Tags update failed: "+err.Error(), "#FF6B6B")
+			return
+		}
 		t.refreshServerList()
 		t.returnToMain()
 		t.showStatusTemp("Tags updated")

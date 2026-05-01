@@ -23,37 +23,42 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
-// loadConfig reads and parses the SSH config file.
-// If the file does not exist, it returns an empty config without error to support first-run behavior.
-func (r *Repository) loadConfig() (*ssh_config.Config, error) {
-	file, err := r.fileSystem.Open(r.configPath)
+// loadConfig reads and parses the SSH config file plus every file pulled in
+// via top-level `Include` directives. Returns a loadedConfig containing all
+// per-file parses in OpenSSH precedence order (main first).
+func (r *Repository) loadConfig() (*loadedConfig, error) {
+	lc, err := r.resolveIncludes(r.configPath)
 	if err != nil {
-		if r.fileSystem.IsNotExist(err) {
-			return &ssh_config.Config{Hosts: []*ssh_config.Host{}}, nil
-		}
-		return nil, fmt.Errorf("failed to open config file: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	defer func() {
-		if cerr := file.Close(); cerr != nil {
-			r.logger.Warnf("failed to close config file: %v", cerr)
-		}
-	}()
-
-	cfg, err := ssh_config.Decode(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode config: %w", err)
-	}
-
-	return cfg, nil
+	return lc, nil
 }
 
-// saveConfig writes the SSH config back to the file with atomic operations and backup management.
-func (r *Repository) saveConfig(cfg *ssh_config.Config) error {
-	configDir := filepath.Dir(r.configPath)
+// saveFiles writes only the entries of lc whose paths appear in dirty back to
+// disk. Each file gets its own atomic temp+rename and its own rolling backup.
+func (r *Repository) saveFiles(lc *loadedConfig, dirty []string) error {
+	dirtySet := make(map[string]bool, len(dirty))
+	for _, p := range dirty {
+		dirtySet[p] = true
+	}
+
+	for _, f := range lc.files {
+		if !dirtySet[f.path] {
+			continue
+		}
+		if err := r.writeOneFile(f.path, f.cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) writeOneFile(path string, cfg *ssh_config.Config) error {
+	configDir := filepath.Dir(path)
 
 	tempFile, err := r.createTempFile(configDir)
 	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
+		return fmt.Errorf("failed to create temporary file for %s: %w", path, err)
 	}
 
 	defer func() {
@@ -66,24 +71,29 @@ func (r *Repository) saveConfig(cfg *ssh_config.Config) error {
 		return fmt.Errorf("failed to write config to temporary file: %w", err)
 	}
 
-	// Ensure a one-time original backup exists before any modifications managed by lazyssh.
-	if err := r.createOriginalBackupIfNeeded(); err != nil {
-		return fmt.Errorf("failed to create original backup: %w", err)
+	if err := r.createOriginalBackupForIfNeeded(path); err != nil {
+		return fmt.Errorf("failed to create original backup for %s: %w", path, err)
 	}
 
-	if err := r.createBackup(); err != nil {
-		return fmt.Errorf("failed to create backup: %w", err)
+	if err := r.createBackupFor(path); err != nil {
+		return fmt.Errorf("failed to create backup for %s: %w", path, err)
 	}
 
-	if err := r.fileSystem.Rename(tempFile, r.configPath); err != nil {
-		return fmt.Errorf("failed to atomically replace config file: %w", err)
+	// Resolve symlinks before atomic rename so we don't replace a symlink with a regular file.
+	target := path
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		target = resolved
 	}
 
-	r.logger.Infof("SSH config successfully updated: %s", r.configPath)
+	if err := r.fileSystem.Rename(tempFile, target); err != nil {
+		return fmt.Errorf("failed to atomically replace %s: %w", target, err)
+	}
+
+	r.logger.Infof("SSH config successfully updated: %s", target)
 	return nil
 }
 
-// writeConfigToFile writes the SSH config content to the specified file
+// writeConfigToFile writes the SSH config content to the specified file.
 func (r *Repository) writeConfigToFile(filePath string, cfg *ssh_config.Config) error {
 	file, err := r.fileSystem.OpenFile(filePath, os.O_WRONLY|os.O_TRUNC, SSHConfigPerms)
 	if err != nil {
@@ -107,13 +117,12 @@ func (r *Repository) writeConfigToFile(filePath string, cfg *ssh_config.Config) 
 	return nil
 }
 
-// createTempFile creates a temporary file in the specified directory
+// createTempFile creates a temporary file in the specified directory.
 func (r *Repository) createTempFile(dir string) (string, error) {
-	timestamp := time.Now().Format("20060102150405")
+	timestamp := time.Now().Format("20060102150405.000000")
 	tempFileName := fmt.Sprintf("config%s%s", timestamp, TempSuffix)
 	tempFilePath := filepath.Join(dir, tempFileName)
 
-	// Create the temp file with explicit 0600 permissions
 	f, err := r.fileSystem.OpenFile(tempFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, SSHConfigPerms)
 	if err != nil {
 		return "", err
