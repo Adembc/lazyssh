@@ -160,6 +160,45 @@ func TestDeleteServer_AmbiguousReturnsErr(t *testing.T) {
 	}
 }
 
+func TestListServers_MergesDirectivesAcrossFiles(t *testing.T) {
+	fs := newMemFS(t)
+	defer fs.cleanup()
+
+	main := "/home/u/.ssh/config"
+	override := "/home/u/.ssh/config.d/ogma.override"
+	conf := "/home/u/.ssh/config.d/ogma.conf"
+	// Order matters: override is included first, so its ProxyCommand wins
+	// (first-seen). Scalars only present in conf (HostName, User) must still
+	// reach the merged server.
+	fs.write(main, "Include "+override+"\nInclude "+conf+"\n")
+	fs.write(override, "Host ogma\n  ProxyCommand ssh -W %h:%p eostre\n")
+	fs.write(conf, "Host ogma\n  HostName ogma.hrafn.xyz\n  User DelphicOkami\n")
+
+	tmpMeta := filepath.Join(t.TempDir(), "metadata.json")
+	r := newRepoForFS(t, fs, tmpMeta)
+
+	servers, err := r.ListServers("")
+	if err != nil {
+		t.Fatalf("ListServers: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("want 1 server, got %d", len(servers))
+	}
+	got := servers[0]
+	if got.ProxyCommand != "ssh -W %h:%p eostre" {
+		t.Errorf("ProxyCommand from override missing: %q", got.ProxyCommand)
+	}
+	if got.Host != "ogma.hrafn.xyz" {
+		t.Errorf("HostName from .conf missing: %q", got.Host)
+	}
+	if got.User != "DelphicOkami" {
+		t.Errorf("User from .conf missing: %q", got.User)
+	}
+	if len(got.SourceFiles) != 2 {
+		t.Errorf("SourceFiles = %v, want both files tracked", got.SourceFiles)
+	}
+}
+
 func TestUpdateServer_PersistsFileChoiceToMetadata(t *testing.T) {
 	fs := newMemFS(t)
 	defer fs.cleanup()

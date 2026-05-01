@@ -15,6 +15,7 @@
 package ssh_config_file
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,12 +25,17 @@ import (
 )
 
 // toDomainServer converts a loadedConfig (main file plus any included files)
-// into a slice of domain.Server. OpenSSH gives precedence to the first
-// definition of an alias, so we keep the first occurrence as the source of
-// configuration values; later occurrences are recorded only as provenance via
-// SourceFiles so the UI can prompt on edit.
+// into a slice of domain.Server.
+//
+// OpenSSH semantics: when an alias appears in multiple Host blocks (across
+// files or within one file), directives are merged with first-seen value
+// winning per key; list-style directives (IdentityFile, SendEnv, etc.) append
+// across all matching blocks. We replicate that by mapping every matching
+// block's KVs into the same domain.Server, suppressing scalar keys we've
+// already seen for that alias.
 func (r *Repository) toDomainServer(lc *loadedConfig) []domain.Server {
 	byAlias := make(map[string]int)
+	seenKeys := make(map[string]map[string]bool)
 	servers := make([]domain.Server, 0)
 
 	for _, cf := range lc.files {
@@ -47,34 +53,55 @@ func (r *Repository) toDomainServer(lc *loadedConfig) []domain.Server {
 			}
 
 			primaryAlias := aliases[0]
-			if existingIdx, dup := byAlias[primaryAlias]; dup {
-				servers[existingIdx].SourceFiles = append(servers[existingIdx].SourceFiles, cf.path)
-				continue
+			idx, exists := byAlias[primaryAlias]
+			if !exists {
+				servers = append(servers, domain.Server{
+					Alias:         primaryAlias,
+					Aliases:       aliases,
+					Port:          22,
+					IdentityFiles: []string{},
+					SourceFile:    cf.path,
+					SourceFiles:   []string{cf.path},
+				})
+				idx = len(servers) - 1
+				byAlias[primaryAlias] = idx
+				seenKeys[primaryAlias] = make(map[string]bool)
+			} else if !slices.Contains(servers[idx].SourceFiles, cf.path) {
+				servers[idx].SourceFiles = append(servers[idx].SourceFiles, cf.path)
 			}
 
-			server := domain.Server{
-				Alias:         primaryAlias,
-				Aliases:       aliases,
-				Port:          22,
-				IdentityFiles: []string{},
-				SourceFile:    cf.path,
-				SourceFiles:   []string{cf.path},
-			}
-
+			seen := seenKeys[primaryAlias]
 			for _, node := range host.Nodes {
 				kvNode, ok := node.(*ssh_config.KV)
 				if !ok {
 					continue
 				}
-				r.mapKVToServer(&server, kvNode)
+				key := strings.ToLower(kvNode.Key)
+				if !isAppendingKey(key) && seen[key] {
+					continue
+				}
+				r.mapKVToServer(&servers[idx], kvNode)
+				seen[key] = true
 			}
-
-			byAlias[primaryAlias] = len(servers)
-			servers = append(servers, server)
 		}
 	}
 
 	return servers
+}
+
+// isAppendingKey reports whether the SSH config key accumulates values across
+// multiple Host blocks (rather than first-write-wins).
+func isAppendingKey(key string) bool {
+	switch key {
+	case "identityfile",
+		"sendenv",
+		"setenv",
+		"localforward",
+		"remoteforward",
+		"dynamicforward":
+		return true
+	}
+	return false
 }
 
 // mapKVToServer maps an ssh_config.KV node to the corresponding fields in domain.Server.
