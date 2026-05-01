@@ -54,12 +54,12 @@ func NewRepositoryWithFS(logger *zap.SugaredLogger, configPath string, metaDataP
 // ListServers returns all servers matching the query pattern.
 // Empty query returns all servers.
 func (r *Repository) ListServers(query string) ([]domain.Server, error) {
-	cfg, err := r.loadConfig()
+	lc, err := r.loadConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, err
 	}
 
-	servers := r.toDomainServer(cfg)
+	servers := r.toDomainServer(lc)
 	metadata, err := r.metadataManager.loadAll()
 	if err != nil {
 		r.logger.Warnf("Failed to load metadata: %v", err)
@@ -73,41 +73,57 @@ func (r *Repository) ListServers(query string) ([]domain.Server, error) {
 	return r.filterServers(servers, query), nil
 }
 
-// AddServer adds a new server to the SSH config.
+// AddServer adds a new server to the SSH config. If server.SourceFile is set
+// and matches a loaded file, the new host is written there; otherwise it
+// goes into the main config file.
 func (r *Repository) AddServer(server domain.Server) error {
-	cfg, err := r.loadConfig()
+	lc, err := r.loadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
-	if r.serverExists(cfg, server.Alias) {
+	if r.serverExists(lc, server.Alias) {
 		return fmt.Errorf("server with alias '%s' already exists", server.Alias)
 	}
 
-	host := r.createHostFromServer(server)
-	cfg.Hosts = append(cfg.Hosts, host)
+	target := lc.findFile(server.SourceFile)
+	if target == nil {
+		// Default: main file.
+		target = &lc.files[0]
+	}
 
-	if err := r.saveConfig(cfg); err != nil {
+	host := r.createHostFromServer(server)
+	target.cfg.Hosts = append(target.cfg.Hosts, host)
+
+	if err := r.saveFiles(lc, []string{target.path}); err != nil {
 		r.logger.Warnf("Failed to save config while adding new server: %v", err)
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	return r.metadataManager.updateServer(server, server.Alias)
 }
 
-// UpdateServer updates an existing server in the SSH config.
+// UpdateServer updates an existing server in the SSH config. The host is
+// mutated in whichever file currently defines it (preferring server.SourceFile
+// when the alias is defined in multiple files).
 func (r *Repository) UpdateServer(server domain.Server, newServer domain.Server) error {
-	cfg, err := r.loadConfig()
+	lc, err := r.loadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
-	host := r.findHostByAlias(cfg, server.Alias)
-	if host == nil {
+	matches := r.findHostMatches(lc, server.Alias)
+	if len(matches) == 0 {
 		return fmt.Errorf("server with alias '%s' not found", server.Alias)
 	}
+	if len(matches) > 1 && !preferenceResolves(matches, server.SourceFile) {
+		return &domain.ErrAmbiguousHost{Alias: server.Alias, Candidates: matchPaths(matches)}
+	}
+
+	picked, _ := pickWritableMatch(matches, server.SourceFile)
+	host := picked.host
 
 	if server.Alias != newServer.Alias {
-		if r.serverExists(cfg, newServer.Alias) {
+		if r.serverExists(lc, newServer.Alias) {
 			return fmt.Errorf("server with alias '%s' already exists", newServer.Alias)
 		}
 
@@ -119,36 +135,41 @@ func (r *Repository) UpdateServer(server domain.Server, newServer domain.Server)
 				newPatterns = append(newPatterns, pattern)
 			}
 		}
-
 		host.Patterns = newPatterns
-
 	}
 
 	r.updateHostNodes(host, newServer)
 
-	if err := r.saveConfig(cfg); err != nil {
+	if err := r.saveFiles(lc, []string{picked.path}); err != nil {
 		r.logger.Warnf("Failed to save config while updating server: %v", err)
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	// Update metadata; pass old alias to allow inline migration
-	return r.metadataManager.updateServer(newServer, server.Alias)
+	if err := r.metadataManager.updateServer(newServer, server.Alias); err != nil {
+		return err
+	}
+	return r.metadataManager.setFile(newServer.Alias, picked.path)
 }
 
-// DeleteServer removes a server from the SSH config.
+// DeleteServer removes a server from the SSH config (from whichever file
+// currently defines it; preferring server.SourceFile on ambiguity).
 func (r *Repository) DeleteServer(server domain.Server) error {
-	cfg, err := r.loadConfig()
+	lc, err := r.loadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
-	initialCount := len(cfg.Hosts)
-	cfg.Hosts = r.removeHostByAlias(cfg.Hosts, server.Alias)
-
-	if len(cfg.Hosts) == initialCount {
+	matches := r.findHostMatches(lc, server.Alias)
+	if len(matches) == 0 {
 		return fmt.Errorf("server with alias '%s' not found", server.Alias)
 	}
+	if len(matches) > 1 && !preferenceResolves(matches, server.SourceFile) {
+		return &domain.ErrAmbiguousHost{Alias: server.Alias, Candidates: matchPaths(matches)}
+	}
 
-	if err := r.saveConfig(cfg); err != nil {
+	picked, _ := pickWritableMatch(matches, server.SourceFile)
+	picked.cfg.Hosts = r.removeHostByAlias(picked.cfg.Hosts, server.Alias)
+
+	if err := r.saveFiles(lc, []string{picked.path}); err != nil {
 		r.logger.Warnf("Failed to save config while deleting server: %v", err)
 		return fmt.Errorf("failed to save config: %w", err)
 	}

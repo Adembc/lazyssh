@@ -23,41 +23,55 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
-// toDomainServer converts ssh_config.Config to a slice of domain.Server.
-func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
-	servers := make([]domain.Server, 0, len(cfg.Hosts))
-	for _, host := range cfg.Hosts {
+// toDomainServer converts a loadedConfig (main file plus any included files)
+// into a slice of domain.Server. OpenSSH gives precedence to the first
+// definition of an alias, so we keep the first occurrence as the source of
+// configuration values; later occurrences are recorded only as provenance via
+// SourceFiles so the UI can prompt on edit.
+func (r *Repository) toDomainServer(lc *loadedConfig) []domain.Server {
+	byAlias := make(map[string]int)
+	servers := make([]domain.Server, 0)
 
-		aliases := make([]string, 0, len(host.Patterns))
-
-		for _, pattern := range host.Patterns {
-			alias := pattern.String()
-			// Skip if alias contains wildcards (not a concrete Host)
-			if strings.ContainsAny(alias, "!*?[]") {
-				continue
+	for _, cf := range lc.files {
+		for _, host := range cf.cfg.Hosts {
+			aliases := make([]string, 0, len(host.Patterns))
+			for _, pattern := range host.Patterns {
+				alias := pattern.String()
+				if strings.ContainsAny(alias, "!*?[]") {
+					continue
+				}
+				aliases = append(aliases, alias)
 			}
-			aliases = append(aliases, alias)
-		}
-		if len(aliases) == 0 {
-			continue
-		}
-		server := domain.Server{
-			Alias:         aliases[0],
-			Aliases:       aliases,
-			Port:          22,
-			IdentityFiles: []string{},
-		}
-
-		for _, node := range host.Nodes {
-			kvNode, ok := node.(*ssh_config.KV)
-			if !ok {
+			if len(aliases) == 0 {
 				continue
 			}
 
-			r.mapKVToServer(&server, kvNode)
-		}
+			primaryAlias := aliases[0]
+			if existingIdx, dup := byAlias[primaryAlias]; dup {
+				servers[existingIdx].SourceFiles = append(servers[existingIdx].SourceFiles, cf.path)
+				continue
+			}
 
-		servers = append(servers, server)
+			server := domain.Server{
+				Alias:         primaryAlias,
+				Aliases:       aliases,
+				Port:          22,
+				IdentityFiles: []string{},
+				SourceFile:    cf.path,
+				SourceFiles:   []string{cf.path},
+			}
+
+			for _, node := range host.Nodes {
+				kvNode, ok := node.(*ssh_config.KV)
+				if !ok {
+					continue
+				}
+				r.mapKVToServer(&server, kvNode)
+			}
+
+			byAlias[primaryAlias] = len(servers)
+			servers = append(servers, server)
+		}
 	}
 
 	return servers
@@ -299,6 +313,9 @@ func (r *Repository) mergeMetadata(servers []domain.Server, metadata map[string]
 		if meta, exists := metadata[server.Alias]; exists {
 			servers[i].Tags = meta.Tags
 			servers[i].SSHCount = meta.SSHCount
+			if meta.File != "" {
+				servers[i].SourceFile = meta.File
+			}
 
 			if meta.LastSeen != "" {
 				if lastSeen, err := time.Parse(time.RFC3339, meta.LastSeen); err == nil {

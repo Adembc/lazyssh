@@ -114,4 +114,13 @@ type Server struct {
 
 	// Debugging settings
 	LogLevel string
+
+	// SourceFile is the absolute path of the SSH config file this host was
+	// loaded from (or where it should be written when adding a new host).
+	// Provenance metadata, not part of SSH semantics.
+	SourceFile string
+	// SourceFiles lists every config file that defines this alias, in
+	// OpenSSH precedence order. A length > 1 means the alias is defined in
+	// multiple files; the UI uses this to prompt on edit/delete.
+	SourceFiles []string
 }

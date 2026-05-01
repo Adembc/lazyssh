@@ -30,6 +30,11 @@ type ServerMetadata struct {
 	LastSeen string   `json:"last_seen,omitempty"`
 	PinnedAt string   `json:"pinned_at,omitempty"`
 	SSHCount int      `json:"ssh_count,omitempty"`
+	// File is the absolute path of the SSH config file lazyssh should
+	// write to when editing or deleting this host. Populated lazily on
+	// the first successful write and used to suppress the ambiguity
+	// prompt on subsequent edits.
+	File string `json:"file,omitempty"`
 }
 
 type metadataManager struct {
@@ -117,6 +122,23 @@ func (m *metadataManager) updateServer(server domain.Server, oldAlias string) er
 	}
 
 	metadata[server.Alias] = merged
+	return m.saveAll(metadata)
+}
+
+// setFile records the config file lazyssh should write to next time the
+// alias is edited or deleted. Empty path clears the memory.
+func (m *metadataManager) setFile(alias, path string) error {
+	metadata, err := m.loadAll()
+	if err != nil {
+		return fmt.Errorf("load metadata: %w", err)
+	}
+
+	meta := metadata[alias]
+	if meta.File == path {
+		return nil
+	}
+	meta.File = path
+	metadata[alias] = meta
 	return m.saveAll(metadata)
 }
 

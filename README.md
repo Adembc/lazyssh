@@ -72,6 +72,22 @@ It is simply a UI/TUI wrapper around your existing `~/.ssh/config` file.
   - One‑time original backup: before lazyssh makes its first change, it creates a single snapshot named config.original.backup beside your SSH config. If this file is present, it will never be recreated or overwritten.
   - Rolling backups: on every subsequent save, lazyssh also creates a timestamped backup named like: ~/.ssh/config-<timestamp>-lazyssh.backup. The app keeps at most 10 of these backups, automatically removing the oldest ones.
 
+## 📂 SSH Config `Include` Support
+
+lazyssh honours top-level `Include` directives in your `~/.ssh/config`. Hosts defined in included files (e.g. `~/.ssh/config.d/work`) appear in the server list alongside hosts defined in the main config.
+
+- **Reads:** all `Include`d files are parsed in OpenSSH precedence order. When the same alias is defined in more than one file, the first definition wins (matching OpenSSH semantics) but every source file is recorded so the UI can prompt on edit.
+- **Writes route back to the source file:** editing or deleting a host modifies whichever file actually defines it. Other files are never touched, and only the file that changed is re-serialized — preserving handcrafted formatting elsewhere.
+- **Ambiguity prompt:** if the same alias is defined in multiple included files, the first edit/delete shows a modal asking which file to write to. Your choice is remembered in `~/.lazyssh/metadata.json` (per-alias `file` field), so subsequent edits go straight through without re-prompting.
+- **New hosts always go to the main config.** This keeps `Include`d files clean and predictable; you can move a host between files manually if you want it to live elsewhere.
+- **Per-file backups:** rolling backups (`<basename>-<timestamp>-lazyssh.backup`) and the one-time `<basename>.original.backup` are created alongside each included file the first time lazyssh writes to it.
+
+### Limitations (v1)
+
+- `Include` directives **inside** `Host`/`Match` blocks are ignored. Only top-level Includes are honoured.
+- `Match` directives are not modelled as host entries.
+- Symlinked include files: the atomic rename resolves the symlink target before writing, so the symlink itself is preserved.
+
 ## 📷 Screenshots
 
 <div align="center">

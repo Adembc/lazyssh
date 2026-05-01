@@ -66,19 +66,44 @@ func (r *Repository) matchesQuery(server domain.Server, query string) bool {
 	return false
 }
 
-// serverExists checks if a server with the given alias already exists in the config.
-func (r *Repository) serverExists(cfg *ssh_config.Config, alias string) bool {
-	return r.findHostByAlias(cfg, alias) != nil
+// hostMatch records a single occurrence of an alias somewhere in the loaded
+// config tree. allMatches > 1 means the alias is duplicated across files.
+type hostMatch struct {
+	path string
+	cfg  *ssh_config.Config
+	host *ssh_config.Host
 }
 
-// findHostByAlias finds a host by its alias in the SSH config.
-func (r *Repository) findHostByAlias(cfg *ssh_config.Config, alias string) *ssh_config.Host {
-	for _, host := range cfg.Hosts {
-		if r.hostContainsPattern(host, alias) {
-			return host
+// serverExists checks if a server with the given alias already exists anywhere
+// in the loaded config (main or any included file).
+func (r *Repository) serverExists(lc *loadedConfig, alias string) bool {
+	matches := r.findHostMatches(lc, alias)
+	return len(matches) > 0
+}
+
+// findHostMatches returns every file in lc that defines the alias, in OpenSSH
+// precedence order (main first, then includes depth-first).
+func (r *Repository) findHostMatches(lc *loadedConfig, alias string) []hostMatch {
+	var out []hostMatch
+	for i := range lc.files {
+		cf := &lc.files[i]
+		for _, host := range cf.cfg.Hosts {
+			if r.hostContainsPattern(host, alias) {
+				out = append(out, hostMatch{path: cf.path, cfg: cf.cfg, host: host})
+				break
+			}
 		}
 	}
-	return nil
+	return out
+}
+
+// matchPaths returns just the file paths from a slice of hostMatches.
+func matchPaths(ms []hostMatch) []string {
+	out := make([]string, 0, len(ms))
+	for _, m := range ms {
+		out = append(out, m.path)
+	}
+	return out
 }
 
 // hostContainsPattern checks if a host contains a specific pattern.
@@ -572,4 +597,36 @@ func (r *Repository) removeHostByAlias(hosts []*ssh_config.Host, alias string) [
 		}
 	}
 	return hosts
+}
+
+// preferenceResolves reports whether preferPath unambiguously selects one of
+// the matches. Empty preferPath never resolves; an unknown path also doesn't.
+func preferenceResolves(matches []hostMatch, preferPath string) bool {
+	if preferPath == "" {
+		return false
+	}
+	for _, m := range matches {
+		if m.path == preferPath {
+			return true
+		}
+	}
+	return false
+}
+
+// pickWritableMatch chooses which match to mutate when callers haven't passed
+// a preferred file. If preferPath is non-empty and matches one of the
+// candidates, we use that. Otherwise the first (highest-precedence) match
+// wins. Returns (match, true) when at least one match exists.
+func pickWritableMatch(matches []hostMatch, preferPath string) (hostMatch, bool) {
+	if len(matches) == 0 {
+		return hostMatch{}, false
+	}
+	if preferPath != "" {
+		for _, m := range matches {
+			if m.path == preferPath {
+				return m, true
+			}
+		}
+	}
+	return matches[0], true
 }
