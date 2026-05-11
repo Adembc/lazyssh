@@ -35,11 +35,18 @@ func New(service string, outputPaths ...string) (*zap.SugaredLogger, error) {
 		"service": service,
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
+	var logDir string
+
+	if stateDir := os.Getenv("XDG_STATE_HOME"); stateDir != "" {
+		logDir = filepath.Join(stateDir, "lazyssh")
+	} else {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		logDir = filepath.Join(home, ".lazyssh")
 	}
-	logDir := filepath.Join(home, ".lazyssh")
+
 	if err := os.MkdirAll(logDir, 0o750); err != nil {
 		return nil, err
 	}
