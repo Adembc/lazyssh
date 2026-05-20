@@ -17,6 +17,8 @@ package ui
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/Adembc/lazyssh/internal/i18n"
 )
 
 type SearchBar struct {
@@ -35,12 +37,12 @@ func NewSearchBar() *SearchBar {
 }
 
 func (s *SearchBar) build() {
-	s.InputField.SetLabel(" 🔍 Search: ").
+	s.InputField.SetLabel(i18n.T("search.label")).
 		SetFieldBackgroundColor(tcell.Color233).
 		SetFieldTextColor(tcell.Color252).
 		SetFieldWidth(30).
 		SetBorder(true).
-		SetTitle(" Search ").
+		SetTitle(i18n.T("search.title")).
 		SetTitleAlign(tview.AlignCenter).
 		SetBorderColor(tcell.Color238).
 		SetTitleColor(tcell.Color250)

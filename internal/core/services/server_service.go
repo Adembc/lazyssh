@@ -154,9 +154,18 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 }
 
 // SSH starts an interactive SSH session to the given alias using the system's ssh client.
+// If a password is saved and sshpass is available, it uses sshpass to provide the password.
 func (s *serverService) SSH(alias string) error {
 	s.logger.Infow("ssh start", "alias", alias)
-	cmd := exec.Command("ssh", alias)
+
+	password, _ := s.serverRepository.GetPassword(alias)
+
+	var cmd *exec.Cmd
+	if password != "" && s.isSshpassAvailable() {
+		cmd = exec.Command("sshpass", "-p", password, "ssh", alias)
+	} else {
+		cmd = exec.Command("ssh", alias)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -176,10 +185,21 @@ func (s *serverService) SSH(alias string) error {
 // SSHWithArgs runs system ssh with provided extra args (e.g., -L/-R/-D) for the given alias.
 func (s *serverService) SSHWithArgs(alias string, extraArgs []string) error {
 	s.logger.Infow("ssh start (with args)", "alias", alias, "args", extraArgs)
-	args := append([]string{}, extraArgs...)
-	args = append(args, alias)
-	// #nosec G204
-	cmd := exec.Command("ssh", args...)
+
+	password, _ := s.serverRepository.GetPassword(alias)
+
+	var cmd *exec.Cmd
+	if password != "" && s.isSshpassAvailable() {
+		args := append([]string{"-p", password, "ssh"}, extraArgs...)
+		args = append(args, alias)
+		// #nosec G204
+		cmd = exec.Command("sshpass", args...)
+	} else {
+		args := append([]string{}, extraArgs...)
+		args = append(args, alias)
+		// #nosec G204
+		cmd = exec.Command("ssh", args...)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -202,10 +222,19 @@ func (s *serverService) StartForward(alias string, extraArgs []string) (int, err
 	}
 	s.fwMu.Unlock()
 
-	extraArgs = append(extraArgs, "-N", alias)
+	password, _ := s.serverRepository.GetPassword(alias)
 
-	// #nosec G204
-	cmd := exec.Command("ssh", extraArgs...)
+	var cmd *exec.Cmd
+	if password != "" && s.isSshpassAvailable() {
+		args := append([]string{"-p", password, "ssh"}, extraArgs...)
+		args = append(args, "-N", alias)
+		// #nosec G204
+		cmd = exec.Command("sshpass", args...)
+	} else {
+		extraArgs = append(extraArgs, "-N", alias)
+		// #nosec G204
+		cmd = exec.Command("ssh", extraArgs...)
+	}
 
 	// Detach from TTY: discard stdio
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
@@ -337,6 +366,12 @@ func (s *serverService) Ping(server domain.Server) (bool, time.Duration, error) 
 	return true, time.Since(start), nil
 }
 
+// isSshpassAvailable checks if sshpass is installed and available in PATH.
+func (s *serverService) isSshpassAvailable() bool {
+	_, err := exec.LookPath("sshpass")
+	return err == nil
+}
+
 // resolveSSHDestination uses `ssh -G <alias>` to extract HostName and Port from the user's SSH config.
 // Returns host, port, ok where ok=false if resolution failed.
 func resolveSSHDestination(alias string) (string, int, bool) {
@@ -376,4 +411,12 @@ func resolveSSHDestination(alias string) (string, int, bool) {
 		port = 22
 	}
 	return host, port, true
+}
+
+func (s *serverService) ExportServers(path string) error {
+	return s.serverRepository.ExportServers(path)
+}
+
+func (s *serverService) ImportServers(path string, merge bool) (int, int, error) {
+	return s.serverRepository.ImportServers(path, merge)
 }

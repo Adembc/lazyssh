@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/Adembc/lazyssh/internal/i18n"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -94,43 +95,43 @@ func formatServerLine(s domain.Server) (primary, secondary string) {
 		fCol = "[#A0FFA0]" + fCol + "[-]"
 	}
 	// Use a consistent color for alias; host/IP fixed width; then forwarding column
-	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] %s [#888888]Last SSH: %s[-]  %s", icon, s.Alias, s.Host, fCol, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
+	primary = fmt.Sprintf("%s [white::b]%-12s[-] [#AAAAAA]%-18s[-] %s [#888888]"+i18n.T("list.last_ssh")+"[-]  %s", icon, s.Alias, s.Host, fCol, humanizeDuration(s.LastSeen), renderTagBadgesForList(s.Tags))
 	secondary = ""
 	return
 }
 
 func humanizeDuration(t time.Time) string {
 	if t.IsZero() {
-		return "never"
+		return i18n.T("details.never")
 	}
 	d := time.Since(t)
 	if d < time.Minute {
-		return "just now"
+		return i18n.T("time.just_now")
 	}
 	if d < time.Hour {
 		m := int(d.Minutes())
-		return fmt.Sprintf("%dm ago", m)
+		return fmt.Sprintf(i18n.T("time.minutes_ago"), m)
 	}
 	if d < 48*time.Hour {
 		h := int(d.Hours())
-		return fmt.Sprintf("%dh ago", h)
+		return fmt.Sprintf(i18n.T("time.hours_ago"), h)
 	}
 	if d < 60*24*time.Hour {
 		days := int(d.Hours()) / 24
-		return fmt.Sprintf("%dd ago", days)
+		return fmt.Sprintf(i18n.T("time.days_ago"), days)
 	}
 	if d < 365*24*time.Hour {
 		months := int(d.Hours()) / (24 * 30)
 		if months < 1 {
 			months = 1
 		}
-		return fmt.Sprintf("%dmo ago", months)
+		return fmt.Sprintf(i18n.T("time.months_ago"), months)
 	}
 	years := int(d.Hours()) / (24 * 365)
 	if years < 1 {
 		years = 1
 	}
-	return fmt.Sprintf("%dy ago", years)
+	return fmt.Sprintf(i18n.T("time.years_ago"), years)
 }
 
 // BuildSSHCommand constructs a ready-to-run ssh command for the given server.

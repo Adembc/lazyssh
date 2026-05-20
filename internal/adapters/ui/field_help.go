@@ -14,6 +14,13 @@
 
 package ui
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/Adembc/lazyssh/internal/i18n"
+)
+
 // FieldHelp contains help information for SSH config fields
 type FieldHelp struct {
 	Field       string   // Field name
@@ -35,6 +42,14 @@ const (
 	HelpModeFull                           // Detailed help with all info
 )
 
+// translateOr returns the translation for key if found, otherwise returns fallback.
+func translateOr(key, fallback string) string {
+	if msg := i18n.T(key); msg != key {
+		return msg
+	}
+	return fallback
+}
+
 // GetFieldHelp returns help information for a specific field
 func GetFieldHelp(fieldName string) *FieldHelp {
 	if help, exists := fieldHelpData[fieldName]; exists {
@@ -42,6 +57,18 @@ func GetFieldHelp(fieldName string) *FieldHelp {
 		defaultValue := GetSSHFieldDefault(fieldName)
 		if defaultValue != "" {
 			help.Default = formatDefaultValue(fieldName, defaultValue)
+		}
+		// Translate user-facing text
+		fieldKey := "field_help." + strings.ToLower(fieldName)
+		help.Description = translateOr(fieldKey, help.Description)
+		help.Syntax = translateOr(fieldKey+".syntax", help.Syntax)
+		help.Default = translateOr(fieldKey+".default", help.Default)
+		help.Since = translateOr(fieldKey+".since", help.Since)
+		if len(help.Examples) > 0 {
+			examplesKey := fieldKey + ".examples"
+			if exStr := i18n.T(examplesKey); exStr != examplesKey {
+				help.Examples = strings.Split(exStr, "|")
+			}
 		}
 		return &help
 	}
@@ -54,14 +81,14 @@ func formatDefaultValue(fieldName, value string) string {
 	switch fieldName {
 	case "ConnectTimeout":
 		if value == "" {
-			return "none (system default)"
+			return i18n.T("default.none_system")
 		}
-		return value + " seconds"
+		return fmt.Sprintf(i18n.T("default.seconds"), value)
 	case "ServerAliveInterval":
 		if value == "0" {
-			return "0 (disabled)"
+			return i18n.T("default.disabled")
 		}
-		return value + " seconds"
+		return fmt.Sprintf(i18n.T("default.seconds"), value)
 	case "ControlPath", "ProxyJump", "ProxyCommand", "RemoteCommand",
 		"LocalForward", "RemoteForward", "DynamicForward",
 		"LocalCommand", "SendEnv", "SetEnv", "BindAddress", "BindInterface",
@@ -69,7 +96,7 @@ func formatDefaultValue(fieldName, value string) string {
 		"PubkeyAcceptedAlgorithms", "HostbasedAcceptedAlgorithms",
 		"HostKeyAlgorithms", "Ciphers", "MACs", "KexAlgorithms":
 		if value == "" {
-			return "none" //nolint:goconst // "none" here means empty/not configured, different from sessionTypeNone
+			return i18n.T("default.none")
 		}
 		return value
 	case "PreferredAuthentications":
@@ -84,7 +111,7 @@ func formatDefaultValue(fieldName, value string) string {
 		return value
 	case "User":
 		if value == "" {
-			return "current username"
+			return i18n.T("default.current_username")
 		}
 		return value
 	default:
@@ -133,6 +160,22 @@ var fieldHelpData = map[string]FieldHelp{
 		Syntax:      "path[,path,...]",
 		Examples:    []string{"~/.ssh/id_ed25519", "~/.ssh/id_rsa,~/.ssh/id_ed25519"},
 		Default:     "~/.ssh/id_rsa, ~/.ssh/id_ed25519, etc.",
+		Category:    "Basic",
+	},
+	"AuthMethod": {
+		Field:       "AuthMethod",
+		Description: "选择认证方式：密钥、密码或两者同时使用。",
+		Syntax:      "key | password | key_password",
+		Examples:    []string{"key", "password"},
+		Default:     "key",
+		Category:    "Basic",
+	},
+	"LoginMode": {
+		Field:       "LoginMode",
+		Description: "登录模式：交互式始终请求 TTY，批处理不请求 TTY，自动模式根据需要请求。",
+		Syntax:      "interactive | batch | auto",
+		Examples:    []string{"interactive", "batch", "auto"},
+		Default:     "interactive",
 		Category:    "Basic",
 	},
 
@@ -409,6 +452,14 @@ var fieldHelpData = map[string]FieldHelp{
 		Syntax:      "tag1[,tag2,...]  ",
 		Examples:    []string{"production", "development,staging", "web,frontend"},
 		Default:     "none",
+		Category:    "Basic",
+	},
+	"Password": {
+		Field:       "Password",
+		Description: "SSH password for authentication. Stored encrypted locally.",
+		Syntax:      "string",
+		Examples:    []string{""},
+		Default:     "(stored encrypted, not in SSH config)",
 		Category:    "Basic",
 	},
 

@@ -18,6 +18,8 @@ import (
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/Adembc/lazyssh/internal/i18n"
 )
 
 type ServerList struct {
@@ -39,7 +41,7 @@ func NewServerList() *ServerList {
 func (sl *ServerList) build() {
 	sl.List.ShowSecondaryText(false)
 	sl.List.SetBorder(true).
-		SetTitle(" Servers ").
+		SetTitle(i18n.T("app.title_servers")).
 		SetTitleAlign(tview.AlignCenter).
 		SetBorderColor(tcell.Color238).
 		SetTitleColor(tcell.Color250)

@@ -14,6 +14,10 @@
 
 package ui
 
+import (
+	"github.com/Adembc/lazyssh/internal/i18n"
+)
+
 // SSHFieldDefaults contains the default values for all SSH configuration fields
 // This centralizes all default values to ensure consistency across the application
 var SSHFieldDefaults = map[string]string{
@@ -137,84 +141,86 @@ func GetFieldPlaceholder(fieldName string) string {
 	switch fieldName {
 	// Required fields
 	case "Alias", "Host":
-		return "required"
+		return i18n.T("placeholder.required")
 
 	// Fields that show default value in placeholder
 	case "Port":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "User":
-		return "default: current username"
+		return i18n.T("placeholder.default") + ": " + i18n.T("placeholder.current_user")
 	case "ConnectTimeout":
 		if defaultValue == "" {
-			return "seconds (default: none)"
+			return i18n.T("placeholder.seconds") + " (" + i18n.T("placeholder.default") + ": " + i18n.T("placeholder.none") + ")"
 		}
-		return "default: " + defaultValue + " seconds"
+		return i18n.T("placeholder.default") + ": " + defaultValue + " " + i18n.T("placeholder.seconds")
 	case "ConnectionAttempts":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "ServerAliveInterval":
 		if defaultValue == "0" {
-			return "seconds (default: 0)"
+			return i18n.T("placeholder.seconds") + " (" + i18n.T("placeholder.default") + ": 0)"
 		}
-		return "default: " + defaultValue + " seconds"
+		return i18n.T("placeholder.default") + ": " + defaultValue + " " + i18n.T("placeholder.seconds")
 	case "ServerAliveCountMax":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "NumberOfPasswordPrompts":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "CanonicalizeMaxDots":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "IPQoS":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "EscapeChar":
-		return "default: " + defaultValue
+		return i18n.T("placeholder.default") + ": " + defaultValue
 	case "IdentityAgent":
 		if defaultValue != "" {
-			return "default: " + defaultValue
+			return i18n.T("placeholder.default") + ": " + defaultValue
 		}
-		return "default: SSH_AUTH_SOCK"
+		return i18n.T("placeholder.default") + ": SSH_AUTH_SOCK"
 	case "UserKnownHostsFile":
 		if defaultValue != "" {
-			return "default: " + defaultValue
+			return i18n.T("placeholder.default") + ": " + defaultValue
 		}
-		return "default: ~/.ssh/known_hosts"
+		return i18n.T("placeholder.default") + ": ~/.ssh/known_hosts"
 
 	// Fields that show examples in placeholder
 	case "Keys":
-		return "e.g., ~/.ssh/id_rsa, ~/.ssh/id_ed25519"
+		return i18n.T("placeholder_keys")
 	case "Tags":
-		return "comma-separated tags"
+		return i18n.T("placeholder.comma_separated")
+	case "Password":
+		return i18n.T("field.placeholder.password")
 	case "ProxyJump": //nolint:goconst // Field name used in switch case
-		return "e.g., bastion.example.com"
+		return i18n.T("placeholder.proxy_jump")
 	case "ProxyCommand":
-		return "e.g., ssh -W %h:%p jump.example.com"
+		return i18n.T("placeholder.proxy_command")
 	case "RemoteCommand":
-		return "e.g., tmux attach"
+		return i18n.T("placeholder.remote_command")
 	case "LocalForward":
-		return "e.g., 8080:localhost:80, 3000:localhost:3000"
+		return i18n.T("placeholder.local_forward")
 	case "RemoteForward":
-		return "e.g., 80:localhost:8080"
+		return i18n.T("placeholder.remote_forward")
 	case "DynamicForward":
-		return "e.g., 1080, 1081"
+		return i18n.T("placeholder.dynamic_forward")
 	case "ControlPath":
-		return "e.g., ~/.ssh/master-%r@%h:%p"
+		return i18n.T("placeholder_control_path")
 	case "ControlPersist":
-		return "e.g., 10m, 4h, yes, no"
+		return i18n.T("placeholder.control_persist")
 	case "PreferredAuthentications":
-		return "e.g., publickey,password"
+		return i18n.T("placeholder.preferred_auth")
 	case "PubkeyAcceptedAlgorithms", "HostbasedAcceptedAlgorithms",
 		"HostKeyAlgorithms", "Ciphers", "MACs", "KexAlgorithms":
-		return "algorithms (+/-/^ prefix supported)"
+		return i18n.T("placeholder_algorithms")
 	case "BindAddress":
-		return "IP, hostname, * (all), or localhost"
+		return i18n.T("placeholder_bind_address")
 	case "CanonicalDomains":
-		return "e.g., example.com, internal.net"
+		return i18n.T("placeholder.canonical_domains")
 	case "CanonicalizePermittedCNAMEs":
-		return "e.g., *.example.com:example.net"
+		return i18n.T("placeholder.canonical_cname")
 	case "LocalCommand":
-		return "e.g., echo 'Connected to %h'"
+		return i18n.T("placeholder.local_command")
 	case "SendEnv":
-		return "e.g., LANG, LC_*, TERM"
+		return i18n.T("placeholder.send_env")
 	case "SetEnv":
-		return "e.g., FOO=bar, DEBUG=1"
+		return i18n.T("placeholder_set_env")
 
 	// Fields with no placeholder
 	default:

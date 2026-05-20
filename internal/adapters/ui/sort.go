@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/Adembc/lazyssh/internal/i18n"
 )
 
 // SortMode controls how unpinned servers are ordered in the UI.
@@ -34,15 +35,15 @@ const (
 func (m SortMode) String() string {
 	switch m {
 	case SortByAliasAsc:
-		return "Alias ↑"
+		return i18n.T("app.sort.alias_asc")
 	case SortByAliasDesc:
-		return "Alias ↓"
+		return i18n.T("app.sort.alias_desc")
 	case SortByLastSeenAsc:
-		return "Last SSH ↑"
+		return i18n.T("app.sort.last_seen_asc")
 	case SortByLastSeenDesc:
-		return "Last SSH ↓"
+		return i18n.T("app.sort.last_seen_desc")
 	default:
-		return "Alias ↑"
+		return i18n.T("app.sort.alias_asc")
 	}
 }
 

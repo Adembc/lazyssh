@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/Adembc/lazyssh/internal/core/ports"
+	"github.com/Adembc/lazyssh/internal/i18n"
 	"github.com/rivo/tview"
 )
 
@@ -46,6 +47,8 @@ type tui struct {
 	content *tview.Flex
 
 	sortMode SortMode
+
+	currentForm *ServerForm // Current form for returning after save error
 }
 
 func NewTUI(logger *zap.SugaredLogger, ss ports.ServerService, version, commit string) App {
@@ -142,6 +145,6 @@ func (t *tui) loadInitialData() *tui {
 
 func (t *tui) updateListTitle() {
 	if t.serverList != nil {
-		t.serverList.SetTitle(" Servers — Sort: " + t.sortMode.String() + " ")
+		t.serverList.SetTitle(i18n.T("app.title_servers") + " " + i18n.T("app.sort."+t.sortMode.String()) + " ")
 	}
 }

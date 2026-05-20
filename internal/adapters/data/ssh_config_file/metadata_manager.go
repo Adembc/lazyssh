@@ -21,15 +21,17 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Adembc/lazyssh/internal/core/crypto"
 	"github.com/Adembc/lazyssh/internal/core/domain"
 	"go.uber.org/zap"
 )
 
 type ServerMetadata struct {
-	Tags     []string `json:"tags,omitempty"`
-	LastSeen string   `json:"last_seen,omitempty"`
-	PinnedAt string   `json:"pinned_at,omitempty"`
-	SSHCount int      `json:"ssh_count,omitempty"`
+	Tags              []string `json:"tags,omitempty"`
+	LastSeen          string   `json:"last_seen,omitempty"`
+	PinnedAt          string   `json:"pinned_at,omitempty"`
+	SSHCount          int      `json:"ssh_count,omitempty"`
+	EncryptedPassword string   `json:"encrypted_password,omitempty"`
 }
 
 type metadataManager struct {
@@ -84,7 +86,7 @@ func (m *metadataManager) saveAll(metadata map[string]ServerMetadata) error {
 	return nil
 }
 
-func (m *metadataManager) updateServer(server domain.Server, oldAlias string) error {
+func (m *metadataManager) updateServer(server domain.Server, oldAlias string, password string) error {
 	metadata, err := m.loadAll()
 	if err != nil {
 		m.logger.Errorw("failed to load metadata in updateServer", "path", m.filePath, "alias", server.Alias, "old_alias", oldAlias, "error", err)
@@ -114,6 +116,14 @@ func (m *metadataManager) updateServer(server domain.Server, oldAlias string) er
 
 	if server.SSHCount > 0 {
 		merged.SSHCount = server.SSHCount
+	}
+
+	if password != "" {
+		encrypted, err := crypto.Encrypt(password)
+		if err != nil {
+			return fmt.Errorf("encrypt password: %w", err)
+		}
+		merged.EncryptedPassword = encrypted
 	}
 
 	metadata[server.Alias] = merged
@@ -162,6 +172,46 @@ func (m *metadataManager) recordSSH(alias string) error {
 
 	metadata[alias] = meta
 	return m.saveAll(metadata)
+}
+
+func (m *metadataManager) setPassword(alias, password string) error {
+	metadata, err := m.loadAll()
+	if err != nil {
+		m.logger.Errorw("failed to load metadata in setPassword", "path", m.filePath, "alias", alias, "error", err)
+		return fmt.Errorf("load metadata: %w", err)
+	}
+
+	meta := metadata[alias]
+	if password != "" {
+		encrypted, err := crypto.Encrypt(password)
+		if err != nil {
+			return fmt.Errorf("encrypt password: %w", err)
+		}
+		meta.EncryptedPassword = encrypted
+	} else {
+		meta.EncryptedPassword = ""
+	}
+	metadata[alias] = meta
+	return m.saveAll(metadata)
+}
+
+func (m *metadataManager) getPassword(alias string) (string, error) {
+	metadata, err := m.loadAll()
+	if err != nil {
+		m.logger.Errorw("failed to load metadata in getPassword", "path", m.filePath, "alias", alias, "error", err)
+		return "", fmt.Errorf("load metadata: %w", err)
+	}
+
+	meta, exists := metadata[alias]
+	if !exists || meta.EncryptedPassword == "" {
+		return "", nil
+	}
+
+	decrypted, err := crypto.Decrypt(meta.EncryptedPassword)
+	if err != nil {
+		return "", fmt.Errorf("decrypt password: %w", err)
+	}
+	return decrypted, nil
 }
 
 func (m *metadataManager) ensureDirectory() error {

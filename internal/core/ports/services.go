@@ -32,4 +32,6 @@ type ServerService interface {
 	StopForwarding(alias string) error
 	IsForwarding(alias string) bool
 	Ping(server domain.Server) (bool, time.Duration, error)
+	ExportServers(path string) error
+	ImportServers(path string, merge bool) (int, int, error)
 }

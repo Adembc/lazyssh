@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
+	"github.com/Adembc/lazyssh/internal/i18n"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -28,6 +29,145 @@ import (
 // sshDefaults is now replaced by SSHFieldDefaults in defaults.go
 // This variable references the centralized defaults for consistency
 var sshDefaults = SSHFieldDefaults
+
+// fieldNameTranslations maps raw field names to Chinese display names (used in help panel titles)
+var fieldNameTranslations = map[string]string{
+	"Alias":                         "别名",
+	"Host":                          "主机",
+	"User":                          "用户",
+	"Port":                          "端口",
+	"Keys":                          "密钥",
+	"Tags":                          "标签",
+	"Password":                      "密码",
+	"AuthMethod":                    "认证方式",
+	"LoginMode":                     "登录模式",
+	"ProxyJump":                     "跳板机",
+	"ProxyCommand":                  "代理命令",
+	"RemoteCommand":                 "远程命令",
+	"RequestTTY":                    "请求TTY",
+	"SessionType":                   "会话类型",
+	"ConnectTimeout":                "连接超时",
+	"ConnectionAttempts":            "连接重试次数",
+	"BindAddress":                   "绑定地址",
+	"BindInterface":                 "绑定接口",
+	"AddressFamily":                 "地址族",
+	"ExitOnForwardFailure":          "转发失败退出",
+	"IPQoS":                         "IP服务质量",
+	"CanonicalizeHostname":          "主机名规范化",
+	"CanonicalDomains":              "规范域名",
+	"CanonicalizeFallbackLocal":     "规范回退",
+	"CanonicalizeMaxDots":           "规范最大点数",
+	"CanonicalizePermittedCNAMEs":   "规范CNAME",
+	"ServerAliveInterval":           "服务器保活间隔",
+	"ServerAliveCountMax":           "保活尝试次数",
+	"Compression":                   "压缩",
+	"TCPKeepAlive":                  "TCP保活",
+	"BatchMode":                     "批处理模式",
+	"ControlMaster":                 "主控连接",
+	"ControlPath":                   "控制路径",
+	"ControlPersist":                "连接持续",
+	"LocalForward":                  "本地转发",
+	"RemoteForward":                 "远程转发",
+	"DynamicForward":                "动态转发",
+	"ClearAllForwardings":           "清除所有转发",
+	"GatewayPorts":                  "网关端口",
+	"ForwardAgent":                  "转发代理",
+	"ForwardX11":                    "X11转发",
+	"ForwardX11Trusted":             "X11转发(信任)",
+	"PubkeyAuthentication":          "公钥认证",
+	"IdentitiesOnly":                "仅身份文件",
+	"AddKeysToAgent":                "添加密钥到代理",
+	"IdentityAgent":                 "身份代理",
+	"PasswordAuthentication":        "密码认证",
+	"KbdInteractiveAuthentication":  "键盘交互认证",
+	"NumberOfPasswordPrompts":       "密码提示次数",
+	"PreferredAuthentications":      "认证方式优先级",
+	"PubkeyAcceptedAlgorithms":      "公钥接受算法",
+	"HostbasedAcceptedAlgorithms":   "基于主机的接受算法",
+	"StrictHostKeyChecking":         "严格主机密钥检查",
+	"CheckHostIP":                   "检查主机IP",
+	"FingerprintHash":               "指纹哈希",
+	"UserKnownHostsFile":            "已知主机文件",
+	"HostKeyAlgorithms":             "主机密钥算法",
+	"Ciphers":                       "加密算法",
+	"MACs":                          "消息认证码",
+	"KexAlgorithms":                 "密钥交换算法",
+	"VerifyHostKeyDNS":              "DNS验证主机密钥",
+	"UpdateHostKeys":                "更新主机密钥",
+	"HashKnownHosts":                "哈希已知主机",
+	"VisualHostKey":                 "可视化主机密钥",
+	"LocalCommand":                  "本地命令",
+	"PermitLocalCommand":            "允许本地命令",
+	"EscapeChar":                    "转义字符",
+	"SendEnv":                       "发送环境变量",
+	"SetEnv":                        "设置环境变量",
+	"LogLevel":                      "日志级别",
+}
+
+func translateTabName(name string) string {
+	if i18n.Lang() != "zh-CN" {
+		return name
+	}
+	switch name {
+	case "Basic":
+		return "基本"
+	case "Connection":
+		return "连接"
+	case "Forwarding":
+		return "转发"
+	case "Authentication":
+		return "认证"
+	case "Advanced":
+		return "高级"
+	default:
+		return name
+	}
+}
+
+func translateTabAbbrev(name string) string {
+	if i18n.Lang() != "zh-CN" {
+		switch name {
+		case "Connection":
+			return "Conn"
+		case "Forwarding":
+			return "Fwd"
+		case "Authentication":
+			return "Auth"
+		case "Advanced":
+			return "Adv"
+		default:
+			return name
+		}
+	}
+	switch name {
+	case "Basic":
+		return "基本"
+	case "Connection":
+		return "连接"
+	case "Forwarding":
+		return "转发"
+	case "Authentication":
+		return "认证"
+	case "Advanced":
+		return "高级"
+	default:
+		return name
+	}
+}
+
+func translateFieldName(name string) string {
+	if i18n.Lang() != "zh-CN" {
+		return name
+	}
+	if zh, ok := fieldNameTranslations[name]; ok {
+		return zh
+	}
+	return name
+}
+
+func getFieldLabel(fieldName string) string {
+	return translateFieldName(fieldName) + ":"
+}
 
 type ServerFormMode int
 
@@ -75,7 +215,7 @@ func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
 		SetScrollable(true)
 	helpPanel.SetBorder(true).
 		SetBorderPadding(0, 0, 1, 1).
-		SetTitle(" Help ").
+		SetTitle(" " + i18n.T("form.help.panel_title") + " ").
 		SetTitleAlign(tview.AlignCenter)
 
 	// Create main container for form and help
@@ -197,9 +337,9 @@ func (sf *ServerForm) build() {
 
 func (sf *ServerForm) titleForMode() string {
 	if sf.mode == ServerFormEdit {
-		return "Edit Server"
+		return i18n.T("form.title.edit")
 	}
-	return "Add Server"
+	return i18n.T("form.title.add")
 }
 
 func (sf *ServerForm) getCurrentTabIndex() int {
@@ -214,9 +354,9 @@ func (sf *ServerForm) getCurrentTabIndex() int {
 func (sf *ServerForm) calculateTabsWidth(useAbbrev bool) int {
 	width := 0
 	for i, tab := range sf.tabs {
-		tabName := tab
+		tabName := translateTabName(tab)
 		if useAbbrev {
-			tabName = sf.tabAbbrev[tab]
+			tabName = translateTabAbbrev(tab)
 		}
 		width += len(tabName) + 2 // space + name + space
 		if i < len(sf.tabs)-1 {
@@ -245,9 +385,9 @@ func (sf *ServerForm) determineDisplayMode(width int) string {
 }
 
 func (sf *ServerForm) renderTab(tab string, isCurrent bool, useAbbrev bool, index int) string {
-	tabName := tab
+	tabName := translateTabName(tab)
 	if useAbbrev {
-		tabName = sf.tabAbbrev[tab]
+		tabName = translateTabAbbrev(tab)
 	}
 	regionID := fmt.Sprintf("tab_%d", index)
 	if isCurrent {
@@ -473,46 +613,40 @@ func escapeForTview(text string) string {
 func (sf *ServerForm) formatDetailedHelp(help *FieldHelp) string {
 	var b strings.Builder
 
-	// Calculate separator width dynamically
-	// Get the actual width of the help panel if possible
-	separatorWidth := 40 // Default width
+	separatorWidth := 40
 	if sf.helpPanel != nil {
 		_, _, width, _ := sf.helpPanel.GetInnerRect()
 		if width > 0 {
-			separatorWidth = width // Fill entire width
+			separatorWidth = width
 		}
 	}
 
-	// Title with field name and separator below
-	b.WriteString(fmt.Sprintf("[yellow::b]📖 %s[-::-]\n", help.Field))
-	b.WriteString("[#444444]" + strings.Repeat("─", separatorWidth) + "[-]\n\n")
+	b.WriteString(fmt.Sprintf(i18n.T("form.help.title"), translateFieldName(help.Field)))
+	b.WriteString("\n[#444444]" + strings.Repeat("─", separatorWidth) + "[-]\n\n")
 
-	// Description - needs escaping as it might contain brackets
 	b.WriteString(fmt.Sprintf("%s\n\n", escapeForTview(help.Description)))
 
-	// Syntax - needs escaping as it often contains brackets like [user@]
 	if help.Syntax != "" {
-		b.WriteString("[cyan]Syntax:[-] ")
-		b.WriteString(fmt.Sprintf("%s\n\n", escapeForTview(help.Syntax)))
+		b.WriteString(fmt.Sprintf(i18n.T("form.help.syntax"), escapeForTview(help.Syntax)))
+		b.WriteString("\n\n")
 	}
 
-	// Examples - needs escaping as they might contain special characters
 	if len(help.Examples) > 0 {
-		b.WriteString("[cyan]Examples:[-]\n")
+		b.WriteString(i18n.T("form.help.examples") + "\n")
 		for _, ex := range help.Examples {
 			b.WriteString(fmt.Sprintf("  • %s\n", escapeForTview(ex)))
 		}
 		b.WriteString("\n")
 	}
 
-	// Default value - already processed by formatDefaultValue, no additional escaping needed
 	if help.Default != "" {
-		b.WriteString(fmt.Sprintf("[dim]Default: %s[-]\n", help.Default))
+		b.WriteString(fmt.Sprintf(i18n.T("form.help.default"), help.Default))
+		b.WriteString("\n")
 	}
 
-	// Version info - unlikely to contain brackets, but escape for safety
 	if help.Since != "" {
-		b.WriteString(fmt.Sprintf("[dim]Available since: %s[-]\n", escapeForTview(help.Since)))
+		b.WriteString(fmt.Sprintf(i18n.T("form.help.since"), escapeForTview(help.Since)))
+		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -948,12 +1082,12 @@ func (sf *ServerForm) validateField(fieldName, value string) string {
 
 // addDropDownWithHelp adds a dropdown field with help support
 func (sf *ServerForm) addDropDownWithHelp(form *tview.Form, label, fieldName string, options []string, initialOption int) {
+	translatedLabel := getFieldLabel(fieldName)
 	dropdown := tview.NewDropDown().
-		SetLabel(label).
+		SetLabel(translatedLabel).
 		SetOptions(options, nil).
 		SetCurrentOption(initialOption)
 
-	// Add focus handler to show help
 	dropdown.SetFocusFunc(func() {
 		sf.updateHelp(fieldName)
 	})
@@ -961,10 +1095,10 @@ func (sf *ServerForm) addDropDownWithHelp(form *tview.Form, label, fieldName str
 	form.AddFormItem(dropdown)
 }
 
-// addInputFieldWithHelp adds a regular input field with help support
 func (sf *ServerForm) addInputFieldWithHelp(form *tview.Form, label, fieldName, defaultValue string, width int, placeholder string) *tview.InputField {
+	translatedLabel := getFieldLabel(fieldName)
 	field := tview.NewInputField().
-		SetLabel(label).
+		SetLabel(translatedLabel).
 		SetText(defaultValue).
 		SetFieldWidth(width)
 
@@ -983,11 +1117,11 @@ func (sf *ServerForm) addInputFieldWithHelp(form *tview.Form, label, fieldName, 
 
 // addValidatedInputField adds an input field with real-time validation
 func (sf *ServerForm) addValidatedInputField(form *tview.Form, label, fieldName, defaultValue string, width int, placeholder string) *tview.InputField {
-	// Store the original label without color tags
-	originalLabel := label
+	translatedLabel := getFieldLabel(fieldName)
+	originalLabel := translatedLabel
 
 	field := tview.NewInputField().
-		SetLabel(label).
+		SetLabel(translatedLabel).
 		SetText(defaultValue).
 		SetFieldWidth(width)
 
@@ -1072,6 +1206,7 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			Port:                 fmt.Sprint(sf.original.Port),
 			Key:                  strings.Join(sf.original.IdentityFiles, ", "),
 			Tags:                 strings.Join(sf.original.Tags, ", "),
+			Password:             sf.original.Password,
 			ProxyJump:            sf.original.ProxyJump,
 			ProxyCommand:         sf.original.ProxyCommand,
 			RemoteCommand:        sf.original.RemoteCommand,
@@ -1084,181 +1219,104 @@ func (sf *ServerForm) getDefaultValues() ServerFormData {
 			AddressFamily:        sf.original.AddressFamily,
 			ExitOnForwardFailure: sf.original.ExitOnForwardFailure,
 			IPQoS:                sf.original.IPQoS,
-			// Hostname canonicalization
+
 			CanonicalizeHostname:        sf.original.CanonicalizeHostname,
 			CanonicalDomains:            sf.original.CanonicalDomains,
 			CanonicalizeFallbackLocal:   sf.original.CanonicalizeFallbackLocal,
 			CanonicalizeMaxDots:         sf.original.CanonicalizeMaxDots,
 			CanonicalizePermittedCNAMEs: sf.original.CanonicalizePermittedCNAMEs,
-			GatewayPorts:                sf.original.GatewayPorts,
-			LocalForward:                strings.Join(sf.original.LocalForward, ", "),
-			RemoteForward:               strings.Join(sf.original.RemoteForward, ", "),
-			DynamicForward:              strings.Join(sf.original.DynamicForward, ", "),
-			ClearAllForwardings:         sf.original.ClearAllForwardings,
-			// Public key
-			PubkeyAuthentication: sf.original.PubkeyAuthentication,
-			IdentitiesOnly:       sf.original.IdentitiesOnly,
-			// SSH Agent
-			AddKeysToAgent: sf.original.AddKeysToAgent,
-			IdentityAgent:  sf.original.IdentityAgent,
-			// Password & Interactive
+
+			GatewayPorts:        sf.original.GatewayPorts,
+			LocalForward:        strings.Join(sf.original.LocalForward, ", "),
+			RemoteForward:       strings.Join(sf.original.RemoteForward, ", "),
+			DynamicForward:      strings.Join(sf.original.DynamicForward, ", "),
+			ClearAllForwardings: sf.original.ClearAllForwardings,
+
+			PubkeyAuthentication:        sf.original.PubkeyAuthentication,
+			IdentitiesOnly:              sf.original.IdentitiesOnly,
+			AddKeysToAgent:              sf.original.AddKeysToAgent,
+			IdentityAgent:               sf.original.IdentityAgent,
 			PasswordAuthentication:       sf.original.PasswordAuthentication,
 			KbdInteractiveAuthentication: sf.original.KbdInteractiveAuthentication,
 			NumberOfPasswordPrompts:      sf.original.NumberOfPasswordPrompts,
-			// Advanced
-			PreferredAuthentications:    sf.original.PreferredAuthentications,
-			ForwardAgent:                sf.original.ForwardAgent,
-			ForwardX11:                  sf.original.ForwardX11,
-			ForwardX11Trusted:           sf.original.ForwardX11Trusted,
-			ControlMaster:               sf.original.ControlMaster,
-			ControlPath:                 sf.original.ControlPath,
-			ControlPersist:              sf.original.ControlPersist,
-			ServerAliveInterval:         sf.original.ServerAliveInterval,
-			ServerAliveCountMax:         sf.original.ServerAliveCountMax,
-			Compression:                 sf.original.Compression,
-			TCPKeepAlive:                sf.original.TCPKeepAlive,
-			BatchMode:                   sf.original.BatchMode,
-			StrictHostKeyChecking:       sf.original.StrictHostKeyChecking,
-			UserKnownHostsFile:          sf.original.UserKnownHostsFile,
-			HostKeyAlgorithms:           sf.original.HostKeyAlgorithms,
-			PubkeyAcceptedAlgorithms:    sf.original.PubkeyAcceptedAlgorithms,
+			PreferredAuthentications:     sf.original.PreferredAuthentications,
+
+			ForwardAgent:      sf.original.ForwardAgent,
+			ForwardX11:        sf.original.ForwardX11,
+			ForwardX11Trusted: sf.original.ForwardX11Trusted,
+			ControlMaster:     sf.original.ControlMaster,
+			ControlPath:       sf.original.ControlPath,
+			ControlPersist:    sf.original.ControlPersist,
+			ServerAliveInterval:  sf.original.ServerAliveInterval,
+			ServerAliveCountMax:  sf.original.ServerAliveCountMax,
+			Compression:          sf.original.Compression,
+			TCPKeepAlive:         sf.original.TCPKeepAlive,
+			BatchMode:            sf.original.BatchMode,
+			StrictHostKeyChecking:     sf.original.StrictHostKeyChecking,
+			UserKnownHostsFile:        sf.original.UserKnownHostsFile,
+			HostKeyAlgorithms:         sf.original.HostKeyAlgorithms,
+			PubkeyAcceptedAlgorithms:  sf.original.PubkeyAcceptedAlgorithms,
 			HostbasedAcceptedAlgorithms: sf.original.HostbasedAcceptedAlgorithms,
-			MACs:                        sf.original.MACs,
-			Ciphers:                     sf.original.Ciphers,
-			KexAlgorithms:               sf.original.KexAlgorithms,
-			VerifyHostKeyDNS:            sf.original.VerifyHostKeyDNS,
-			UpdateHostKeys:              sf.original.UpdateHostKeys,
-			HashKnownHosts:              sf.original.HashKnownHosts,
-			VisualHostKey:               sf.original.VisualHostKey,
-			LocalCommand:                sf.original.LocalCommand,
-			PermitLocalCommand:          sf.original.PermitLocalCommand,
-			EscapeChar:                  sf.original.EscapeChar,
-			SendEnv:                     strings.Join(sf.original.SendEnv, ", "),
-			SetEnv:                      strings.Join(sf.original.SetEnv, ", "),
-			LogLevel:                    sf.original.LogLevel,
+			MACs:                       sf.original.MACs,
+			Ciphers:                    sf.original.Ciphers,
+			KexAlgorithms:              sf.original.KexAlgorithms,
+			VerifyHostKeyDNS:           sf.original.VerifyHostKeyDNS,
+			UpdateHostKeys:             sf.original.UpdateHostKeys,
+			HashKnownHosts:             sf.original.HashKnownHosts,
+			VisualHostKey:              sf.original.VisualHostKey,
+			LocalCommand:               sf.original.LocalCommand,
+			PermitLocalCommand:         sf.original.PermitLocalCommand,
+			EscapeChar:                 sf.original.EscapeChar,
+			SendEnv:                    strings.Join(sf.original.SendEnv, ", "),
+			SetEnv:                     strings.Join(sf.original.SetEnv, ", "),
+			LogLevel:                   sf.original.LogLevel,
 		}
 	}
-	// For new servers, use empty values instead of SSH defaults
-	// SSH defaults will be applied by the SSH client if values are not specified
 	return ServerFormData{
-		Alias: "",   // Explicitly empty for new servers
-		Host:  "",   // Explicitly empty for new servers
-		User:  "",   // Empty for new servers (SSH will use current username)
-		Port:  "22", // Keep port 22 as it's the standard SSH port
-		Key:   "",   // Empty for new servers (SSH will try default keys)
-		Tags:  "",
-
-		// All other fields should be empty for new servers
-		// The SSH client will use its defaults when these are not specified
-		ProxyJump:            "",
-		ProxyCommand:         "",
-		RemoteCommand:        "",
-		RequestTTY:           "",
-		SessionType:          "",
-		ConnectTimeout:       "",
-		ConnectionAttempts:   "",
-		BindAddress:          "",
-		BindInterface:        "",
-		AddressFamily:        "",
-		ExitOnForwardFailure: "",
-		IPQoS:                "",
-
-		// Hostname canonicalization
-		CanonicalizeHostname:        "",
-		CanonicalDomains:            "",
-		CanonicalizeFallbackLocal:   "",
-		CanonicalizeMaxDots:         "",
-		CanonicalizePermittedCNAMEs: "",
-
-		// Port forwarding
-		LocalForward:        "",
-		RemoteForward:       "",
-		DynamicForward:      "",
-		ClearAllForwardings: "",
-		GatewayPorts:        "",
-
-		// Authentication
-		PubkeyAuthentication:         "",
-		IdentitiesOnly:               "",
-		AddKeysToAgent:               "",
-		IdentityAgent:                "",
-		PasswordAuthentication:       "",
-		KbdInteractiveAuthentication: "",
-		NumberOfPasswordPrompts:      "",
-		PreferredAuthentications:     "",
-		PubkeyAcceptedAlgorithms:     "",
-		HostbasedAcceptedAlgorithms:  "",
-
-		// Forwarding
-		ForwardAgent:      "",
-		ForwardX11:        "",
-		ForwardX11Trusted: "",
-
-		// Multiplexing
-		ControlMaster:  "",
-		ControlPath:    "",
-		ControlPersist: "",
-
-		// Keep-alive
-		ServerAliveInterval: "",
-		ServerAliveCountMax: "",
-		TCPKeepAlive:        "",
-
-		// Connection
-		Compression: "",
-		BatchMode:   "",
-
-		// Security
-		StrictHostKeyChecking: "",
-		CheckHostIP:           "",
-		FingerprintHash:       "",
-		UserKnownHostsFile:    "",
-		HostKeyAlgorithms:     "",
-		MACs:                  "",
-		Ciphers:               "",
-		KexAlgorithms:         "",
-		VerifyHostKeyDNS:      "",
-		UpdateHostKeys:        "",
-		HashKnownHosts:        "",
-		VisualHostKey:         "",
-
-		// Command execution
-		LocalCommand:       "",
-		PermitLocalCommand: "",
-		EscapeChar:         "",
-
-		// Environment
-		SendEnv: "",
-		SetEnv:  "",
-
-		// Debugging
-		LogLevel: "",
+		Alias:    "",
+		Host:     "",
+		User:     "",
+		Port:     "",
+		Key:      "",
+		Tags:     "",
+		Password: "",
 	}
 }
 
-// createBasicForm creates the Basic configuration tab
 func (sf *ServerForm) createBasicForm() {
 	form := tview.NewForm()
 	defaultValues := sf.getDefaultValues()
 
-	// Add validated input fields
 	sf.addValidatedInputField(form, "Alias:", "Alias", defaultValues.Alias, 20, GetFieldPlaceholder("Alias"))
 	sf.addValidatedInputField(form, "Host/IP:", "Host", defaultValues.Host, 20, GetFieldPlaceholder("Host"))
 	sf.addValidatedInputField(form, "User:", "User", defaultValues.User, 20, GetFieldPlaceholder("User"))
 	sf.addValidatedInputField(form, "Port:", "Port", defaultValues.Port, 20, GetFieldPlaceholder("Port"))
 
-	// Keys field with autocomplete
 	keysField := sf.addValidatedInputField(form, "Keys:", "Keys", defaultValues.Key, 40, GetFieldPlaceholder("Keys"))
 	keysField.SetAutocompleteFunc(sf.createSSHKeyAutocomplete())
 
-	// Tags field
+	authMethodOptions := []string{i18n.T("auth.method.key"), i18n.T("auth.method.password"), i18n.T("auth.method.key_password")}
+	authMethodIndex := 0
+	if defaultValues.Password != "" {
+		if defaultValues.Key != "" {
+			authMethodIndex = 2
+		} else {
+			authMethodIndex = 1
+		}
+	}
+	sf.addDropDownWithHelp(form, "AuthMethod:", "AuthMethod", authMethodOptions, authMethodIndex)
+
+	sf.addValidatedInputField(form, "Password:", "Password", defaultValues.Password, 40, GetFieldPlaceholder("Password"))
+
+	loginModeOptions := []string{i18n.T("auth.login_mode.interactive"), i18n.T("auth.login_mode.batch"), i18n.T("auth.login_mode.auto")}
+	loginModeIndex := 2
+	sf.addDropDownWithHelp(form, "LoginMode:", "LoginMode", loginModeOptions, loginModeIndex)
+
 	sf.addValidatedInputField(form, "Tags:", "Tags", defaultValues.Tags, 30, GetFieldPlaceholder("Tags"))
 
-	// Add save and cancel buttons
-	form.AddButton("Save", sf.handleSaveButton)
-	form.AddButton("Cancel", sf.handleCancel)
+	form.AddButton(i18n.T("form.btn.save"), sf.handleSaveButton)
+	form.AddButton(i18n.T("form.btn.cancel"), sf.handleCancel)
 
-	// Set up form-level input capture for shortcuts
 	sf.setupFormShortcuts(form)
 
 	sf.forms["Basic"] = form
@@ -1639,14 +1697,14 @@ func (sf *ServerForm) createAdvancedForm() {
 }
 
 type ServerFormData struct {
-	Alias string
-	Host  string
-	User  string
-	Port  string
-	Key   string
-	Tags  string
+	Alias    string
+	Host     string
+	User     string
+	Port     string
+	Key      string
+	Tags     string
+	Password string
 
-	// Connection and proxy settings
 	ProxyJump            string
 	ProxyCommand         string
 	RemoteCommand        string
@@ -1659,33 +1717,27 @@ type ServerFormData struct {
 	AddressFamily        string
 	ExitOnForwardFailure string
 	IPQoS                string
-	// Hostname canonicalization
+
 	CanonicalizeHostname        string
 	CanonicalDomains            string
 	CanonicalizeFallbackLocal   string
 	CanonicalizeMaxDots         string
 	CanonicalizePermittedCNAMEs string
 
-	// Port forwarding
 	LocalForward        string
 	RemoteForward       string
 	DynamicForward      string
 	ClearAllForwardings string
 	GatewayPorts        string
 
-	// Authentication and key management
-	// Public key
 	PubkeyAuthentication string
 	IdentitiesOnly       string
-	// SSH Agent
-	AddKeysToAgent string
-	IdentityAgent  string
-	// Password & Interactive
+	AddKeysToAgent       string
+	IdentityAgent        string
 	PasswordAuthentication       string
 	KbdInteractiveAuthentication string
 	NumberOfPasswordPrompts      string
-	// Advanced
-	PreferredAuthentications string
+	PreferredAuthentications     string
 
 	// Agent and X11 forwarding
 	ForwardAgent      string
@@ -1890,34 +1942,19 @@ func (sf *ServerForm) handleSave() bool {
 				}
 
 				// Build error message
-				errorMsg := fmt.Sprintf("Validation failed (%d error%s):\n\n",
-					sf.validation.GetErrorCount(),
-					func() string {
-						if sf.validation.GetErrorCount() == 1 {
-							return ""
-						}
-						return "s"
-					}())
-
+				errorCount := sf.validation.GetErrorCount()
+				errorMsg := i18n.T("form.validation_title")
 				for i, err := range errors {
 					errorMsg += fmt.Sprintf("%d. %s\n", i+1, err)
 				}
 
 				if truncated {
-					errorMsg += fmt.Sprintf("\n... and %d more error%s",
-						sf.validation.GetErrorCount()-maxErrorsToShow,
-						func() string {
-							if sf.validation.GetErrorCount()-maxErrorsToShow == 1 {
-								return ""
-							}
-							return "s"
-						}())
+					errorMsg += fmt.Sprintf(i18n.T("form.validation_more"), errorCount-maxErrorsToShow)
 				}
 
-				// Use tview's built-in Modal
 				modal := tview.NewModal().
 					SetText(errorMsg).
-					AddButtons([]string{"OK"}).
+					AddButtons([]string{i18n.T("form.btn.ok")}).
 					SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 						sf.app.SetRoot(sf.Flex, true)
 					})
@@ -1947,8 +1984,8 @@ func (sf *ServerForm) handleCancel() {
 		// If app reference is available, show confirmation dialog
 		if sf.app != nil {
 			modal := tview.NewModal().
-				SetText("You have unsaved changes. Are you sure you want to exit?").
-				AddButtons([]string{"[yellow]S[-]ave", "[yellow]D[-]iscard", "[yellow]C[-]ancel"}).
+				SetText(i18n.T("form.unsaved_changes")).
+				AddButtons([]string{i18n.T("form.btn.save"), i18n.T("form.btn.discard"), i18n.T("form.btn.cancel")}).
 				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 					switch buttonIndex {
 					case 0: // Save

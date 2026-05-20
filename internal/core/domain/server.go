@@ -27,6 +27,7 @@ type Server struct {
 	LastSeen      time.Time
 	PinnedAt      time.Time
 	SSHCount      int
+	Password      string `json:"-"` // Not persisted to SSH config
 
 	// Additional SSH config fields
 	// Connection and proxy settings

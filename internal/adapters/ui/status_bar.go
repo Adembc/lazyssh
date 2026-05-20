@@ -17,10 +17,12 @@ package ui
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/Adembc/lazyssh/internal/i18n"
 )
 
 func DefaultStatusText() string {
-	return "[white]↑↓[-] Navigate  • [white]Enter[-] SSH  • [white]f[-] Forward  • [white]x[-] Stop Forward  • [white]c[-] Copy SSH  • [white]a[-] Add  • [white]e[-] Edit  • [white]g[-] Ping  • [white]d[-] Delete  • [white]p[-] Pin/Unpin  • [white]/[-] Search  • [white]q[-] Quit"
+	return i18n.T("statusbar.keys")
 }
 
 func NewStatusBar() *tview.TextView {

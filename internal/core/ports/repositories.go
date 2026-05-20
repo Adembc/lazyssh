@@ -23,4 +23,23 @@ type ServerRepository interface {
 	DeleteServer(server domain.Server) error
 	SetPinned(alias string, pinned bool) error
 	RecordSSH(alias string) error
+	SetPassword(alias string, password string) error
+	GetPassword(alias string) (string, error)
+	ExportServers(path string) error
+	ImportServers(path string, merge bool) (int, int, error)
+}
+
+type ExportData struct {
+	Version   string
+	Servers   []domain.Server
+	Metadata  map[string]ServerExportMeta
+	ExportedAt string
+}
+
+type ServerExportMeta struct {
+	Tags        []string
+	PinnedAt    string
+	SSHCount    int
+	LastSeen    string
+	Password    string
 }

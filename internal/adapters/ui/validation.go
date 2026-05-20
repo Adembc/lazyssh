@@ -15,6 +15,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -23,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/Adembc/lazyssh/internal/i18n"
 )
 
 // fieldValidator contains validation rules for SSH configuration fields
@@ -137,91 +140,91 @@ func GetFieldValidators() map[string]fieldValidator {
 	validators["Alias"] = fieldValidator{
 		Required: true,
 		Pattern:  regexp.MustCompile(`^[a-zA-Z0-9._-]+$`),
-		Message:  "Alias is required and can only contain letters, numbers, dots, hyphens, and underscores",
+		Message:  i18n.T("validation.alias_format"),
 	}
 	validators["Host"] = fieldValidator{
 		Required: true,
 		Validate: validateHost,
-		Message:  "Host is required and must be a valid hostname or IP address",
+		Message:  i18n.T("validation.host_format"),
 	}
 	validators["Port"] = fieldValidator{
 		Pattern:  regexp.MustCompile(`^([1-9]\d{0,4})$`),
 		Validate: validatePort,
-		Message:  "Port must be between 1 and 65535",
+		Message:  i18n.T("validation.port_range"),
 	}
 	validators["User"] = fieldValidator{
 		Pattern: regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`),
-		Message: "User must start with a letter and contain only letters, numbers, dots, hyphens, and underscores",
+		Message: i18n.T("validation.user_format"),
 	}
 	validators["Keys"] = fieldValidator{
 		Validate: validateKeyPaths,
-		Message:  "Key file not found or not accessible",
+		Message:  i18n.T("validation.keys_access"),
 	}
 
 	// Connection fields
 	validators["ConnectTimeout"] = fieldValidator{
 		Validate: validateConnectTimeout,
-		Message:  "ConnectTimeout must be a positive number or 'none'",
+		Message:  i18n.T("validation.timeout_format"),
 	}
 	validators["ConnectionAttempts"] = fieldValidator{
 		Pattern: regexp.MustCompile(`^[1-9]\d*$`),
-		Message: "ConnectionAttempts must be a positive number",
+		Message: i18n.T("validation.attempts_format"),
 	}
 	validators["ServerAliveInterval"] = fieldValidator{
 		Pattern:  regexp.MustCompile(`^\d+$`),
 		Validate: validateNonNegativeNumber,
-		Message:  "ServerAliveInterval must be a non-negative number",
+		Message:  i18n.T("validation.alive_interval_format"),
 	}
 	validators["ServerAliveCountMax"] = fieldValidator{
 		Pattern:  regexp.MustCompile(`^\d+$`),
 		Validate: validateNonNegativeNumber,
-		Message:  "ServerAliveCountMax must be a non-negative number",
+		Message:  i18n.T("validation.alive_count_format"),
 	}
 	validators["IPQoS"] = fieldValidator{
 		Validate: validateIPQoS,
-		Message:  "IPQoS must be valid QoS values (e.g., 'af21 cs1', 'lowdelay', 'ef')",
+		Message:  i18n.T("validation.ipqos_format"),
 	}
 
 	// Address and forwarding fields
 	validators["BindAddress"] = fieldValidator{
 		Validate: validateBindAddress,
-		Message:  "BindAddress must be a valid IP address, hostname, or '*'",
+		Message:  i18n.T("validation.bind_format"),
 	}
 	validators["LocalForward"] = fieldValidator{
 		Validate: validatePortForward,
-		Message:  "LocalForward must be in format '[bind_address:]port:host:hostport'",
+		Message:  i18n.T("validation.forward_format"),
 	}
 	validators["RemoteForward"] = fieldValidator{
 		Validate: validatePortForward,
-		Message:  "RemoteForward must be in format '[bind_address:]port:host:hostport'",
+		Message:  i18n.T("validation.forward_format"),
 	}
 	validators["DynamicForward"] = fieldValidator{
 		Validate: validateDynamicForward,
-		Message:  "DynamicForward must be in format '[bind_address:]port'",
+		Message:  i18n.T("validation.dynamic_forward_format"),
 	}
 
 	// Authentication fields
 	validators["NumberOfPasswordPrompts"] = fieldValidator{
 		Pattern:  regexp.MustCompile(`^\d+$`),
 		Validate: validatePasswordPrompts,
-		Message:  "NumberOfPasswordPrompts must be between 0 and 10",
+		Message:  i18n.T("validation.password_prompts_range"),
 	}
 
 	// Advanced fields
 	validators["CanonicalizeMaxDots"] = fieldValidator{
 		Pattern:  regexp.MustCompile(`^\d+$`),
 		Validate: validateNonNegativeNumber,
-		Message:  "CanonicalizeMaxDots must be a non-negative number",
+		Message:  i18n.T("validation.max_dots_format"),
 	}
 	validators["EscapeChar"] = fieldValidator{
 		Validate: validateEscapeChar,
-		Message:  "EscapeChar must be a single character, 'none', or ^X format (e.g., ^A)",
+		Message:  i18n.T("validation.escape_char_format"),
 	}
 
 	// Security fields
 	validators["UserKnownHostsFile"] = fieldValidator{
 		Validate: validateKnownHostsFiles,
-		Message:  "Known hosts file not found or not accessible",
+		Message:  i18n.T("validation.known_hosts_access"),
 	}
 
 	return validators
@@ -234,10 +237,10 @@ func validatePort(value string) error {
 	}
 	port, err := strconv.Atoi(value)
 	if err != nil {
-		return fmt.Errorf("invalid port number")
+		return errors.New(i18n.T("validation.port_invalid"))
 	}
 	if port < 1 || port > 65535 {
-		return fmt.Errorf("port must be between 1 and 65535")
+		return errors.New(i18n.T("validation.port_range"))
 	}
 	return nil
 }
@@ -249,10 +252,10 @@ func validateConnectTimeout(value string) error {
 	}
 	timeout, err := strconv.Atoi(value)
 	if err != nil {
-		return fmt.Errorf("invalid timeout value")
+		return errors.New(i18n.T("validation.timeout_invalid"))
 	}
 	if timeout <= 0 {
-		return fmt.Errorf("timeout must be positive or 'none'")
+		return errors.New(i18n.T("validation.timeout_positive"))
 	}
 	return nil
 }
@@ -264,10 +267,10 @@ func validateNonNegativeNumber(value string) error {
 	}
 	num, err := strconv.Atoi(value)
 	if err != nil {
-		return fmt.Errorf("invalid number")
+		return errors.New(i18n.T("validation.invalid_number"))
 	}
 	if num < 0 {
-		return fmt.Errorf("must be non-negative")
+		return errors.New(i18n.T("validation.non_negative"))
 	}
 	return nil
 }
@@ -279,10 +282,10 @@ func validatePasswordPrompts(value string) error {
 	}
 	num, err := strconv.Atoi(value)
 	if err != nil {
-		return fmt.Errorf("invalid number")
+		return errors.New(i18n.T("validation.invalid_number"))
 	}
 	if num < 0 || num > 10 {
-		return fmt.Errorf("must be between 0 and 10")
+		return errors.New(i18n.T("validation.password_prompts_range"))
 	}
 	return nil
 }
@@ -303,7 +306,7 @@ func validateEscapeChar(value string) error {
 	if len(value) == 1 && value[0] >= 32 && value[0] <= 126 {
 		return nil
 	}
-	return fmt.Errorf("invalid escape character format")
+	return errors.New(i18n.T("validation.escape_char_format"))
 }
 
 // validateIPQoS validates IPQoS values
@@ -324,11 +327,11 @@ func validateIPQoS(value string) error {
 	// Can be single value or two space-separated values
 	parts := strings.Fields(value)
 	if len(parts) > 2 {
-		return fmt.Errorf("IPQoS accepts at most 2 values")
+		return errors.New(i18n.T("validation.ipqos_max"))
 	}
 	for _, part := range parts {
 		if !validValues[strings.ToLower(part)] {
-			return fmt.Errorf("invalid IPQoS value: %s", part)
+			return fmt.Errorf(i18n.T("validation.ipqos_value_invalid"), part)
 		}
 	}
 	return nil
@@ -381,10 +384,10 @@ func validateFilePath(path string) (exists bool, accessible bool, isDir bool) {
 func buildFileValidationError(invalidPaths, inaccessiblePaths []string) error {
 	var errors []string
 	if len(invalidPaths) > 0 {
-		errors = append(errors, fmt.Sprintf("file(s) not found: %s", strings.Join(invalidPaths, ", ")))
+		errors = append(errors, fmt.Sprintf(i18n.T("validation.files_not_found"), strings.Join(invalidPaths, ", ")))
 	}
 	if len(inaccessiblePaths) > 0 {
-		errors = append(errors, fmt.Sprintf("file(s) not accessible: %s", strings.Join(inaccessiblePaths, ", ")))
+		errors = append(errors, fmt.Sprintf(i18n.T("validation.files_not_accessible"), strings.Join(inaccessiblePaths, ", ")))
 	}
 
 	if len(errors) > 0 {
@@ -400,7 +403,7 @@ func validateFilePaths(files string, separator string) error {
 	}
 	// Check for invalid characters first, before trimming
 	if strings.ContainsAny(files, "\n\r\t") {
-		return fmt.Errorf("file path contains invalid characters")
+		return errors.New(i18n.T("validation.file_invalid_chars"))
 	}
 
 	var paths []string
@@ -450,12 +453,12 @@ func validateKnownHostsFiles(files string) error {
 // validateHost validates a hostname or IP address
 func validateHost(host string) error {
 	if host == "" {
-		return fmt.Errorf("host is required")
+		return errors.New(i18n.T("validation.host_required"))
 	}
 
 	// Check for spaces
 	if strings.Contains(host, " ") {
-		return fmt.Errorf("host cannot contain spaces")
+		return errors.New(i18n.T("validation.host_no_spaces"))
 	}
 
 	// Try to parse as IP address first
@@ -470,21 +473,21 @@ func validateHost(host string) error {
 // validateHostname validates a hostname (not IP)
 func validateHostname(host string) error {
 	if len(host) > 253 {
-		return fmt.Errorf("hostname too long")
+		return errors.New(i18n.T("validation.hostname_too_long"))
 	}
 
 	// Check for invalid characters using a single check
 	if strings.ContainsAny(host, invalidHostChars) {
-		return fmt.Errorf("host contains invalid characters")
+		return errors.New(i18n.T("validation.host_invalid_chars"))
 	}
 
 	// Check hostname format
 	if strings.HasPrefix(host, ".") || strings.HasSuffix(host, ".") {
-		return fmt.Errorf("hostname cannot start or end with a dot")
+		return errors.New(i18n.T("validation.hostname_dots"))
 	}
 
 	if strings.Contains(host, "..") {
-		return fmt.Errorf("hostname cannot contain consecutive dots")
+		return errors.New(i18n.T("validation.hostname_consecutive_dots"))
 	}
 
 	// Validate each label
@@ -505,13 +508,13 @@ func validateHostLabels(host string) error {
 // validateHostLabel validates a single hostname label
 func validateHostLabel(label string) error {
 	if label == "" {
-		return fmt.Errorf("hostname has empty label")
+		return errors.New(i18n.T("validation.hostname_empty_label"))
 	}
 	if len(label) > 63 {
-		return fmt.Errorf("hostname label too long")
+		return errors.New(i18n.T("validation.hostname_label_too_long"))
 	}
 	if strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
-		return fmt.Errorf("hostname label cannot start or end with hyphen")
+		return errors.New(i18n.T("validation.hostname_label_hyphen"))
 	}
 	return nil
 }
@@ -533,7 +536,7 @@ func validatePortForward(forward string) error {
 		// Format: [bind_address:]port:host:hostport
 		parts := strings.Split(fwd, ":")
 		if len(parts) < 3 || len(parts) > 4 {
-			return fmt.Errorf("invalid format, expected [bind_address:]port:host:hostport")
+			return errors.New(i18n.T("validation.forward_format_detail"))
 		}
 
 		// Validate ports
@@ -550,7 +553,7 @@ func validatePortForward(forward string) error {
 			// Validate bind address
 			if parts[0] != "" && parts[0] != "*" {
 				if err := validateBindAddress(parts[0]); err != nil {
-					return fmt.Errorf("invalid bind address: %w", err)
+					return fmt.Errorf(i18n.T("validation.bind_address_invalid")+": %w", err)
 				}
 			}
 		}
@@ -558,12 +561,12 @@ func validatePortForward(forward string) error {
 		// Validate port numbers
 		port, err := strconv.Atoi(parts[portIdx])
 		if err != nil || port < 1 || port > 65535 {
-			return fmt.Errorf("invalid port number: %s", parts[portIdx])
+			return fmt.Errorf(i18n.T("validation.port_number_invalid"), parts[portIdx])
 		}
 
 		hostPort, err := strconv.Atoi(parts[hostPortIdx])
 		if err != nil || hostPort < 1 || hostPort > 65535 {
-			return fmt.Errorf("invalid host port number: %s", parts[hostPortIdx])
+			return fmt.Errorf(i18n.T("validation.host_port_invalid"), parts[hostPortIdx])
 		}
 	}
 
@@ -587,7 +590,7 @@ func validateDynamicForward(forward string) error {
 		// Format: [bind_address:]port
 		parts := strings.Split(fwd, ":")
 		if len(parts) > 2 {
-			return fmt.Errorf("invalid format, expected [bind_address:]port")
+			return errors.New(i18n.T("validation.dynamic_forward_format_detail"))
 		}
 
 		var portStr string
@@ -598,7 +601,7 @@ func validateDynamicForward(forward string) error {
 			// bind_address:port
 			if parts[0] != "" && parts[0] != "*" {
 				if err := validateBindAddress(parts[0]); err != nil {
-					return fmt.Errorf("invalid bind address: %w", err)
+					return fmt.Errorf(i18n.T("validation.bind_address_invalid")+": %w", err)
 				}
 			}
 			portStr = parts[1]
@@ -607,7 +610,7 @@ func validateDynamicForward(forward string) error {
 		// Validate port number
 		port, err := strconv.Atoi(portStr)
 		if err != nil || port < 1 || port > 65535 {
-			return fmt.Errorf("invalid port number: %s", portStr)
+			return fmt.Errorf(i18n.T("validation.port_number_invalid"), portStr)
 		}
 	}
 
@@ -622,7 +625,7 @@ func validateBindAddress(address string) error {
 
 	// Check for spaces
 	if strings.Contains(address, " ") {
-		return fmt.Errorf("address cannot contain spaces")
+		return errors.New(i18n.T("validation.address_no_spaces"))
 	}
 
 	// Try to parse as IP address first (including IPv6)
@@ -648,21 +651,21 @@ func isNumericDottedFormat(address string) bool {
 func validateBindHostname(address string) error {
 	// Check for invalid characters using a single check
 	if strings.ContainsAny(address, invalidAddressChars) {
-		return fmt.Errorf("address contains invalid characters")
+		return errors.New(i18n.T("validation.address_invalid_chars"))
 	}
 
 	// Check hostname format
 	if strings.HasPrefix(address, ".") || strings.HasSuffix(address, ".") {
-		return fmt.Errorf("address cannot start or end with a dot")
+		return errors.New(i18n.T("validation.address_dots"))
 	}
 
 	if strings.HasPrefix(address, "-") || strings.HasSuffix(address, "-") {
-		return fmt.Errorf("address cannot start or end with hyphen")
+		return errors.New(i18n.T("validation.address_hyphen"))
 	}
 
 	// Check for consecutive dots
 	if strings.Contains(address, "..") {
-		return fmt.Errorf("address cannot contain consecutive dots")
+		return errors.New(i18n.T("validation.address_consecutive_dots"))
 	}
 
 	// If it looks like an IP address (contains only dots and digits), validate it more strictly
@@ -673,17 +676,17 @@ func validateBindHostname(address string) error {
 		if len(segments) == 4 {
 			for _, seg := range segments {
 				if seg == "" {
-					return fmt.Errorf("invalid IP address format")
+					return errors.New(i18n.T("validation.ip_invalid"))
 				}
 				num, err := strconv.Atoi(seg)
 				if err != nil || num < 0 || num > 255 {
-					return fmt.Errorf("invalid IP address format")
+					return errors.New(i18n.T("validation.ip_invalid"))
 				}
 			}
 			return nil // Valid IPv4
 		}
 		// If it's not 4 segments but looks numeric, it's invalid
-		return fmt.Errorf("invalid address format")
+		return errors.New(i18n.T("validation.address_format"))
 	}
 
 	// Check each label for hyphens at start/end
@@ -699,7 +702,7 @@ func validateAddressLabels(address string) error {
 	labels := strings.Split(address, ".")
 	for _, label := range labels {
 		if strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
-			return fmt.Errorf("address label cannot start or end with hyphen")
+			return errors.New(i18n.T("validation.address_hyphen"))
 		}
 	}
 	return nil
