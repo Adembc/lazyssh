@@ -68,6 +68,11 @@ func (sl *ServerList) build() {
 }
 
 func (sl *ServerList) UpdateServers(servers []domain.Server) {
+	currentAlias := ""
+	if idx := sl.List.GetCurrentItem(); idx >= 0 && idx < len(sl.servers) {
+		currentAlias = sl.servers[idx].Alias
+	}
+
 	sl.servers = servers
 	sl.List.Clear()
 
@@ -81,10 +86,20 @@ func (sl *ServerList) UpdateServers(servers []domain.Server) {
 		})
 	}
 
+	restoreIdx := 0
+	if currentAlias != "" {
+		for i, s := range servers {
+			if s.Alias == currentAlias {
+				restoreIdx = i
+				break
+			}
+		}
+	}
+
 	if sl.List.GetItemCount() > 0 {
-		sl.List.SetCurrentItem(0)
+		sl.List.SetCurrentItem(restoreIdx)
 		if sl.onSelectionChange != nil {
-			sl.onSelectionChange(sl.servers[0])
+			sl.onSelectionChange(sl.servers[restoreIdx])
 		}
 	}
 }
