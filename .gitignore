@@ -37,5 +37,8 @@ bin
 # Added by goreleaser init:
 dist/
 
+# Misc tools
+.codegraph
+
 # Binary output
 lazyssh
