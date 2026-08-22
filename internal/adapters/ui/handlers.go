@@ -37,13 +37,39 @@ const (
 	ForwardModeForwardSSH  = "Forward + SSH"
 )
 
+type connectionConfirmationAction int
+
+const (
+	connectionNoAction connectionConfirmationAction = iota
+	connectionConfirm
+	connectionEdit
+	connectionCancel
+)
+
+func connectionActionForKey(event *tcell.EventKey) connectionConfirmationAction {
+	switch event.Key() {
+	case tcell.KeyEnter:
+		return connectionConfirm
+	case tcell.KeyEscape:
+		return connectionCancel
+	}
+	if commandKey(event) == 'e' {
+		return connectionEdit
+	}
+	return connectionNoAction
+}
+
+func connectionConfirmationMessage(alias string) string {
+	return fmt.Sprintf("You are about to connect to %q.\n\nTo edit this item instead, press E.", alias)
+}
+
 func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	// Don't handle global keys when search has focus
 	if t.app.GetFocus() == t.searchBar {
 		return event
 	}
 
-	switch event.Rune() {
+	switch commandKey(event) {
 	case 'q':
 		t.handleQuit()
 		return nil
@@ -95,11 +121,61 @@ func (t *tui) handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 	}
 
 	if event.Key() == tcell.KeyEnter {
-		t.handleServerConnect()
+		if server, ok := t.serverList.GetSelectedServer(); ok {
+			t.showConnectionConfirmModal(server)
+		}
 		return nil
 	}
 
 	return event
+}
+
+// commandKey normalizes runes only in command contexts. Text inputs, search,
+// and dropdown filtering intentionally consume the original event unchanged.
+func commandKey(event *tcell.EventKey) rune {
+	return normalizeGlobalHotkey(event.Rune())
+}
+
+// normalizeGlobalHotkey makes command keys independent of Caps Lock and the
+// active keyboard layout. Terminal applications receive runes rather than
+// physical key codes, so supported alternate-layout equivalents are explicit.
+func normalizeGlobalHotkey(key rune) rune {
+	switch key {
+	case 'q', 'Q', 'й', 'Й':
+		return 'q'
+	case '/', '.':
+		return '/'
+	case 'a', 'A', 'ф', 'Ф':
+		return 'a'
+	case 'e', 'E', 'у', 'У':
+		return 'e'
+	case 'd', 'D', 'в', 'В':
+		return 'd'
+	case 'p', 'P', 'з', 'З':
+		return 'p'
+	case 's', 'ы':
+		return 's'
+	case 'S', 'Ы':
+		return 'S'
+	case 'c', 'C', 'с', 'С':
+		return 'c'
+	case 'g', 'G', 'п', 'П':
+		return 'g'
+	case 'r', 'R', 'к', 'К':
+		return 'r'
+	case 't', 'T', 'е', 'Е':
+		return 't'
+	case 'f', 'F', 'а', 'А':
+		return 'f'
+	case 'x', 'X', 'ч', 'Ч':
+		return 'x'
+	case 'j', 'J', 'о', 'О':
+		return 'j'
+	case 'k', 'K', 'л', 'Л':
+		return 'k'
+	default:
+		return key
+	}
 }
 
 func (t *tui) handleQuit() {
@@ -220,14 +296,11 @@ func (t *tui) handleReturnToSearch() {
 	}
 }
 
-func (t *tui) handleServerConnect() {
-	if server, ok := t.serverList.GetSelectedServer(); ok {
-
-		t.app.Suspend(func() {
-			_ = t.serverService.SSH(server.Alias)
-		})
-		t.refreshServerList()
-	}
+func (t *tui) handleServerConnect(server domain.Server) {
+	t.app.Suspend(func() {
+		_ = t.serverService.SSH(server.Alias)
+	})
+	t.refreshServerList()
 }
 
 func (t *tui) handleServerSelectionChange(server domain.Server) {
@@ -245,13 +318,17 @@ func (t *tui) handleServerAdd() {
 
 func (t *tui) handleServerEdit() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
-		form := NewServerForm(ServerFormEdit, &server).
-			SetApp(t.app).
-			SetVersionInfo(t.version, t.commit).
-			OnSave(t.handleServerSave).
-			OnCancel(t.handleFormCancel)
-		t.app.SetRoot(form, true)
+		t.showServerEditForm(server)
 	}
+}
+
+func (t *tui) showServerEditForm(server domain.Server) {
+	form := NewServerForm(ServerFormEdit, &server).
+		SetApp(t.app).
+		SetVersionInfo(t.version, t.commit).
+		OnSave(t.handleServerSave).
+		OnCancel(t.handleFormCancel)
+	t.app.SetRoot(form, true)
 }
 
 func (t *tui) handleServerSave(server domain.Server, original *domain.Server) {
@@ -351,6 +428,64 @@ func (t *tui) handleRefreshBackground() {
 // UI Display Functions (show UI elements/modals)
 // =============================================================================
 
+func (t *tui) showConnectionConfirmModal(server domain.Server) {
+	modal, pages := t.newConnectionConfirmationOverlay(server)
+	t.app.SetRoot(pages, true)
+	t.app.SetFocus(modal)
+}
+
+func (t *tui) newConnectionConfirmationOverlay(server domain.Server) (*tview.Modal, *tview.Pages) {
+	modal := tview.NewModal().
+		SetText(tview.Escape(connectionConfirmationMessage(server.Alias))).
+		AddButtons([]string{"Connect"}).
+		SetBackgroundColor(tcell.Color235).
+		SetTextColor(tcell.Color252).
+		SetButtonStyle(tcell.StyleDefault.Foreground(tcell.Color252).Background(tcell.Color232)).
+		SetButtonActivatedStyle(tcell.StyleDefault.Foreground(tcell.Color232).Background(tcell.Color252)).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonIndex == 0 {
+				t.returnToMain()
+				t.handleServerConnect(server)
+				return
+			}
+			t.returnToMain()
+			t.app.SetFocus(t.serverList)
+		})
+	modal.SetBorderColor(tcell.Color238)
+	modal.SetTitle(" Confirm Connection ")
+	modal.SetTitleAlign(tview.AlignCenter)
+	modal.SetTitleColor(tcell.Color250)
+
+	modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch connectionActionForKey(event) {
+		case connectionConfirm:
+			return event
+		case connectionEdit:
+			t.showServerEditForm(server)
+			return nil
+		case connectionCancel:
+			t.returnToMain()
+			t.app.SetFocus(t.serverList)
+			return nil
+		default:
+			return event
+		}
+	})
+
+	modal.SetFocus(0)
+
+	pages := tview.NewPages().
+		AddPage("main", t.root, true, true).
+		AddPage("connection-confirmation", modal, true, true)
+	pages.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		if modal.InRect(event.Position()) {
+			return action, event
+		}
+		return tview.MouseConsumed, nil
+	})
+	return modal, pages
+}
+
 func (t *tui) showDeleteConfirmModal(server domain.Server) {
 	msg := fmt.Sprintf("Delete server %s (%s@%s:%d)?\n\nThis action cannot be undone.",
 		server.Alias, server.User, server.Host, server.Port)
@@ -368,12 +503,12 @@ func (t *tui) showDeleteConfirmModal(server domain.Server) {
 
 	// Add keyboard shortcuts for the modal
 	modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'c', 'C':
+		switch commandKey(event) {
+		case 'c':
 			// Cancel
 			t.handleModalClose()
 			return nil
-		case 'd', 'D':
+		case 'd':
 			// Delete
 			_ = t.serverService.DeleteServer(server)
 			t.refreshServerList()
