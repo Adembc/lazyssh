@@ -136,42 +136,43 @@ func commandKey(event *tcell.EventKey) rune {
 	return normalizeGlobalHotkey(event.Rune())
 }
 
-// normalizeGlobalHotkey makes command keys independent of Caps Lock and the
-// active keyboard layout. Terminal applications receive runes rather than
-// physical key codes, so supported alternate-layout equivalents are explicit.
+// normalizeGlobalHotkey preserves command semantics for ASCII keys while
+// keeping all other runes untouched. Terminal applications receive the
+// resulting rune for printable keys, not a portable physical key code, so
+// command handling must not guess a user's keyboard layout.
 func normalizeGlobalHotkey(key rune) rune {
 	switch key {
-	case 'q', 'Q', 'й', 'Й':
+	case 'q', 'Q':
 		return 'q'
-	case '/', '.':
+	case '/':
 		return '/'
-	case 'a', 'A', 'ф', 'Ф':
+	case 'a', 'A':
 		return 'a'
-	case 'e', 'E', 'у', 'У':
+	case 'e', 'E':
 		return 'e'
-	case 'd', 'D', 'в', 'В':
+	case 'd', 'D':
 		return 'd'
-	case 'p', 'P', 'з', 'З':
+	case 'p', 'P':
 		return 'p'
-	case 's', 'ы':
+	case 's':
 		return 's'
-	case 'S', 'Ы':
+	case 'S':
 		return 'S'
-	case 'c', 'C', 'с', 'С':
+	case 'c', 'C':
 		return 'c'
-	case 'g', 'G', 'п', 'П':
+	case 'g', 'G':
 		return 'g'
-	case 'r', 'R', 'к', 'К':
+	case 'r', 'R':
 		return 'r'
-	case 't', 'T', 'е', 'Е':
+	case 't', 'T':
 		return 't'
-	case 'f', 'F', 'а', 'А':
+	case 'f', 'F':
 		return 'f'
-	case 'x', 'X', 'ч', 'Ч':
+	case 'x', 'X':
 		return 'x'
-	case 'j', 'J', 'о', 'О':
+	case 'j', 'J':
 		return 'j'
-	case 'k', 'K', 'л', 'Л':
+	case 'k', 'K':
 		return 'k'
 	default:
 		return key

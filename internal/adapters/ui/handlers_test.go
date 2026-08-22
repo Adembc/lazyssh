@@ -91,15 +91,10 @@ func TestNormalizeGlobalHotkey(t *testing.T) {
 	tests := map[rune]rune{
 		'e': 'e',
 		'E': 'e',
-		'у': 'e',
-		'У': 'e',
 		's': 's',
-		'ы': 's',
 		'S': 'S',
-		'Ы': 'S',
-		'ф': 'a',
-		'й': 'q',
-		'.': '/',
+		'!': '!',
+		'.': '.',
 		'1': '1',
 	}
 
@@ -110,7 +105,7 @@ func TestNormalizeGlobalHotkey(t *testing.T) {
 	}
 }
 
-func TestCommandKeyNormalizesLayoutAndCaps(t *testing.T) {
+func TestCommandKeyPreservesNonLatinRunes(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    rune
@@ -118,10 +113,7 @@ func TestCommandKeyNormalizesLayoutAndCaps(t *testing.T) {
 	}{
 		{name: "latin lower", input: 'd', expected: 'd'},
 		{name: "latin caps", input: 'D', expected: 'd'},
-		{name: "alternate layout lower", input: 'в', expected: 'd'},
-		{name: "alternate layout caps", input: 'В', expected: 'd'},
-		{name: "save lower", input: 'ы', expected: 's'},
-		{name: "save caps", input: 'Ы', expected: 'S'},
+		{name: "non-latin rune", input: '\u03bb', expected: '\u03bb'},
 	}
 
 	for _, test := range tests {
@@ -143,7 +135,6 @@ func TestConnectionConfirmationAction(t *testing.T) {
 		{name: "enter connects", event: tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), want: connectionConfirm},
 		{name: "escape cancels", event: tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone), want: connectionCancel},
 		{name: "english e edits", event: tcell.NewEventKey(tcell.KeyRune, 'E', tcell.ModNone), want: connectionEdit},
-		{name: "alternate-layout e edits", event: tcell.NewEventKey(tcell.KeyRune, 'у', tcell.ModNone), want: connectionEdit},
 		{name: "other key does nothing", event: tcell.NewEventKey(tcell.KeyRune, 'z', tcell.ModNone), want: connectionNoAction},
 	}
 
@@ -201,7 +192,7 @@ func TestConnectionConfirmationEditKeyOpensEditForm(t *testing.T) {
 	harness.serverList.UpdateServers(harness.service.servers)
 	harness.serverList.SetCurrentItem(1)
 
-	sendOverlayKey(harness.app, pages, tcell.NewEventKey(tcell.KeyRune, 'У', tcell.ModNone))
+	sendOverlayKey(harness.app, pages, tcell.NewEventKey(tcell.KeyRune, 'E', tcell.ModNone))
 	harness.app.ForceDraw()
 
 	if harness.service.sshCalls != 0 {
@@ -209,7 +200,7 @@ func TestConnectionConfirmationEditKeyOpensEditForm(t *testing.T) {
 	}
 	screenText := simulationScreenText(harness.screen)
 	if !strings.Contains(screenText, "Edit Server") {
-		t.Fatal("Caps/alternate-layout E equivalent did not open the edit form")
+		t.Fatal("E did not open the edit form")
 	}
 	if !strings.Contains(screenText, harness.server.Alias) {
 		t.Fatalf("edit form did not retain displayed alias %q after selection changed", harness.server.Alias)
