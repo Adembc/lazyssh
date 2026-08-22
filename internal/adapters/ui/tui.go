@@ -65,6 +65,10 @@ func (t *tui) Run() error {
 		}
 	}()
 	t.app.EnableMouse(true)
+	t.app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		configureCursor(screen)
+		return false
+	})
 	t.initializeTheme().buildComponents().buildLayout().bindEvents().loadInitialData()
 	t.app.SetRoot(t.root, true)
 	t.logger.Infow("starting TUI application", "version", t.version, "commit", t.commit)
@@ -73,6 +77,12 @@ func (t *tui) Run() error {
 		return err
 	}
 	return nil
+}
+
+func configureCursor(screen tcell.Screen) {
+	if screen != nil {
+		screen.SetCursorStyle(tcell.CursorStyleBlinkingBlock)
+	}
 }
 
 func (t *tui) initializeTheme() *tui {
