@@ -43,8 +43,24 @@ func (r *Repository) loadConfig() (*ssh_config.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
+	restoreNegatedPatterns(cfg)
 
 	return cfg, nil
+}
+
+// restoreNegatedPatterns puts the leading "!" back on negated Host patterns.
+// The parser strips it from Pattern.Str and keeps the negation internally, so
+// without this every save would turn "Host * !foo" into "Host * foo".
+func restoreNegatedPatterns(cfg *ssh_config.Config) {
+	for _, host := range cfg.Hosts {
+		for _, pattern := range host.Patterns {
+			// A pattern always matches its own text unless it is negated.
+			single := &ssh_config.Host{Patterns: []*ssh_config.Pattern{pattern}}
+			if !single.Matches(pattern.Str) {
+				pattern.Str = "!" + pattern.Str
+			}
+		}
+	}
 }
 
 // saveConfig writes the SSH config back to the file with atomic operations and backup management.
