@@ -17,6 +17,7 @@ package ssh_config_file
 import (
 	"io"
 	"os"
+	"path/filepath"
 )
 
 // FileSystem interface for file operations to enable testing.
@@ -30,6 +31,7 @@ type FileSystem interface {
 	Chmod(path string, perms os.FileMode) error
 	OpenFile(path string, i int, perms os.FileMode) (*os.File, error)
 	ReadDir(dir string) ([]os.DirEntry, error)
+	EvalSymlinks(path string) (string, error)
 }
 
 // DefaultFileSystem implements FileSystem using standard os package.
@@ -72,4 +74,8 @@ func (fs DefaultFileSystem) OpenFile(path string, i int, perms os.FileMode) (*os
 
 func (fs DefaultFileSystem) ReadDir(dir string) ([]os.DirEntry, error) {
 	return os.ReadDir(dir)
+}
+
+func (fs DefaultFileSystem) EvalSymlinks(path string) (string, error) {
+	return filepath.EvalSymlinks(path)
 }
