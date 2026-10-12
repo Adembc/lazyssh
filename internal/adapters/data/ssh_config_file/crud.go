@@ -16,6 +16,7 @@ package ssh_config_file
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
@@ -186,6 +187,22 @@ func (r *Repository) createHostFromServer(server domain.Server) *ssh_config.Host
 	r.addKVNodeIfNotEmpty(host, "LogLevel", server.LogLevel)
 
 	return host
+}
+
+// insertHost places a new host before the first wildcard block that matches its
+// alias, such as a trailing "Host *". OpenSSH uses the first value it finds for
+// each option, so a host appended after that block would have its options
+// overridden by it. Global settings before the first Host line are skipped.
+func insertHost(hosts []*ssh_config.Host, host *ssh_config.Host, alias string) []*ssh_config.Host {
+	for i, h := range hosts {
+		if h.Implicit || !h.Matches(alias) {
+			continue
+		}
+		// Keep a blank line between the new host and the block that follows it.
+		host.Nodes = append(host.Nodes, &ssh_config.Empty{})
+		return slices.Insert(hosts, i, host)
+	}
+	return append(hosts, host)
 }
 
 // addKVNodeIfNotEmpty adds a key-value node to the host if the value is not empty.

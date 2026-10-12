@@ -85,7 +85,7 @@ func (r *Repository) AddServer(server domain.Server) error {
 	}
 
 	host := r.createHostFromServer(server)
-	cfg.Hosts = append(cfg.Hosts, host)
+	cfg.Hosts = insertHost(cfg.Hosts, host, server.Alias)
 
 	if err := r.saveConfig(cfg); err != nil {
 		r.logger.Warnf("Failed to save config while adding new server: %v", err)
