@@ -224,7 +224,7 @@ func (t *tui) handleServerConnect() {
 	if server, ok := t.serverList.GetSelectedServer(); ok {
 
 		t.app.Suspend(func() {
-			_ = t.serverService.SSH(server.Alias)
+			_ = t.serverService.SSH(server)
 		})
 		t.refreshServerList()
 	}

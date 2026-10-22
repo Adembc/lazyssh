@@ -153,24 +153,33 @@ func (s *serverService) SetPinned(alias string, pinned bool) error {
 	return err
 }
 
-// SSH starts an interactive SSH session to the given alias using the system's ssh client.
-func (s *serverService) SSH(alias string) error {
-	s.logger.Infow("ssh start", "alias", alias)
-	cmd := exec.Command("ssh", alias)
+// SSH starts an interactive SSH session to the selected server using the system's ssh client.
+func (s *serverService) SSH(server domain.Server) error {
+	args := sshArgs(server)
+	s.logger.Infow("ssh start", "alias", server.Alias, "host", server.Host)
+	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		s.logger.Errorw("ssh command failed", "alias", alias, "error", err)
+		s.logger.Errorw("ssh command failed", "alias", server.Alias, "host", server.Host, "error", err)
 		return err
 	}
 
-	if err := s.serverRepository.RecordSSH(alias); err != nil {
-		s.logger.Errorw("failed to record ssh metadata", "alias", alias, "error", err)
+	if err := s.serverRepository.RecordSSH(server.Alias); err != nil {
+		s.logger.Errorw("failed to record ssh metadata", "alias", server.Alias, "error", err)
 	}
 
-	s.logger.Infow("ssh end", "alias", alias)
+	s.logger.Infow("ssh end", "alias", server.Alias, "host", server.Host)
 	return nil
+}
+
+func sshArgs(server domain.Server) []string {
+	args := make([]string, 0, 3)
+	if server.Host != "" {
+		args = append(args, "-o", "HostName="+server.Host)
+	}
+	return append(args, server.Alias)
 }
 
 // SSHWithArgs runs system ssh with provided extra args (e.g., -L/-R/-D) for the given alias.
