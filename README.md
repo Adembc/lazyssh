@@ -37,6 +37,7 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 ### Key Management
 - 🔑 SSH key autocomplete with automatic detection of available keys.
 - 📝 Smart key selection with support for multiple keys.
+- 📂 Key browser (`Ctrl+O` in the form): pick a private key from a folder tree with its fingerprint. Picking a key also sets `IdentitiesOnly yes`, so the host uses only that key instead of trying every key in your agent.
 
 
 ### Upcoming
@@ -185,6 +186,7 @@ make run
 | Ctrl+H | Previous tab         |
 | Ctrl+L | Next tab             |
 | Ctrl+S | Save                 |
+| Ctrl+O | Browse for an SSH key |
 | Esc    | Cancel               |
 
 Tip: The hint bar at the top of the list shows the most useful shortcuts.

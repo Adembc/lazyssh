@@ -16,6 +16,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -65,6 +66,12 @@ type ServerForm struct {
 	helpMode      HelpDisplayMode    // Current help display mode
 	currentField  string             // Currently focused field
 	mainContainer *tview.Flex        // Container for form and help panel
+
+	keysField             *tview.InputField // Keys input on the Basic tab
+	keysIndex             int               // Position of the Keys input in the Basic form
+	identitiesOnly        *tview.DropDown   // IdentitiesOnly dropdown on the Basic tab
+	identitiesOnlyOptions []string
+	pickingKey            bool // true while a picked key is applied (suppresses the Keys autocomplete popup)
 }
 
 func NewServerForm(mode ServerFormMode, original *domain.Server) *ServerForm {
@@ -172,7 +179,7 @@ func (sf *ServerForm) build() {
 	hintBar := tview.NewTextView().SetDynamicColors(true)
 	hintBar.SetBackgroundColor(tcell.Color235)
 	hintBar.SetTextAlign(tview.AlignCenter)
-	hintBar.SetText("[white]^H/^L[-] Navigate  • [white]^S[-] Save  • [white]Esc[-] Cancel")
+	hintBar.SetText("[white]^H/^L[-] Navigate  • [white]^S[-] Save  • [white]^O[-] Pick key  • [white]Esc[-] Cancel")
 
 	// Setup main container - header at top, hint bar at bottom
 	sf.Flex.AddItem(sf.header, 2, 0, false).
@@ -563,6 +570,10 @@ func (sf *ServerForm) setupKeyboardShortcuts() {
 			// Ctrl+L: Next tab (backup handler)
 			sf.nextTab()
 			return nil
+		case tcell.KeyCtrlO:
+			// Ctrl+O: Open the SSH key browser
+			sf.openKeyPicker()
+			return nil
 		default:
 			// Pass through all other keys
 		}
@@ -600,6 +611,9 @@ func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
 			return nil
 		case tcell.KeyCtrlL:
 			sf.nextTab()
+			return nil
+		case tcell.KeyCtrlO:
+			sf.openKeyPicker()
 			return nil
 		case tcell.KeyCtrlS:
 			sf.handleSave()
@@ -947,7 +961,9 @@ func (sf *ServerForm) validateField(fieldName, value string) string {
 }
 
 // addDropDownWithHelp adds a dropdown field with help support
-func (sf *ServerForm) addDropDownWithHelp(form *tview.Form, label, fieldName string, options []string, initialOption int) {
+func (sf *ServerForm) addDropDownWithHelp(
+	form *tview.Form, label, fieldName string, options []string, initialOption int,
+) *tview.DropDown {
 	dropdown := tview.NewDropDown().
 		SetLabel(label).
 		SetOptions(options, nil).
@@ -959,6 +975,52 @@ func (sf *ServerForm) addDropDownWithHelp(form *tview.Form, label, fieldName str
 	})
 
 	form.AddFormItem(dropdown)
+	return dropdown
+}
+
+// openKeyPicker shows the key browser. Picking a key fills the Keys field and, when
+// IdentitiesOnly is still at its default, sets it to "yes" so ssh stops trying every other key.
+func (sf *ServerForm) openKeyPicker() {
+	if sf.app == nil || sf.keysField == nil {
+		return
+	}
+	startDir := ""
+	if first := strings.TrimSpace(strings.Split(sf.keysField.GetText(), ",")[0]); first != "" {
+		startDir = filepath.Dir(expandTilde(first))
+	}
+	picker := NewKeyPicker(sf.app, startDir, func(path string, add bool) {
+		sf.applyPickedKey(path, add)
+		sf.closeKeyPicker()
+	}, sf.closeKeyPicker)
+	sf.app.SetRoot(picker, true).SetFocus(picker.tree)
+}
+
+func (sf *ServerForm) closeKeyPicker() {
+	sf.app.SetRoot(sf.Flex, true)
+	sf.switchToTab("Basic")
+	if form, ok := sf.forms["Basic"]; ok {
+		form.SetFocus(sf.keysIndex)
+		sf.app.SetFocus(form)
+	}
+}
+
+func (sf *ServerForm) applyPickedKey(path string, add bool) {
+	sf.keysField.SetText(mergeKeys(sf.keysField.GetText(), path, add))
+	if _, current := sf.identitiesOnly.GetCurrentOption(); parseOptionValue(current) == "" {
+		sf.identitiesOnly.SetCurrentOption(sf.findOptionIndex(sf.identitiesOnlyOptions, "yes"))
+	}
+	sf.hideKeysAutocomplete()
+	// The event that triggered the pick may re-open the popup once it returns: close it again afterwards.
+	// QueueUpdateDraw blocks until it ran, so it must not be called from the UI goroutine.
+	go sf.app.QueueUpdateDraw(sf.hideKeysAutocomplete)
+}
+
+// hideKeysAutocomplete closes the Keys autocomplete popup (it would cover the IdentitiesOnly field).
+// Autocomplete() refreshes the list through the callback, which returns nothing while pickingKey is set.
+func (sf *ServerForm) hideKeysAutocomplete() {
+	sf.pickingKey = true
+	sf.keysField.Autocomplete()
+	sf.pickingKey = false
 }
 
 // addInputFieldWithHelp adds a regular input field with help support
@@ -1247,14 +1309,29 @@ func (sf *ServerForm) createBasicForm() {
 	sf.addValidatedInputField(form, "User:", "User", defaultValues.User, 20, GetFieldPlaceholder("User"))
 	sf.addValidatedInputField(form, "Port:", "Port", defaultValues.Port, 20, GetFieldPlaceholder("Port"))
 
-	// Keys field with autocomplete
-	keysField := sf.addValidatedInputField(form, "Keys:", "Keys", defaultValues.Key, 40, GetFieldPlaceholder("Keys"))
-	keysField.SetAutocompleteFunc(sf.createSSHKeyAutocomplete())
+	// Keys field with autocomplete (^O or the "Pick key" button opens the key browser)
+	sf.keysField = sf.addValidatedInputField(form, "Keys:", "Keys", defaultValues.Key, 40, GetFieldPlaceholder("Keys"))
+	keysAutocomplete := sf.createSSHKeyAutocomplete()
+	sf.keysField.SetAutocompleteFunc(func(text string) []string {
+		if sf.pickingKey {
+			return nil
+		}
+		return keysAutocomplete(text)
+	})
+	sf.keysIndex = form.GetFormItemCount() - 1
+
+	// IdentitiesOnly sits next to Keys: binding a host to a key only works if ssh is
+	// told not to try every other identity offered by the agent / default key names.
+	sf.identitiesOnlyOptions = createOptionsWithDefault("IdentitiesOnly", []string{"", "yes", "no"})
+	identitiesOnlyIndex := sf.findOptionIndex(sf.identitiesOnlyOptions, defaultValues.IdentitiesOnly)
+	sf.identitiesOnly = sf.addDropDownWithHelp(form, "IdentitiesOnly:", "IdentitiesOnly",
+		sf.identitiesOnlyOptions, identitiesOnlyIndex)
 
 	// Tags field
 	sf.addValidatedInputField(form, "Tags:", "Tags", defaultValues.Tags, 30, GetFieldPlaceholder("Tags"))
 
 	// Add save and cancel buttons
+	form.AddButton("Pick key", sf.openKeyPicker)
 	form.AddButton("Save", sf.handleSaveButton)
 	form.AddButton("Cancel", sf.handleCancel)
 
@@ -1485,11 +1562,6 @@ func (sf *ServerForm) createAuthenticationForm() {
 	pubkeyOptions := createOptionsWithDefault("PubkeyAuthentication", []string{"", "yes", "no"})
 	pubkeyIndex := sf.findOptionIndex(pubkeyOptions, defaultValues.PubkeyAuthentication)
 	sf.addDropDownWithHelp(form, "PubkeyAuthentication:", "PubkeyAuthentication", pubkeyOptions, pubkeyIndex)
-
-	// IdentitiesOnly dropdown - controls whether to use only specified identity files
-	identitiesOnlyOptions := createOptionsWithDefault("IdentitiesOnly", []string{"", "yes", "no"})
-	identitiesOnlyIndex := sf.findOptionIndex(identitiesOnlyOptions, defaultValues.IdentitiesOnly)
-	sf.addDropDownWithHelp(form, "IdentitiesOnly:", "IdentitiesOnly", identitiesOnlyOptions, identitiesOnlyIndex)
 
 	// SSH Agent settings
 	form.AddTextView("\n[yellow]▶ SSH Agent[-]", "", 0, 1, true, false)

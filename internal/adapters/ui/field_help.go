@@ -129,7 +129,7 @@ var fieldHelpData = map[string]FieldHelp{
 	},
 	"Keys": {
 		Field:       "Keys",
-		Description: "Path to SSH private key files for authentication. Multiple keys can be specified.",
+		Description: "Path to SSH private key files for authentication. Multiple keys can be specified. Press Ctrl+O (or the Pick key button) to browse for a key; picking one sets IdentitiesOnly to yes so ssh uses only the chosen key.",
 		Syntax:      "path[,path,...]",
 		Examples:    []string{"~/.ssh/id_ed25519", "~/.ssh/id_rsa,~/.ssh/id_ed25519"},
 		Default:     "~/.ssh/id_rsa, ~/.ssh/id_ed25519, etc.",
@@ -266,7 +266,7 @@ var fieldHelpData = map[string]FieldHelp{
 	},
 	"IdentitiesOnly": {
 		Field:       "IdentitiesOnly",
-		Description: "Only use authentication identity files configured in ssh_config, ignore ssh-agent.",
+		Description: "Only use the identity files configured here, ignoring other keys offered by ssh-agent and the default key names. Set to yes when a host is bound to a specific key, to avoid 'Too many authentication failures'.",
 		Syntax:      "yes | no",
 		Examples:    []string{"yes", "no"},
 		Default:     "no",
